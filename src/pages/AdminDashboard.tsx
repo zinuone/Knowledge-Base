@@ -6,15 +6,15 @@ import {
     collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, serverTimestamp, query, orderBy
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { LogOut, Plus, Trash2, FileText, Save, HelpCircle, LayoutList, Edit } from 'lucide-react';
+import { LogOut, Plus, Trash2, FileText, Image as ImageIcon, HelpCircle, LayoutList, Edit, X } from 'lucide-react';
 
-// Tipe Data
 interface ContentData {
     id: string;
     title: string;
     category: string;
     description: string;
     content: string;
+    imageBase64?: string; // Kolom baru untuk gambar
 }
 
 interface FAQData {
@@ -34,7 +34,8 @@ const AdminDashboard: React.FC = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
-    const [formData, setFormData] = useState({ title: '', category: 'psp', description: '', content: '' });
+    // Form State (Ditambah imageBase64)
+    const [formData, setFormData] = useState({ title: '', category: 'psp', description: '', content: '', imageBase64: '' });
     const [faqForm, setFaqForm] = useState({ question: '', answer: '' });
 
     useEffect(() => {
@@ -60,14 +61,42 @@ const AdminDashboard: React.FC = () => {
 
     const handleEditSop = (item: ContentData) => {
         setEditingId(item.id);
-        setFormData({ title: item.title, category: item.category, description: item.description, content: item.content });
+        setFormData({
+            title: item.title,
+            category: item.category,
+            description: item.description,
+            content: item.content,
+            imageBase64: item.imageBase64 || ''
+        });
         setIsModalOpen(true);
     };
     const handleAddSop = () => {
         setEditingId(null);
-        setFormData({ title: '', category: 'psp', description: '', content: '' });
+        setFormData({ title: '', category: 'psp', description: '', content: '', imageBase64: '' });
         setIsModalOpen(true);
     };
+
+    // --- FUNGSI BARU: UPLOAD GAMBAR JADI BASE64 ---
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 800000) { // Batas 800KB (biar database gak meledak)
+                alert("Ukuran gambar terlalu besar! Maksimal 800KB ya.");
+                return;
+            }
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setFormData({ ...formData, imageBase64: reader.result as string });
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleRemoveImage = () => {
+        setFormData({ ...formData, imageBase64: '' });
+    };
+    // ----------------------------------------------
+
     const handleEditFaq = (item: FAQData) => {
         setEditingId(item.id);
         setFaqForm({ question: item.question, answer: item.answer });
@@ -89,7 +118,7 @@ const AdminDashboard: React.FC = () => {
                 await addDoc(collection(db, "knowledge-base"), { ...formData, updatedAt: serverTimestamp() });
             }
             setIsModalOpen(false);
-            setFormData({ title: '', category: 'psp', description: '', content: '' });
+            setFormData({ title: '', category: 'psp', description: '', content: '', imageBase64: '' });
             setEditingId(null);
         } catch (err) { alert("Gagal menyimpan data."); } finally { setIsSaving(false); }
     };
@@ -141,18 +170,18 @@ const AdminDashboard: React.FC = () => {
                                             <td className="p-5 font-medium">{item.title}</td>
                                             <td className="p-5"><span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold uppercase">{item.category}</span></td>
                                             <td className="p-5 text-center flex justify-center space-x-2">
-                                                <button onClick={() => handleEditSop(item)} className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Edit Data"><Edit className="w-4 h-4" /></button>
-                                                <button onClick={() => handleDeleteSop(item.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Hapus Data"><Trash2 className="w-4 h-4" /></button>
+                                                <button onClick={() => handleEditSop(item)} className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition"><Edit className="w-4 h-4" /></button>
+                                                <button onClick={() => handleDeleteSop(item.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
-                            {contents.length === 0 && <div className="p-10 text-center text-slate-400">Belum ada data SOP.</div>}
                         </div>
                     </div>
                 )}
 
+                {/* FAQ SECTION SAMA SEPERTI SEBELUMNYA */}
                 {activeTab === 'faq' && (
                     <div>
                         <div className="flex justify-end mb-6">
@@ -166,20 +195,20 @@ const AdminDashboard: React.FC = () => {
                                         <p className="text-slate-600">A: {item.answer}</p>
                                     </div>
                                     <div className="flex flex-col space-y-2 flex-shrink-0">
-                                        <button onClick={() => handleEditFaq(item)} className="text-amber-600 hover:bg-amber-50 p-2 rounded-lg" title="Edit FAQ"><Edit className="w-4 h-4" /></button>
-                                        <button onClick={() => handleDeleteFaq(item.id)} className="text-rose-600 hover:bg-rose-50 p-2 rounded-lg" title="Hapus FAQ"><Trash2 className="w-4 h-4" /></button>
+                                        <button onClick={() => handleEditFaq(item)} className="text-amber-600 hover:bg-amber-50 p-2 rounded-lg"><Edit className="w-4 h-4" /></button>
+                                        <button onClick={() => handleDeleteFaq(item.id)} className="text-rose-600 hover:bg-rose-50 p-2 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                                     </div>
                                 </div>
                             ))}
-                            {faqs.length === 0 && <div className="p-10 text-center text-slate-400 bg-white rounded-xl border border-dashed">Belum ada Pertanyaan Populer.</div>}
                         </div>
                     </div>
                 )}
             </main>
 
+            {/* MODAL SOP */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl w-full max-w-2xl p-6">
+                    <div className="bg-white rounded-2xl w-full max-w-2xl p-6 overflow-y-auto max-h-[90vh]">
                         <h3 className="font-bold text-lg mb-4 flex items-center">
                             {editingId ? <Edit className="w-5 h-5 mr-2 text-amber-600" /> : <Plus className="w-5 h-5 mr-2 text-[#0D5C35]" />}
                             {editingId ? 'Edit SOP' : 'Tambah SOP Baru'}
@@ -187,25 +216,58 @@ const AdminDashboard: React.FC = () => {
                         <form onSubmit={handleSaveSop} className="space-y-4">
                             <input type="text" placeholder="Judul" className="w-full p-3 border rounded-lg" required value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
 
-                            {/* BAGIAN DROPDOWN KATEGORI YANG DIUPDATE */}
                             <select className="w-full p-3 border rounded-lg" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
                                 <option value="psp">PSP</option>
                                 <option value="sewa">SEWA</option>
                                 <option value="penjualan">PENJUALAN</option>
                                 <option value="penghapusan">PENGHAPUSAN</option>
                                 <option value="pinjam-pakai">PINJAM PAKAI</option>
-                                <option value="penggunaan-sementara">PENGGUNAAN SEMENTARA</option> {/* NEW */}
+                                <option value="penggunaan-sementara">PENGGUNAAN SEMENTARA</option>
                                 <option value="alih-status">ALIH STATUS</option>
                             </select>
 
                             <input type="text" placeholder="Deskripsi Singkat" className="w-full p-3 border rounded-lg" required value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+
+                            {/* BAGIAN UPLOAD GAMBAR BARU */}
+                            <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 bg-slate-50">
+                                <label className="block text-sm font-bold text-slate-700 mb-2">Upload Flowchart / Gambar (Opsional)</label>
+                                {!formData.imageBase64 ? (
+                                    <div className="flex flex-col items-center">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleImageUpload}
+                                            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                                        />
+                                        <p className="text-xs text-slate-400 mt-2">Maksimal 800KB (Format: JPG/PNG)</p>
+                                    </div>
+                                ) : (
+                                    <div className="relative inline-block">
+                                        <img src={formData.imageBase64} alt="Preview" className="max-h-40 rounded-lg border shadow-sm" />
+                                        <button type="button" onClick={handleRemoveImage} className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1 shadow-md hover:bg-rose-600">
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                        <p className="text-xs text-green-600 mt-2 font-medium flex items-center justify-center">
+                                            <ImageIcon className="w-3 h-3 mr-1" /> Gambar Siap Upload
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
                             <textarea placeholder="Isi Lengkap" rows={5} className="w-full p-3 border rounded-lg" required value={formData.content} onChange={e => setFormData({ ...formData, content: e.target.value })}></textarea>
-                            <div className="flex justify-end gap-2 mt-4"><button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-500">Batal</button><button type="submit" className="px-4 py-2 bg-[#0D5C35] text-white rounded-lg font-bold">{editingId ? 'Update Data' : 'Simpan Data'}</button></div>
+
+                            <div className="flex justify-end gap-2 mt-4">
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-500">Batal</button>
+                                <button type="submit" disabled={isSaving} className="px-4 py-2 bg-[#0D5C35] text-white rounded-lg font-bold flex items-center">
+                                    {isSaving ? 'Menyimpan...' : (editingId ? 'Update Data' : 'Simpan Data')}
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>
             )}
 
+            {/* MODAL FAQ SAMA */}
             {isFaqModalOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl w-full max-w-lg p-6">
