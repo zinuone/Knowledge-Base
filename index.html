@@ -1,61 +1,62 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="icon" type="image/png" href="/logo.png" />
     <title>Knowledge Base - KPKNL Kendari</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
           extend: {
             colors: {
               kemenkeu: {
-                green: '#0D5C35',
-                greenDark: '#0A492A',
-                greenLight: '#EAF2EE',
-                gold: '#D4AF37',
-                goldLight: '#FFD700',
-              }
+                green: "#0D5C35",
+                greenDark: "#0A492A",
+                greenLight: "#EAF2EE",
+                gold: "#D4AF37",
+              },
             },
             fontFamily: {
-              sans: ['Plus Jakarta Sans', 'sans-serif'],
-            }
-          }
-        }
-      }
+              sans: ["Plus Jakarta Sans", "sans-serif"],
+            },
+          },
+        },
+      };
     </script>
+
     <style>
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-        }
-        .section-transition-enter {
+      body {
+        font-family: "Plus Jakarta Sans", sans-serif;
+      }
+      /* Animasi halus saat pindah halaman */
+      .fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+      }
+      @keyframes fadeIn {
+        from {
           opacity: 0;
           transform: translateY(10px);
         }
-        .section-transition-enter-active {
+        to {
           opacity: 1;
           transform: translateY(0);
-          transition: opacity 300ms, transform 300ms;
         }
+      }
     </style>
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.2.4",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.563.0"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
-</head>
-<body class="bg-[#F8FAF9] text-slate-900">
+  </head>
+  <body class="bg-[#F8FAF9] text-slate-900 antialiased">
     <div id="root"></div>
-<script type="module" src="/index.tsx"></script>
-</body>
+    <script type="module" src="/index.tsx"></script>
+  </body>
 </html>

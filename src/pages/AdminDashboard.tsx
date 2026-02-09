@@ -6,7 +6,7 @@ import {
     collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, serverTimestamp, query, orderBy
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { LogOut, Plus, Trash2, FileText, Image as ImageIcon, HelpCircle, LayoutList, Edit, X } from 'lucide-react';
+import { LogOut, Plus, Trash2, FileText, Image as ImageIcon, HelpCircle, LayoutList, Edit, X, Link as LinkIcon } from 'lucide-react';
 
 interface ContentData {
     id: string;
@@ -14,8 +14,8 @@ interface ContentData {
     category: string;
     description: string;
     content: string;
-    imageBase64?: string;  // Kolom baru untuk gambar
-    pdfUrl?: string; // link pdf 
+    imageBase64?: string;
+    pdfUrl?: string;
 }
 
 interface FAQData {
@@ -23,6 +23,20 @@ interface FAQData {
     question: string;
     answer: string;
 }
+
+// Helper Warna Kategori (Sudah Benar)
+const getCategoryColor = (cat: string) => {
+    switch (cat) {
+        case 'psp': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+        case 'penjualan': return 'bg-amber-100 text-amber-800 border-amber-200';
+        case 'sewa': return 'bg-blue-100 text-blue-800 border-blue-200';
+        case 'penghapusan': return 'bg-rose-100 text-rose-800 border-rose-200';
+        case 'pinjam-pakai': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+        case 'penggunaan-sementara': return 'bg-purple-100 text-purple-800 border-purple-200';
+        case 'alih-status': return 'bg-teal-100 text-teal-800 border-teal-200';
+        default: return 'bg-slate-100 text-slate-800 border-slate-200';
+    }
+};
 
 const AdminDashboard: React.FC = () => {
     const navigate = useNavigate();
@@ -35,8 +49,7 @@ const AdminDashboard: React.FC = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
-    // Form State (Ditambah imageBase64)
-    const [formData, setFormData] = useState({ title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '' }); // Tambah pdfUrl
+    const [formData, setFormData] = useState({ title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '' });
     const [faqForm, setFaqForm] = useState({ question: '', answer: '' });
 
     useEffect(() => {
@@ -63,12 +76,8 @@ const AdminDashboard: React.FC = () => {
     const handleEditSop = (item: ContentData) => {
         setEditingId(item.id);
         setFormData({
-            title: item.title,
-            category: item.category,
-            description: item.description,
-            content: item.content,
-            imageBase64: item.imageBase64 || '',
-            pdfUrl: item.pdfUrl || ''
+            title: item.title, category: item.category, description: item.description, content: item.content,
+            imageBase64: item.imageBase64 || '', pdfUrl: item.pdfUrl || ''
         });
         setIsModalOpen(true);
     };
@@ -78,65 +87,35 @@ const AdminDashboard: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    // --- FUNGSI BARU: UPLOAD GAMBAR JADI BASE64 ---
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            if (file.size > 800000) { // Batas 800KB (biar database gak meledak)
-                alert("Ukuran gambar terlalu besar! Maksimal 800KB ya.");
-                return;
-            }
+            if (file.size > 800000) { alert("Ukuran gambar terlalu besar! Maksimal 800KB ya."); return; }
             const reader = new FileReader();
-            reader.onloadend = () => {
-                setFormData({ ...formData, imageBase64: reader.result as string });
-            };
+            reader.onloadend = () => { setFormData({ ...formData, imageBase64: reader.result as string }); };
             reader.readAsDataURL(file);
         }
     };
+    const handleRemoveImage = () => { setFormData({ ...formData, imageBase64: '' }); };
 
-    const handleRemoveImage = () => {
-        setFormData({ ...formData, imageBase64: '' });
-    };
-    // ----------------------------------------------
-
-    const handleEditFaq = (item: FAQData) => {
-        setEditingId(item.id);
-        setFaqForm({ question: item.question, answer: item.answer });
-        setIsFaqModalOpen(true);
-    };
-    const handleAddFaq = () => {
-        setEditingId(null);
-        setFaqForm({ question: '', answer: '' });
-        setIsFaqModalOpen(true);
-    };
+    const handleEditFaq = (item: FAQData) => { setEditingId(item.id); setFaqForm({ question: item.question, answer: item.answer }); setIsFaqModalOpen(true); };
+    const handleAddFaq = () => { setEditingId(null); setFaqForm({ question: '', answer: '' }); setIsFaqModalOpen(true); };
 
     const handleSaveSop = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSaving(true);
+        e.preventDefault(); setIsSaving(true);
         try {
-            if (editingId) {
-                await updateDoc(doc(db, "knowledge-base", editingId), { ...formData, updatedAt: serverTimestamp() });
-            } else {
-                await addDoc(collection(db, "knowledge-base"), { ...formData, updatedAt: serverTimestamp() });
-            }
-            setIsModalOpen(false);
-            setFormData({ title: '', category: 'psp', description: '', content: '', imageBase64: '' });
-            setEditingId(null);
+            if (editingId) { await updateDoc(doc(db, "knowledge-base", editingId), { ...formData, updatedAt: serverTimestamp() }); }
+            else { await addDoc(collection(db, "knowledge-base"), { ...formData, updatedAt: serverTimestamp() }); }
+            setIsModalOpen(false); setFormData({ title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '' }); setEditingId(null);
         } catch (err) { alert("Gagal menyimpan data."); } finally { setIsSaving(false); }
     };
 
     const handleSaveFaq = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSaving(true);
+        e.preventDefault(); setIsSaving(true);
         try {
-            if (editingId) {
-                await updateDoc(doc(db, "faqs", editingId), { ...faqForm, createdAt: serverTimestamp() });
-            } else {
-                await addDoc(collection(db, "faqs"), { ...faqForm, createdAt: serverTimestamp() });
-            }
-            setIsFaqModalOpen(false);
-            setFaqForm({ question: '', answer: '' });
-            setEditingId(null);
+            if (editingId) { await updateDoc(doc(db, "faqs", editingId), { ...faqForm, createdAt: serverTimestamp() }); }
+            else { await addDoc(collection(db, "faqs"), { ...faqForm, createdAt: serverTimestamp() }); }
+            setIsFaqModalOpen(false); setFaqForm({ question: '', answer: '' }); setEditingId(null);
         } catch (err) { alert("Gagal menyimpan FAQ."); } finally { setIsSaving(false); }
     };
 
@@ -170,7 +149,13 @@ const AdminDashboard: React.FC = () => {
                                     {contents.map(item => (
                                         <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                                             <td className="p-5 font-medium">{item.title}</td>
-                                            <td className="p-5"><span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold uppercase">{item.category}</span></td>
+                                            {/* --- PERBAIKAN DI SINI: LABEL WARNA-WARNI --- */}
+                                            <td className="p-5">
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase border ${getCategoryColor(item.category)}`}>
+                                                    {item.category.replace('-', ' ')}
+                                                </span>
+                                            </td>
+                                            {/* --------------------------------------------- */}
                                             <td className="p-5 text-center flex justify-center space-x-2">
                                                 <button onClick={() => handleEditSop(item)} className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition"><Edit className="w-4 h-4" /></button>
                                                 <button onClick={() => handleDeleteSop(item.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
@@ -179,11 +164,11 @@ const AdminDashboard: React.FC = () => {
                                     ))}
                                 </tbody>
                             </table>
+                            {contents.length === 0 && <div className="p-10 text-center text-slate-400">Belum ada data SOP.</div>}
                         </div>
                     </div>
                 )}
 
-                {/* FAQ SECTION SAMA SEPERTI SEBELUMNYA */}
                 {activeTab === 'faq' && (
                     <div>
                         <div className="flex justify-end mb-6">
@@ -219,71 +204,44 @@ const AdminDashboard: React.FC = () => {
                             <input type="text" placeholder="Judul" className="w-full p-3 border rounded-lg" required value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
 
                             <select className="w-full p-3 border rounded-lg" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
-                                <option value="psp">PSP</option>
-                                <option value="sewa">SEWA</option>
-                                <option value="penjualan">PENJUALAN</option>
-                                <option value="penghapusan">PENGHAPUSAN</option>
-                                <option value="pinjam-pakai">PINJAM PAKAI</option>
-                                <option value="penggunaan-sementara">PENGGUNAAN SEMENTARA</option>
-                                <option value="alih-status">ALIH STATUS</option>
+                                <option value="psp">PSP</option><option value="sewa">SEWA</option><option value="penjualan">PENJUALAN</option><option value="penghapusan">PENGHAPUSAN</option><option value="pinjam-pakai">PINJAM PAKAI</option><option value="penggunaan-sementara">PENGGUNAAN SEMENTARA</option><option value="alih-status">ALIH STATUS</option>
                             </select>
 
                             <input type="text" placeholder="Deskripsi Singkat" className="w-full p-3 border rounded-lg" required value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
 
-                            {/* BAGIAN UPLOAD GAMBAR BARU */}
+                            {/* UPLOAD GAMBAR */}
                             <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 bg-slate-50">
                                 <label className="block text-sm font-bold text-slate-700 mb-2">Upload Flowchart / Gambar (Opsional)</label>
                                 {!formData.imageBase64 ? (
                                     <div className="flex flex-col items-center">
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleImageUpload}
-                                            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
-                                        />
-                                        <p className="text-xs text-slate-400 mt-2">Maksimal 800KB (Format: JPG/PNG)</p>
+                                        <input type="file" accept="image/*" onChange={handleImageUpload} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100" />
+                                        <p className="text-xs text-slate-400 mt-2">Maksimal 800KB (JPG/PNG)</p>
                                     </div>
                                 ) : (
                                     <div className="relative inline-block">
                                         <img src={formData.imageBase64} alt="Preview" className="max-h-40 rounded-lg border shadow-sm" />
-                                        <button type="button" onClick={handleRemoveImage} className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1 shadow-md hover:bg-rose-600">
-                                            <X className="w-4 h-4" />
-                                        </button>
-                                        <p className="text-xs text-green-600 mt-2 font-medium flex items-center justify-center">
-                                            <ImageIcon className="w-3 h-3 mr-1" /> Gambar Siap Upload
-                                        </p>
+                                        <button type="button" onClick={handleRemoveImage} className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1 shadow-md hover:bg-rose-600"><X className="w-4 h-4" /></button>
                                     </div>
                                 )}
                             </div>
 
-                            {/* === MULAI PASTE KODE PDF DI SINI === */}
+                            {/* INPUT PDF */}
                             <div className="mb-4 mt-4">
                                 <label className="block text-sm font-bold text-slate-700 mb-1">Link File PDF / Dokumen (Opsional)</label>
-                                <input
-                                    type="url"
-                                    placeholder="Contoh: https://drive.google.com/file/d/..."
-                                    className="w-full p-3 border rounded-lg text-sm bg-slate-50 focus:ring-[#0D5C35] focus:border-[#0D5C35]"
-                                    value={formData.pdfUrl}
-                                    onChange={e => setFormData({ ...formData, pdfUrl: e.target.value })}
-                                />
-                                <p className="text-xs text-slate-400 mt-1">Masukkan link Google Drive (pastikan aksesnya 'Anyone with the link')</p>
+                                <div className="relative">
+                                    <LinkIcon className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" />
+                                    <input type="url" placeholder="https://drive.google.com/..." className="w-full p-3 pl-10 border rounded-lg text-sm bg-slate-50 focus:ring-[#0D5C35] focus:border-[#0D5C35]" value={formData.pdfUrl} onChange={e => setFormData({ ...formData, pdfUrl: e.target.value })} />
+                                </div>
                             </div>
-                            {/* === SELESAI PASTE KODE PDF DI SINI === */}
 
                             <textarea placeholder="Isi Lengkap" rows={5} className="w-full p-3 border rounded-lg" required value={formData.content} onChange={e => setFormData({ ...formData, content: e.target.value })}></textarea>
-
-                            <div className="flex justify-end gap-2 mt-4">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-500">Batal</button>
-                                <button type="submit" disabled={isSaving} className="px-4 py-2 bg-[#0D5C35] text-white rounded-lg font-bold flex items-center">
-                                    {isSaving ? 'Menyimpan...' : (editingId ? 'Update Data' : 'Simpan Data')}
-                                </button>
-                            </div>
+                            <div className="flex justify-end gap-2 mt-4"><button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-500">Batal</button><button type="submit" disabled={isSaving} className="px-4 py-2 bg-[#0D5C35] text-white rounded-lg font-bold">{isSaving ? 'Menyimpan...' : (editingId ? 'Update Data' : 'Simpan Data')}</button></div>
                         </form>
                     </div>
                 </div>
             )}
 
-            {/* MODAL FAQ SAMA */}
+            {/* MODAL FAQ */}
             {isFaqModalOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl w-full max-w-lg p-6">
