@@ -11,13 +11,14 @@ interface ContentData {
   description: string;
   content: string;
   updatedAt: any;
-  imageBase64?: string; // Tambahkan ini
+  imageBase64?: string;
+  pdfUrl?: string;
 }
 
 const DetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  
+
   const [data, setData] = useState<ContentData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -27,7 +28,7 @@ const DetailPage: React.FC = () => {
       try {
         const docRef = doc(db, "knowledge-base", id);
         const docSnap = await getDoc(docRef);
-        
+
         if (docSnap.exists()) {
           setData(docSnap.data() as ContentData);
         } else {
@@ -78,13 +79,13 @@ const DetailPage: React.FC = () => {
       <main className="max-w-4xl mx-auto mt-8 px-4">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
           <div className="flex justify-between items-start mb-4">
-             <span className="inline-block px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-bold uppercase tracking-wider">
-               {data.category.replace('-', ' ')}
-             </span>
+            <span className="inline-block px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-bold uppercase tracking-wider">
+              {data.category.replace('-', ' ')}
+            </span>
           </div>
-          
+
           <h1 className="text-3xl font-bold text-slate-900 mb-2">{data.title}</h1>
-          
+
           <div className="flex items-center text-slate-500 text-sm mb-8 border-b border-slate-100 pb-6">
             <Calendar className="w-4 h-4 mr-2" />
             Diperbarui: {dateStr}
@@ -96,11 +97,26 @@ const DetailPage: React.FC = () => {
               <div className="flex items-center text-slate-500 text-sm mb-2 px-2">
                 <ImageIcon className="w-4 h-4 mr-2" /> Lampiran / Flowchart
               </div>
-              <img 
-                src={data.imageBase64} 
-                alt="Flowchart SOP" 
-                className="w-full h-auto rounded-lg shadow-sm object-contain max-h-[500px]" 
+              <img
+                src={data.imageBase64}
+                alt="Flowchart SOP"
+                className="w-full h-auto rounded-lg shadow-sm object-contain max-h-[500px]"
               />
+            </div>
+          )}
+
+          {/* TOMBOL DOWNLOAD PDF (JIKA ADA LINK) */}
+          {data.pdfUrl && (
+            <div className="mb-8">
+              <a 
+                href={data.pdfUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-center w-full md:w-auto px-6 py-3 bg-red-600 text-white rounded-xl font-bold shadow-md hover:bg-red-700 transition transform hover:-translate-y-1"
+              >
+                <FileText className="w-5 h-5 mr-2" />
+                Unduh Dokumen Lengkap (PDF)
+              </a>
             </div>
           )}
 

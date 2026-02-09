@@ -14,7 +14,8 @@ interface ContentData {
     category: string;
     description: string;
     content: string;
-    imageBase64?: string; // Kolom baru untuk gambar
+    imageBase64?: string;  // Kolom baru untuk gambar
+    pdfUrl?: string; // link pdf 
 }
 
 interface FAQData {
@@ -35,7 +36,7 @@ const AdminDashboard: React.FC = () => {
     const [editingId, setEditingId] = useState<string | null>(null);
 
     // Form State (Ditambah imageBase64)
-    const [formData, setFormData] = useState({ title: '', category: 'psp', description: '', content: '', imageBase64: '' });
+    const [formData, setFormData] = useState({ title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '' }); // Tambah pdfUrl
     const [faqForm, setFaqForm] = useState({ question: '', answer: '' });
 
     useEffect(() => {
@@ -66,13 +67,14 @@ const AdminDashboard: React.FC = () => {
             category: item.category,
             description: item.description,
             content: item.content,
-            imageBase64: item.imageBase64 || ''
+            imageBase64: item.imageBase64 || '',
+            pdfUrl: item.pdfUrl || ''
         });
         setIsModalOpen(true);
     };
     const handleAddSop = () => {
         setEditingId(null);
-        setFormData({ title: '', category: 'psp', description: '', content: '', imageBase64: '' });
+        setFormData({ title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '' });
         setIsModalOpen(true);
     };
 
@@ -253,6 +255,20 @@ const AdminDashboard: React.FC = () => {
                                     </div>
                                 )}
                             </div>
+
+                            {/* === MULAI PASTE KODE PDF DI SINI === */}
+                            <div className="mb-4 mt-4">
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Link File PDF / Dokumen (Opsional)</label>
+                                <input
+                                    type="url"
+                                    placeholder="Contoh: https://drive.google.com/file/d/..."
+                                    className="w-full p-3 border rounded-lg text-sm bg-slate-50 focus:ring-[#0D5C35] focus:border-[#0D5C35]"
+                                    value={formData.pdfUrl}
+                                    onChange={e => setFormData({ ...formData, pdfUrl: e.target.value })}
+                                />
+                                <p className="text-xs text-slate-400 mt-1">Masukkan link Google Drive (pastikan aksesnya 'Anyone with the link')</p>
+                            </div>
+                            {/* === SELESAI PASTE KODE PDF DI SINI === */}
 
                             <textarea placeholder="Isi Lengkap" rows={5} className="w-full p-3 border rounded-lg" required value={formData.content} onChange={e => setFormData({ ...formData, content: e.target.value })}></textarea>
 
