@@ -4,9 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from './src/firebase';
 import {
-  Search, FileText, Hammer, Key, Trash2, Clock, RefreshCw, LayoutGrid,
-  Info, Phone, BookOpen, Mail, ArrowUp, Timer, HelpCircle
-} from 'lucide-react'; // Tambah Timer dan HelpCircle
+  Search, FileText, Hammer, Key, Trash2, Clock, RefreshCw,
+  Info, Phone, BookOpen, Mail, ArrowUp, Timer, HelpCircle, LogIn // Tambah LogIn icon
+} from 'lucide-react';
 import KnowledgeCard from './src/components/KnowledgeCard';
 import FAQItem from './src/components/FAQItem';
 
@@ -30,34 +30,27 @@ const App: React.FC = () => {
   const [faqs, setFaqs] = useState<FAQData[]>([]);
   const navigate = useNavigate();
 
-  // 1. DATA MENU UTAMA (SEKARANG ADA 7)
+  // 1. DATA MENU UTAMA (7 Kategori)
   const categories = [
     { id: 'psp', title: 'PSP', description: 'Penggunaan, Pemanfaatan, Pemindahtanganan BMN', icon: <FileText className="w-8 h-8" />, color: 'bg-emerald-50 text-[#0D5C35]' },
     { id: 'penjualan', title: 'PENJUALAN', description: 'Pengelolaan Lelang dan Penjualan BMN', icon: <Hammer className="w-8 h-8" />, color: 'bg-amber-50 text-amber-700' },
     { id: 'sewa', title: 'SEWA', description: 'Mekanisme dan Prosedur Sewa BMN', icon: <Key className="w-8 h-8" />, color: 'bg-blue-50 text-blue-700' },
     { id: 'penghapusan', title: 'PENGHAPUSAN', description: 'Proses Penghapusan Barang Milik Negara', icon: <Trash2 className="w-8 h-8" />, color: 'bg-rose-50 text-rose-700' },
     { id: 'pinjam-pakai', title: 'PINJAM PAKAI', description: 'Aturan Pinjam Pakai Antar Instansi', icon: <Clock className="w-8 h-8" />, color: 'bg-indigo-50 text-indigo-700' },
-    // MENU BARU KE-6
     { id: 'penggunaan-sementara', title: 'PENGGUNAAN SEMENTARA', description: 'Penggunaan BMN dalam jangka waktu tertentu', icon: <Timer className="w-8 h-8" />, color: 'bg-purple-50 text-purple-700' },
     { id: 'alih-status', title: 'ALIH STATUS', description: 'Alih Status Penggunaan Barang Milik Negara', icon: <RefreshCw className="w-8 h-8" />, color: 'bg-teal-50 text-teal-700' }
   ];
 
   // 2. AMBIL DATA DARI FIREBASE
   useEffect(() => {
-    // SOP
     const qSop = query(collection(db, "knowledge-base"), orderBy("updatedAt", "desc"));
     const unsubSop = onSnapshot(qSop, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as ContentData[];
-      setDocuments(docs);
+      setDocuments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as ContentData[]);
     });
-
-    // FAQ
     const qFaq = query(collection(db, "faqs"), orderBy("createdAt", "desc"));
     const unsubFaq = onSnapshot(qFaq, (snapshot) => {
-      const faqList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as FAQData[];
-      setFaqs(faqList);
+      setFaqs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as FAQData[]);
     });
-
     return () => { unsubSop(); unsubFaq(); };
   }, []);
 
@@ -73,15 +66,12 @@ const App: React.FC = () => {
   // Navigasi
   const handleCategoryClick = (id: string) => navigate(`/category/${id}`);
   const handleDocClick = (id: string) => navigate(`/detail/${id}`);
-
-  // FUNGSI SCROLL (PENTING BUAT NAVBAR)
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) element.scrollIntoView({ behavior: 'smooth' });
   };
 
   // --- BAGIAN-BAGIAN HALAMAN ---
-
   const SectionHome = () => (
     <div className="space-y-20">
       <section>
@@ -116,26 +106,17 @@ const App: React.FC = () => {
   const SectionFAQ = () => (
     <div className="max-w-3xl mx-auto">
       <div className="text-center mb-10">
-        <div className="inline-flex items-center justify-center p-3 bg-amber-50 text-amber-600 rounded-xl mb-4">
-          <HelpCircle className="w-6 h-6" />
-        </div>
+        <div className="inline-flex items-center justify-center p-3 bg-amber-50 text-amber-600 rounded-xl mb-4"><HelpCircle className="w-6 h-6" /></div>
         <h2 className="text-3xl font-bold text-slate-900 mb-2">Pertanyaan Populer</h2>
         <p className="text-slate-500">Temukan jawaban cepat untuk pertanyaan yang sering diajukan</p>
       </div>
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         {faqs.length > 0 ? (
           faqs.map((faq, idx) => (
-            <FAQItem
-              key={faq.id}
-              question={faq.question}
-              answer={faq.answer}
-              isLast={idx === faqs.length - 1}
-            />
+            <FAQItem key={faq.id} question={faq.question} answer={faq.answer} isLast={idx === faqs.length - 1} />
           ))
         ) : (
-          <div className="p-10 text-center text-slate-500">
-            Belum ada pertanyaan populer.
-          </div>
+          <div className="p-10 text-center text-slate-500">Belum ada pertanyaan populer.</div>
         )}
       </div>
     </div>
@@ -151,9 +132,7 @@ const App: React.FC = () => {
         <p>Gunakan menu kategori di atas untuk mencari SOP spesifik sesuai layanan yang Anda butuhkan, atau gunakan kolom pencarian untuk hasil cepat.</p>
         <p>Anda juga dapat melihat bagian FAQ untuk pertanyaan umum.</p>
       </div>
-      <button onClick={() => scrollToSection('top')} className="mt-8 flex items-center text-slate-400 hover:text-[#0D5C35] transition-colors font-medium">
-        <ArrowUp className="w-4 h-4 mr-2" /> Kembali ke Atas
-      </button>
+      <button onClick={() => scrollToSection('top')} className="mt-8 flex items-center text-slate-400 hover:text-[#0D5C35] transition-colors font-medium"><ArrowUp className="w-4 h-4 mr-2" /> Kembali ke Atas</button>
     </div>
   );
 
@@ -164,18 +143,10 @@ const App: React.FC = () => {
         <h2 className="text-3xl font-bold text-slate-900">Hubungi Kami</h2>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-          <h4 className="font-bold text-slate-800 flex items-center mb-2"><Mail className="w-4 h-4 mr-2 text-[#0D5C35]" /> Email Resmi</h4>
-          <p className="text-slate-600">kpknl.kendari@kemenkeu.go.id</p>
-        </div>
-        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-          <h4 className="font-bold text-slate-800 flex items-center mb-2"><Info className="w-4 h-4 mr-2 text-[#0D5C35]" /> Alamat Kantor</h4>
-          <p className="text-slate-600">Jl. Ahmad Yani No. 1, Kota Kendari</p>
-        </div>
+        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100"><h4 className="font-bold text-slate-800 flex items-center mb-2"><Mail className="w-4 h-4 mr-2 text-[#0D5C35]" /> Email Resmi</h4><p className="text-slate-600">kpknl.kendari@kemenkeu.go.id</p></div>
+        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100"><h4 className="font-bold text-slate-800 flex items-center mb-2"><Info className="w-4 h-4 mr-2 text-[#0D5C35]" /> Alamat Kantor</h4><p className="text-slate-600">Jl. Ahmad Yani No. 1, Kota Kendari</p></div>
       </div>
-      <button onClick={() => scrollToSection('top')} className="mt-8 flex items-center text-slate-400 hover:text-[#0D5C35] transition-colors font-medium">
-        <ArrowUp className="w-4 h-4 mr-2" /> Kembali ke Atas
-      </button>
+      <button onClick={() => scrollToSection('top')} className="mt-8 flex items-center text-slate-400 hover:text-[#0D5C35] transition-colors font-medium"><ArrowUp className="w-4 h-4 mr-2" /> Kembali ke Atas</button>
     </div>
   );
 
@@ -184,25 +155,47 @@ const App: React.FC = () => {
       {/* HEADER */}
       <header className="relative bg-gradient-to-br from-[#0D5C35] via-[#0A492A] to-[#083D23] text-white pb-32 pt-16 px-4">
         <nav className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center max-w-7xl mx-auto z-50">
+          
+          {/* LOGO & JUDUL (SUDAH DIPERBAIKI) */}
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => scrollToSection('top')}>
-            <div className="bg-white p-2 rounded-lg"><LayoutGrid className="text-[#0D5C35] w-6 h-6" /></div>
-            <div className="flex flex-col"><span className="font-bold text-lg leading-none hidden sm:inline">KPKNL KENDARI</span><span className="text-[10px] uppercase opacity-70 hidden sm:inline">Divisi PKN</span></div>
+            <div className="bg-white p-1.5 rounded-lg shadow-md">
+              {/* Ini akan mengambil gambar 'logo.png' dari folder 'public' */}
+              <img src="/logo.png" alt="Logo KPKNL" className="w-8 h-8 object-contain" onError={(e) => {e.currentTarget.src = 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Coat_of_arms_of_Indonesia.svg/1200px-Coat_of_arms_of_Indonesia.svg.png'}} /> 
+            </div>
+            <div className="flex flex-col">
+              <span className="font-bold text-lg leading-none hidden sm:inline tracking-tight">KPKNL KENDARI</span>
+              <span className="text-[10px] uppercase opacity-80 hidden sm:inline tracking-widest text-[#D4AF37]">Divisi PKN</span>
+            </div>
           </div>
-          <div className="flex space-x-8 text-sm font-semibold uppercase tracking-wider">
-            <button onClick={() => scrollToSection('top')} className="hover:text-[#D4AF37] text-white">Beranda</button>
-            {/* MENU FAQ DISELIPKAN DISINI */}
-            <button onClick={() => scrollToSection('faq')} className="hover:text-[#D4AF37] text-white">FAQ</button>
-            <button onClick={() => scrollToSection('panduan')} className="hover:text-[#D4AF37] text-white">Panduan</button>
-            <button onClick={() => scrollToSection('kontak')} className="hover:text-[#D4AF37] text-white">Kontak</button>
+
+          <div className="flex items-center space-x-6">
+            <div className="hidden md:flex space-x-6 text-sm font-semibold uppercase tracking-wider">
+              <button onClick={() => scrollToSection('top')} className="hover:text-[#D4AF37] transition-colors text-white">Beranda</button>
+              <button onClick={() => scrollToSection('faq')} className="hover:text-[#D4AF37] transition-colors text-white">FAQ</button>
+              <button onClick={() => scrollToSection('panduan')} className="hover:text-[#D4AF37] transition-colors text-white">Panduan</button>
+              <button onClick={() => scrollToSection('kontak')} className="hover:text-[#D4AF37] transition-colors text-white">Kontak</button>
+            </div>
+            
+            {/* TOMBOL LOGIN KHUSUS (BARU) */}
+            <button 
+              onClick={() => navigate('/login')} 
+              className="flex items-center px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold border border-white/20 transition-all"
+              title="Login Admin"
+            >
+              <LogIn className="w-3 h-3 mr-1.5" />
+              ADMIN
+            </button>
           </div>
         </nav>
+
+        {/* HERO */}
         <div className="max-w-4xl mx-auto text-center mt-12">
           <h1 className="text-4xl md:text-5xl font-extrabold mb-6 tracking-tight">KNOWLEDGE BASE <br className="sm:hidden" /> <span className="text-[#D4AF37]">KPKNL KENDARI</span></h1>
           <p className="text-slate-200 mb-10 text-lg max-w-2xl mx-auto opacity-90">Sistem informasi terintegrasi pengelolaan kekayaan negara.</p>
           <div className="relative max-w-2xl mx-auto">
             <div className="relative group">
-              <input type="text" className="w-full py-4 px-6 pl-14 rounded-full bg-white text-slate-900 shadow-2xl outline-none" placeholder="Cari SOP atau Layanan..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); scrollToSection('top'); }} />
-              <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 text-slate-400 w-6 h-6" />
+              <input type="text" className="w-full py-4 px-6 pl-14 rounded-full bg-white text-slate-900 shadow-2xl outline-none focus:ring-4 focus:ring-[#D4AF37]/30 transition-all text-lg placeholder:text-slate-400" placeholder="Cari SOP atau Layanan..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); scrollToSection('top'); }} />
+              <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 text-slate-400 w-6 h-6 group-focus-within:text-[#0D5C35] transition-colors" />
             </div>
           </div>
         </div>
@@ -211,33 +204,21 @@ const App: React.FC = () => {
       {/* MAIN CONTENT */}
       <main className="flex-grow max-w-7xl mx-auto px-4 -mt-16 relative z-10 w-full mb-20 space-y-32">
         <div id="home"><SectionHome /></div>
-        {/* BAGIAN FAQ (DIBERI ID "faq" AGAR BISA DISCROLL) */}
         <div id="faq" className="pt-10 scroll-mt-20"><SectionFAQ /></div>
         <div id="panduan" className="pt-10 scroll-mt-20"><SectionPanduan /></div>
         <div id="kontak" className="pt-10 scroll-mt-20"><SectionKontak /></div>
       </main>
 
-      {/* FOOTER LENGKAP */}
+      {/* FOOTER */}
       <footer className="bg-[#0A492A] text-[#EAF2EE]/70 py-12 px-4 border-t border-white/5">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
           <div className="text-center md:text-left">
-            <p className="text-white font-bold text-lg mb-1 flex items-center justify-center md:justify-start">
-              <span className="text-[#D4AF37] mr-2">◆</span> KPKNL Kendari
-            </p>
+            <p className="text-white font-bold text-lg mb-1 flex items-center justify-center md:justify-start"><span className="text-[#D4AF37] mr-2">◆</span> KPKNL Kendari</p>
             <p className="text-sm">Direktorat Jenderal Kekayaan Negara (DJKN)</p>
             <p className="text-xs mt-1 text-[#D4AF37] opacity-80 uppercase tracking-widest">Kementerian Keuangan RI</p>
           </div>
           <div className="text-center md:text-right">
-            <p className="text-sm font-medium">
-              Copyright © 2026 KPKNL Kendari
-              <span
-                onClick={() => navigate('/login')}
-                className="ml-2 opacity-0 hover:opacity-100 cursor-pointer transition-opacity text-xs text-slate-500"
-                title="Login Admin"
-              >
-                (Admin)
-              </span>
-            </p>
+            <p className="text-sm font-medium">Copyright © 2026 KPKNL Kendari</p>
             <p className="text-xs mt-1 text-slate-400 italic">"Melayani dengan Hati, Mengelola dengan Integritas"</p>
           </div>
         </div>
