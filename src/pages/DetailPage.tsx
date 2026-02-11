@@ -29,7 +29,7 @@ const DetailPage: React.FC = () => {
         const docRef = doc(db, "knowledge-base", id);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) setData(docSnap.data() as ContentData);
-      } catch (error) { console.error("Error:", error); }
+      } catch (error) { console.error("Error:", error); } 
       finally { setLoading(false); }
     };
     fetchData();
@@ -60,7 +60,24 @@ const DetailPage: React.FC = () => {
       {/* HEADER */}
       <header className="bg-gradient-to-r from-[#0D5C35] to-[#0A492A] text-white p-6 shadow-lg sticky top-0 z-50">
         <div className="max-w-4xl mx-auto flex items-center">
-          <button onClick={() => navigate('/')} className="mr-4 p-2 hover:bg-white/20 rounded-full transition cursor-pointer"><ArrowLeft className="w-6 h-6" /></button>
+          
+          {/* --- TOMBOL KEMBALI (NAVIGASI PINTAR) --- */}
+          <button 
+            onClick={() => {
+              // Cek jika kategori ada, arahkan ke halaman kategori tersebut
+              if (data?.category) {
+                navigate(`/category/${data.category}`);
+              } else {
+                // Jika error/tidak ada kategori, baru ke Home
+                navigate('/');
+              }
+            }} 
+            className="mr-4 p-2 hover:bg-white/20 rounded-full transition cursor-pointer"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          {/* ---------------------------------------- */}
+
           <h1 className="text-lg md:text-xl font-bold truncate">Knowledge Base</h1>
         </div>
       </header>
@@ -68,10 +85,10 @@ const DetailPage: React.FC = () => {
       <main className="max-w-4xl mx-auto mt-8 px-4">
         {/* KARTU UTAMA */}
         <div className="bg-white rounded-3xl shadow-md border border-slate-100 overflow-hidden">
-
-          {/* Bagian Judul (Header Kartu) - VERSI BARU YANG LEBIH CANTIK */}
+          
+          {/* Bagian Judul (Header Kartu) - VERSI BARU */}
           <div className="relative p-8 md:p-12 border-b border-slate-100 overflow-hidden bg-gradient-to-br from-white via-slate-50 to-emerald-50/30">
-
+            
             {/* Ornamen Background (Watermark Icon) */}
             <div className="absolute -right-6 -top-6 opacity-5 pointer-events-none">
               <FileText className="w-64 h-64 text-[#0D5C35]" />
@@ -90,7 +107,7 @@ const DetailPage: React.FC = () => {
                   {dateStr}
                 </span>
               </div>
-
+              
               {/* Judul Besar & Elegan */}
               <h1 className="text-3xl md:text-5xl font-black text-slate-800 mb-4 leading-tight tracking-tight">
                 {data.title}
@@ -104,9 +121,8 @@ const DetailPage: React.FC = () => {
           </div>
 
           <div className="p-8 md:p-10">
-
+            
             {/* --- 1. KONTEN MARKDOWN (ISI LENGKAP) --- */}
-            {/* Dipindah ke paling atas sesuai request */}
             <div className="prose prose-slate max-w-none mb-12
               prose-headings:scroll-mt-20
               
@@ -119,9 +135,9 @@ const DetailPage: React.FC = () => {
               /* Paragraf */
               prose-p:text-slate-600 prose-p:leading-relaxed prose-p:mb-4
               
-              /* Angka (Ordered List) - DIBUAT LEBIH HIDUP */
+              /* Angka (Ordered List) - LEBIH HIDUP */
               prose-ol:list-decimal prose-ol:pl-5 prose-ol:space-y-3 prose-ol:text-slate-700 prose-ol:font-medium 
-              prose-li:marker:text-[#D4AF37] prose-li:marker:font-extrabold prose-li:marker:text-lg /* Angka warna Emas & Tebal */
+              prose-li:marker:text-[#D4AF37] prose-li:marker:font-extrabold prose-li:marker:text-lg
               
               /* Poin (Bullet List) */
               prose-ul:list-disc prose-ul:pl-6 prose-ul:mt-2 prose-ul:space-y-2 prose-ul:text-slate-600 prose-ul:font-normal 
@@ -133,11 +149,11 @@ const DetailPage: React.FC = () => {
               /* Bold Text */
               prose-strong:text-slate-900 prose-strong:font-bold prose-strong:bg-slate-100 prose-strong:px-1 prose-strong:rounded-md
               ">
-
-              <ReactMarkdown
-                components={{
-                  li: ({ node, ...props }) => <li className="pl-2" {...props} />
-                }}
+              
+              <ReactMarkdown 
+                 components={{
+                    li: ({node, ...props}) => <li className="pl-2" {...props} />
+                 }}
               >
                 {data.content}
               </ReactMarkdown>
@@ -151,10 +167,10 @@ const DetailPage: React.FC = () => {
                   Lampiran Visual
                 </h3>
                 <div className="p-2 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl">
-                  <img
-                    src={data.imageBase64}
-                    alt="Lampiran"
-                    className="w-full h-auto object-contain max-h-[600px] rounded-xl bg-white shadow-sm"
+                  <img 
+                    src={data.imageBase64} 
+                    alt="Lampiran" 
+                    className="w-full h-auto object-contain max-h-[600px] rounded-xl bg-white shadow-sm" 
                   />
                   <p className="text-center text-xs text-slate-400 mt-2 py-1 flex justify-center items-center">
                     <ImageIcon className="w-3 h-3 mr-1" /> Gambar Flowchart / Tabel Pendukung
@@ -166,14 +182,14 @@ const DetailPage: React.FC = () => {
             {/* --- 3. TOMBOL DOWNLOAD PDF (PALING BAWAH) --- */}
             {data.pdfUrl && (
               <div className="mt-12 pt-8 border-t border-slate-100">
-                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                 <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
                   <span className="w-1 h-6 bg-rose-500 rounded-full mr-3"></span>
                   Dokumen Asli
                 </h3>
-                <a
-                  href={data.pdfUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <a 
+                  href={data.pdfUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
                   className="group block w-full bg-white border border-rose-100 hover:border-rose-300 rounded-2xl p-1 shadow-sm hover:shadow-md transition-all duration-300"
                 >
                   <div className="flex items-center justify-between p-4 bg-gradient-to-r from-rose-50 to-white rounded-xl">
