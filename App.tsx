@@ -8,7 +8,7 @@ import {
   Info, Phone, BookOpen, Mail, ArrowUp, Timer, HelpCircle, LogIn,
   Menu, X
 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown'; // IMPORT PENTING: Untuk render format teks admin
+import ReactMarkdown from 'react-markdown';
 import KnowledgeCard from './src/components/KnowledgeCard';
 import FAQItem from './src/components/FAQItem';
 
@@ -26,7 +26,6 @@ interface FAQData {
   answer: string;
 }
 
-// Tipe Data Baru untuk Panduan
 interface GuideData {
   id: string;
   content: string;
@@ -36,11 +35,11 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [documents, setDocuments] = useState<ContentData[]>([]);
   const [faqs, setFaqs] = useState<FAQData[]>([]);
-  const [guides, setGuides] = useState<GuideData[]>([]); // STATE BARU: PANDUAN
+  const [guides, setGuides] = useState<GuideData[]>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
 
-  // 1. DATA MENU UTAMA (7 Kategori)
+  // 1. DATA MENU UTAMA
   const categories = [
     { id: 'psp', title: 'PSP', description: 'Penggunaan, Pemanfaatan, Pemindahtanganan BMN', icon: <FileText className="w-8 h-8" />, color: 'bg-emerald-50 text-[#0D5C35]' },
     { id: 'penjualan', title: 'PENJUALAN', description: 'Pengelolaan Lelang dan Penjualan BMN', icon: <Hammer className="w-8 h-8" />, color: 'bg-amber-50 text-amber-700' },
@@ -53,48 +52,32 @@ const App: React.FC = () => {
 
   // 2. AMBIL DATA DARI FIREBASE
   useEffect(() => {
-    // Fetch SOP
     const qSop = query(collection(db, "knowledge-base"), orderBy("updatedAt", "desc"));
-    const unsubSop = onSnapshot(qSop, (snapshot) => {
-      setDocuments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as ContentData[]);
-    });
-
-    // Fetch FAQ
+    const unsubSop = onSnapshot(qSop, (snap) => setDocuments(snap.docs.map(d => ({ id: d.id, ...d.data() })) as ContentData[]));
+    
     const qFaq = query(collection(db, "faqs"), orderBy("createdAt", "desc"));
-    const unsubFaq = onSnapshot(qFaq, (snapshot) => {
-      setFaqs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as FAQData[]);
-    });
+    const unsubFaq = onSnapshot(qFaq, (snap) => setFaqs(snap.docs.map(d => ({ id: d.id, ...d.data() })) as FAQData[]));
 
-    // Fetch GUIDES (PANDUAN) - BARU
     const qGuide = query(collection(db, "guides"), orderBy("updatedAt", "desc"));
-    const unsubGuide = onSnapshot(qGuide, (snapshot) => {
-      setGuides(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as GuideData[]);
-    });
+    const unsubGuide = onSnapshot(qGuide, (snap) => setGuides(snap.docs.map(d => ({ id: d.id, ...d.data() })) as GuideData[]));
 
     return () => { unsubSop(); unsubFaq(); unsubGuide(); };
   }, []);
 
-  // 3. FILTER SEARCH
   const searchResults = useMemo(() => {
     if (!searchQuery) return [];
-    return documents.filter(doc =>
-      doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.description.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    return documents.filter(doc => doc.title.toLowerCase().includes(searchQuery.toLowerCase()) || doc.description.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [searchQuery, documents]);
 
-  // Navigasi
   const handleCategoryClick = (id: string) => navigate(`/category/${id}`);
   const handleDocClick = (id: string) => navigate(`/detail/${id}`);
-
-  // Fungsi Scroll
   const scrollToSection = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) element.scrollIntoView({ behavior: 'smooth' });
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
     setIsMenuOpen(false);
   };
 
-  // --- BAGIAN-BAGIAN HALAMAN ---
+  // --- KOMPONEN SECTION ---
   const SectionHome = () => (
     <div className="space-y-20">
       <section>
@@ -102,20 +85,16 @@ const App: React.FC = () => {
           <div className="space-y-6">
             <h3 className="font-bold text-slate-700 text-lg">Hasil Pencarian: "{searchQuery}"</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {searchResults.length > 0 ? (
-                searchResults.map((doc) => (
-                  <div key={doc.id} onClick={() => handleDocClick(doc.id)} className="cursor-pointer transition-transform hover:scale-105 h-full">
-                    <KnowledgeCard title={doc.title} description={doc.description} icon={<FileText className="w-8 h-8" />} colorClass="bg-slate-100 text-slate-700" />
-                  </div>
-                ))
-              ) : (
-                <div className="col-span-full py-10 text-center text-slate-500 border border-dashed rounded-2xl">Tidak ada dokumen ditemukan.</div>
-              )}
+              {searchResults.length > 0 ? searchResults.map(doc => (
+                <div key={doc.id} onClick={() => handleDocClick(doc.id)} className="cursor-pointer transition-transform hover:scale-105 h-full">
+                  <KnowledgeCard title={doc.title} description={doc.description} icon={<FileText className="w-8 h-8" />} colorClass="bg-slate-100 text-slate-700" />
+                </div>
+              )) : <div className="col-span-full py-10 text-center text-slate-500 border border-dashed rounded-2xl">Tidak ada dokumen ditemukan.</div>}
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map((cat) => (
+            {categories.map(cat => (
               <div key={cat.id} onClick={() => handleCategoryClick(cat.id)} className="cursor-pointer transition-transform hover:scale-105 active:scale-95 h-full">
                 <KnowledgeCard title={cat.title} description={cat.description} icon={cat.icon} colorClass={cat.color} />
               </div>
@@ -128,24 +107,11 @@ const App: React.FC = () => {
 
   const SectionFAQ = () => (
     <div className="max-w-3xl mx-auto">
-      <div className="text-center mb-10">
-        <div className="inline-flex items-center justify-center p-3 bg-amber-50 text-amber-600 rounded-xl mb-4"><HelpCircle className="w-6 h-6" /></div>
-        <h2 className="text-3xl font-bold text-slate-900 mb-2">Pertanyaan Populer</h2>
-        <p className="text-slate-500">Temukan jawaban cepat untuk pertanyaan yang sering diajukan</p>
-      </div>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        {faqs.length > 0 ? (
-          faqs.map((faq, idx) => (
-            <FAQItem key={faq.id} question={faq.question} answer={faq.answer} isLast={idx === faqs.length - 1} />
-          ))
-        ) : (
-          <div className="p-10 text-center text-slate-500">Belum ada pertanyaan populer.</div>
-        )}
-      </div>
+      <div className="text-center mb-10"><div className="inline-flex items-center justify-center p-3 bg-amber-50 text-amber-600 rounded-xl mb-4"><HelpCircle className="w-6 h-6" /></div><h2 className="text-3xl font-bold text-slate-900 mb-2">Pertanyaan Populer</h2><p className="text-slate-500">Temukan jawaban cepat untuk pertanyaan yang sering diajukan</p></div>
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">{faqs.length > 0 ? faqs.map((faq, idx) => <FAQItem key={faq.id} question={faq.question} answer={faq.answer} isLast={idx === faqs.length - 1} />) : <div className="p-10 text-center text-slate-500">Belum ada pertanyaan populer.</div>}</div>
     </div>
   );
 
-  // SECTION PANDUAN (SUDAH DINAMIS DARI DATABASE)
   const SectionPanduan = () => (
     <div className="max-w-4xl mx-auto bg-white p-10 rounded-3xl shadow-sm border border-slate-200">
       <div className="flex items-center space-x-4 mb-8">
@@ -154,17 +120,14 @@ const App: React.FC = () => {
       </div>
       <div className="prose prose-slate max-w-none prose-p:text-slate-600 prose-li:marker:text-[#0D5C35] prose-strong:text-slate-800">
         {guides.length > 0 ? (
-          // Render setiap item panduan dari database
           guides.map((guide) => (
             <div key={guide.id} className="mb-8 border-b border-slate-50 last:border-0 pb-4 last:pb-0">
               <ReactMarkdown>{guide.content}</ReactMarkdown>
             </div>
           ))
         ) : (
-          // Tampilan jika admin belum mengisi data
           <div className="text-center py-10 border-2 border-dashed border-slate-100 rounded-xl bg-slate-50">
             <p className="text-slate-400 italic">Belum ada data panduan yang ditambahkan.</p>
-            <p className="text-xs text-slate-400 mt-1">Silakan login sebagai Admin untuk menambahkan panduan.</p>
           </div>
         )}
       </div>
@@ -193,24 +156,24 @@ const App: React.FC = () => {
         <nav className="absolute top-0 left-0 right-0 p-6 max-w-7xl mx-auto z-50">
           <div className="flex justify-between items-center">
 
-            {/* LOGO */}
+            {/* LOGO (PERBAIKAN 1: TULISAN MUNCUL DI HP) */}
             <div className="flex items-center space-x-3 cursor-pointer" onClick={() => scrollToSection('top')}>
               <div className="bg-white p-1.5 rounded-lg shadow-md">
                 <img src="/logo.png" alt="Logo KPKNL" className="w-8 h-8 object-contain" onError={(e) => { e.currentTarget.src = 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Coat_of_arms_of_Indonesia.svg/1200px-Coat_of_arms_of_Indonesia.svg.png' }} />
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-lg leading-none hidden sm:inline tracking-tight">KPKNL KENDARI</span>
-                <span className="text-[10px] uppercase opacity-80 hidden sm:inline tracking-widest text-[#D4AF37]">Divisi PKN</span>
+                {/* HAPUS 'hidden sm:inline' agar muncul di HP, sesuaikan ukuran teks */}
+                <span className="font-bold text-base sm:text-lg leading-none tracking-tight">KPKNL KENDARI</span>
+                <span className="text-[9px] sm:text-[10px] uppercase opacity-80 tracking-widest text-[#D4AF37]">Divisi PKN</span>
               </div>
             </div>
 
             {/* DESKTOP MENU (Hidden di HP) */}
             <div className="hidden md:flex items-center space-x-6">
               <div className="flex space-x-6 text-sm font-semibold uppercase tracking-wider">
-                <button onClick={() => scrollToSection('top')} className="hover:text-[#D4AF37] transition-colors text-white">Beranda</button>
-                <button onClick={() => scrollToSection('faq')} className="hover:text-[#D4AF37] transition-colors text-white">FAQ</button>
-                <button onClick={() => scrollToSection('panduan')} className="hover:text-[#D4AF37] transition-colors text-white">Panduan</button>
-                <button onClick={() => scrollToSection('kontak')} className="hover:text-[#D4AF37] transition-colors text-white">Kontak</button>
+                {['Beranda', 'FAQ', 'Panduan', 'Kontak'].map(item => (
+                  <button key={item} onClick={() => scrollToSection(item.toLowerCase())} className="hover:text-[#D4AF37] transition-colors text-white">{item}</button>
+                ))}
               </div>
               <button onClick={() => navigate('/login')} className="flex items-center px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold border border-white/20 transition-all">
                 <LogIn className="w-3 h-3 mr-1.5" /> ADMIN
@@ -219,12 +182,7 @@ const App: React.FC = () => {
 
             {/* MOBILE HAMBURGER BUTTON (Visible di HP) */}
             <div className="md:hidden flex items-center gap-3">
-              <button
-                onClick={() => navigate('/login')}
-                className="flex items-center px-3 py-1.5 bg-white/10 rounded-full text-[10px] font-bold border border-white/20"
-              >
-                ADMIN
-              </button>
+              {/* TOMBOL ADMIN DIHAPUS DARI SINI (PERBAIKAN 2) */}
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className="text-white p-2 hover:bg-white/10 rounded-lg transition-colors"
@@ -234,13 +192,24 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* MOBILE MENU DROPDOWN (Animasi Buka Tutup) */}
+          {/* MOBILE MENU DROPDOWN */}
           {isMenuOpen && (
             <div className="md:hidden absolute top-full left-0 right-0 mt-4 mx-4 bg-[#0A492A] rounded-2xl shadow-2xl border border-white/10 p-4 flex flex-col space-y-2 animate-in slide-in-from-top-5 duration-200">
-              <button onClick={() => scrollToSection('top')} className="text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white font-semibold flex items-center"><FileText className="w-4 h-4 mr-3 opacity-70" /> Beranda</button>
-              <button onClick={() => scrollToSection('faq')} className="text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white font-semibold flex items-center"><HelpCircle className="w-4 h-4 mr-3 opacity-70" /> FAQ</button>
-              <button onClick={() => scrollToSection('panduan')} className="text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white font-semibold flex items-center"><BookOpen className="w-4 h-4 mr-3 opacity-70" /> Panduan</button>
-              <button onClick={() => scrollToSection('kontak')} className="text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white font-semibold flex items-center"><Phone className="w-4 h-4 mr-3 opacity-70" /> Kontak</button>
+              {['Beranda', 'FAQ', 'Panduan', 'Kontak'].map(item => (
+                <button key={item} onClick={() => scrollToSection(item.toLowerCase())} className="text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white font-semibold flex items-center">
+                  <FileText className="w-4 h-4 mr-3 opacity-70" /> {item}
+                </button>
+              ))}
+              
+              {/* TOMBOL ADMIN PINDAH KESINI (PERBAIKAN 2) */}
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <button 
+                  onClick={() => navigate('/login')} 
+                  className="w-full text-left px-4 py-3 rounded-xl bg-white/10 text-[#D4AF37] font-bold flex items-center hover:bg-white/20 transition-all"
+                >
+                  <LogIn className="w-4 h-4 mr-3" /> LOGIN ADMIN
+                </button>
+              </div>
             </div>
           )}
         </nav>
