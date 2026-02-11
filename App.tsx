@@ -6,8 +6,9 @@ import { db } from './src/firebase';
 import {
   Search, FileText, Hammer, Key, Trash2, Clock, RefreshCw,
   Info, Phone, BookOpen, Mail, ArrowUp, Timer, HelpCircle, LogIn,
-  Menu, X // IMPORT ICON BARU (Menu & X)
+  Menu, X
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown'; // IMPORT PENTING: Untuk render format teks admin
 import KnowledgeCard from './src/components/KnowledgeCard';
 import FAQItem from './src/components/FAQItem';
 
@@ -25,11 +26,18 @@ interface FAQData {
   answer: string;
 }
 
+// Tipe Data Baru untuk Panduan
+interface GuideData {
+  id: string;
+  content: string;
+}
+
 const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [documents, setDocuments] = useState<ContentData[]>([]);
   const [faqs, setFaqs] = useState<FAQData[]>([]);
-  const [isMenuOpen, setIsMenuOpen] = useState(false); // STATE UNTUK MENU MOBILE
+  const [guides, setGuides] = useState<GuideData[]>([]); // STATE BARU: PANDUAN
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   // 1. DATA MENU UTAMA (7 Kategori)
@@ -45,15 +53,25 @@ const App: React.FC = () => {
 
   // 2. AMBIL DATA DARI FIREBASE
   useEffect(() => {
+    // Fetch SOP
     const qSop = query(collection(db, "knowledge-base"), orderBy("updatedAt", "desc"));
     const unsubSop = onSnapshot(qSop, (snapshot) => {
       setDocuments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as ContentData[]);
     });
+
+    // Fetch FAQ
     const qFaq = query(collection(db, "faqs"), orderBy("createdAt", "desc"));
     const unsubFaq = onSnapshot(qFaq, (snapshot) => {
       setFaqs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as FAQData[]);
     });
-    return () => { unsubSop(); unsubFaq(); };
+
+    // Fetch GUIDES (PANDUAN) - BARU
+    const qGuide = query(collection(db, "guides"), orderBy("updatedAt", "desc"));
+    const unsubGuide = onSnapshot(qGuide, (snapshot) => {
+      setGuides(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as GuideData[]);
+    });
+
+    return () => { unsubSop(); unsubFaq(); unsubGuide(); };
   }, []);
 
   // 3. FILTER SEARCH
@@ -69,11 +87,11 @@ const App: React.FC = () => {
   const handleCategoryClick = (id: string) => navigate(`/category/${id}`);
   const handleDocClick = (id: string) => navigate(`/detail/${id}`);
 
-  // Fungsi Scroll (Diupdate biar nutup menu pas diklik)
+  // Fungsi Scroll
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) element.scrollIntoView({ behavior: 'smooth' });
-    setIsMenuOpen(false); // Tutup menu setelah klik (untuk mobile)
+    setIsMenuOpen(false);
   };
 
   // --- BAGIAN-BAGIAN HALAMAN ---
@@ -86,7 +104,6 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {searchResults.length > 0 ? (
                 searchResults.map((doc) => (
-                  // UPDATE 1: Tambah 'h-full' agar kartu mengisi tinggi grid
                   <div key={doc.id} onClick={() => handleDocClick(doc.id)} className="cursor-pointer transition-transform hover:scale-105 h-full">
                     <KnowledgeCard title={doc.title} description={doc.description} icon={<FileText className="w-8 h-8" />} colorClass="bg-slate-100 text-slate-700" />
                   </div>
@@ -99,7 +116,6 @@ const App: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {categories.map((cat) => (
-              // UPDATE 2: Tambah 'h-full' di sini juga
               <div key={cat.id} onClick={() => handleCategoryClick(cat.id)} className="cursor-pointer transition-transform hover:scale-105 active:scale-95 h-full">
                 <KnowledgeCard title={cat.title} description={cat.description} icon={cat.icon} colorClass={cat.color} />
               </div>
@@ -129,15 +145,28 @@ const App: React.FC = () => {
     </div>
   );
 
+  // SECTION PANDUAN (SUDAH DINAMIS DARI DATABASE)
   const SectionPanduan = () => (
     <div className="max-w-4xl mx-auto bg-white p-10 rounded-3xl shadow-sm border border-slate-200">
       <div className="flex items-center space-x-4 mb-8">
         <div className="p-3 bg-[#EAF2EE] text-[#0D5C35] rounded-xl"><BookOpen className="w-8 h-8" /></div>
         <h2 className="text-3xl font-bold text-slate-900">Panduan Pengguna</h2>
       </div>
-      <div className="prose prose-slate max-w-none">
-        <p>Gunakan menu kategori di atas untuk mencari SOP spesifik sesuai layanan yang Anda butuhkan, atau gunakan kolom pencarian untuk hasil cepat.</p>
-        <p>Anda juga dapat melihat bagian FAQ untuk pertanyaan umum.</p>
+      <div className="prose prose-slate max-w-none prose-p:text-slate-600 prose-li:marker:text-[#0D5C35] prose-strong:text-slate-800">
+        {guides.length > 0 ? (
+          // Render setiap item panduan dari database
+          guides.map((guide) => (
+            <div key={guide.id} className="mb-8 border-b border-slate-50 last:border-0 pb-4 last:pb-0">
+              <ReactMarkdown>{guide.content}</ReactMarkdown>
+            </div>
+          ))
+        ) : (
+          // Tampilan jika admin belum mengisi data
+          <div className="text-center py-10 border-2 border-dashed border-slate-100 rounded-xl bg-slate-50">
+            <p className="text-slate-400 italic">Belum ada data panduan yang ditambahkan.</p>
+            <p className="text-xs text-slate-400 mt-1">Silakan login sebagai Admin untuk menambahkan panduan.</p>
+          </div>
+        )}
       </div>
       <button onClick={() => scrollToSection('top')} className="mt-8 flex items-center text-slate-400 hover:text-[#0D5C35] transition-colors font-medium"><ArrowUp className="w-4 h-4 mr-2" /> Kembali ke Atas</button>
     </div>

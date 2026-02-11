@@ -6,8 +6,9 @@ import {
     collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, serverTimestamp, query, orderBy
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { LogOut, Plus, Trash2, FileText, Image as ImageIcon, HelpCircle, LayoutList, Edit, X, Link as LinkIcon } from 'lucide-react';
+import { LogOut, Plus, Trash2, FileText, HelpCircle, LayoutList, Edit, BookOpen, Quote } from 'lucide-react';
 
+// Tipe Data
 interface ContentData {
     id: string;
     title: string;
@@ -22,6 +23,11 @@ interface FAQData {
     id: string;
     question: string;
     answer: string;
+}
+
+interface GuideData {
+    id: string;
+    content: string; // Isi panduan (bisa markdown simpel)
 }
 
 // Helper Warna Kategori
@@ -40,105 +46,140 @@ const getCategoryColor = (cat: string) => {
 
 const AdminDashboard: React.FC = () => {
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'sop' | 'faq'>('sop');
+    const [activeTab, setActiveTab] = useState<'sop' | 'faq' | 'guide'>('sop'); // Tambah Tab 'guide'
+    
     const [contents, setContents] = useState<ContentData[]>([]);
     const [faqs, setFaqs] = useState<FAQData[]>([]);
+    const [guides, setGuides] = useState<GuideData[]>([]); // State untuk Panduan
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
+    const [isGuideModalOpen, setIsGuideModalOpen] = useState(false); // Modal Panduan
     const [isSaving, setIsSaving] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
+    // Form States
     const [formData, setFormData] = useState({ title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '' });
     const [faqForm, setFaqForm] = useState({ question: '', answer: '' });
+    const [guideForm, setGuideForm] = useState({ content: '' }); // Form Panduan
 
+    // FETCH DATA (Realtime)
     useEffect(() => {
         const qSop = query(collection(db, "knowledge-base"), orderBy("updatedAt", "desc"));
-        const unsubSop = onSnapshot(qSop, (snapshot) => {
-            setContents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as ContentData[]);
-        });
+        const unsubSop = onSnapshot(qSop, (snap) => setContents(snap.docs.map(d => ({ id: d.id, ...d.data() })) as ContentData[]));
+
         const qFaq = query(collection(db, "faqs"), orderBy("createdAt", "desc"));
-        const unsubFaq = onSnapshot(qFaq, (snapshot) => {
-            setFaqs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as FAQData[]);
-        });
-        return () => { unsubSop(); unsubFaq(); };
+        const unsubFaq = onSnapshot(qFaq, (snap) => setFaqs(snap.docs.map(d => ({ id: d.id, ...d.data() })) as FAQData[]));
+
+        const qGuide = query(collection(db, "guides"), orderBy("updatedAt", "desc"));
+        const unsubGuide = onSnapshot(qGuide, (snap) => setGuides(snap.docs.map(d => ({ id: d.id, ...d.data() })) as GuideData[]));
+
+        return () => { unsubSop(); unsubFaq(); unsubGuide(); };
     }, []);
 
     const handleLogout = async () => { await signOut(auth); navigate('/login'); };
 
-    const handleDeleteSop = async (id: string) => {
-        if (confirm("Hapus SOP ini?")) await deleteDoc(doc(db, "knowledge-base", id));
-    };
-    const handleDeleteFaq = async (id: string) => {
-        if (confirm("Hapus FAQ ini?")) await deleteDoc(doc(db, "faqs", id));
+    // DELETE Functions
+    const handleDelete = async (collectionName: string, id: string) => {
+        if (confirm("Yakin hapus data ini?")) await deleteDoc(doc(db, collectionName, id));
     };
 
+    // EDIT Functions
     const handleEditSop = (item: ContentData) => {
         setEditingId(item.id);
-        setFormData({
-            title: item.title, category: item.category, description: item.description, content: item.content,
-            imageBase64: item.imageBase64 || '', pdfUrl: item.pdfUrl || ''
-        });
+        setFormData({ ...item, imageBase64: item.imageBase64 || '', pdfUrl: item.pdfUrl || '' });
         setIsModalOpen(true);
     };
+    const handleEditFaq = (item: FAQData) => {
+        setEditingId(item.id);
+        setFaqForm({ ...item });
+        setIsFaqModalOpen(true);
+    };
+    const handleEditGuide = (item: GuideData) => {
+        setEditingId(item.id);
+        setGuideForm({ content: item.content });
+        setIsGuideModalOpen(true);
+    };
+
+    // ADD Functions
     const handleAddSop = () => {
         setEditingId(null);
         setFormData({ title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '' });
         setIsModalOpen(true);
     };
-
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            if (file.size > 800000) { alert("Ukuran gambar terlalu besar! Maksimal 800KB ya."); return; }
-            const reader = new FileReader();
-            reader.onloadend = () => { setFormData({ ...formData, imageBase64: reader.result as string }); };
-            reader.readAsDataURL(file);
-        }
+    const handleAddFaq = () => {
+        setEditingId(null);
+        setFaqForm({ question: '', answer: '' });
+        setIsFaqModalOpen(true);
     };
-    const handleRemoveImage = () => { setFormData({ ...formData, imageBase64: '' }); };
+    const handleAddGuide = () => {
+        // Cek dulu kalau panduan sudah ada (biasanya cuma butuh 1 panduan utama), tapi flexible aja
+        setEditingId(null);
+        setGuideForm({ content: '' });
+        setIsGuideModalOpen(true);
+    };
 
-    const handleEditFaq = (item: FAQData) => { setEditingId(item.id); setFaqForm({ question: item.question, answer: item.answer }); setIsFaqModalOpen(true); };
-    const handleAddFaq = () => { setEditingId(null); setFaqForm({ question: '', answer: '' }); setIsFaqModalOpen(true); };
-
+    // SAVE Functions
     const handleSaveSop = async (e: React.FormEvent) => {
         e.preventDefault(); setIsSaving(true);
         try {
-            if (editingId) { await updateDoc(doc(db, "knowledge-base", editingId), { ...formData, updatedAt: serverTimestamp() }); }
-            else { await addDoc(collection(db, "knowledge-base"), { ...formData, updatedAt: serverTimestamp() }); }
-            setIsModalOpen(false); setFormData({ title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '' }); setEditingId(null);
-        } catch (err) { alert("Gagal menyimpan data."); } finally { setIsSaving(false); }
+            if (editingId) await updateDoc(doc(db, "knowledge-base", editingId), { ...formData, updatedAt: serverTimestamp() });
+            else await addDoc(collection(db, "knowledge-base"), { ...formData, updatedAt: serverTimestamp() });
+            setIsModalOpen(false);
+        } catch (err) { alert("Error saving SOP"); } finally { setIsSaving(false); }
     };
 
     const handleSaveFaq = async (e: React.FormEvent) => {
         e.preventDefault(); setIsSaving(true);
         try {
-            if (editingId) { await updateDoc(doc(db, "faqs", editingId), { ...faqForm, createdAt: serverTimestamp() }); }
-            else { await addDoc(collection(db, "faqs"), { ...faqForm, createdAt: serverTimestamp() }); }
-            setIsFaqModalOpen(false); setFaqForm({ question: '', answer: '' }); setEditingId(null);
-        } catch (err) { alert("Gagal menyimpan FAQ."); } finally { setIsSaving(false); }
+            if (editingId) await updateDoc(doc(db, "faqs", editingId), { ...faqForm, createdAt: serverTimestamp() });
+            else await addDoc(collection(db, "faqs"), { ...faqForm, createdAt: serverTimestamp() });
+            setIsFaqModalOpen(false);
+        } catch (err) { alert("Error saving FAQ"); } finally { setIsSaving(false); }
     };
 
-    // --- FUNGSI BANTUAN INSERT FORMAT (SUDAH DIPERBARUI) ---
-    const insertFormat = (tag: string) => {
-        const textarea = document.getElementById('content-editor') as HTMLTextAreaElement;
+    const handleSaveGuide = async (e: React.FormEvent) => {
+        e.preventDefault(); setIsSaving(true);
+        try {
+            if (editingId) await updateDoc(doc(db, "guides", editingId), { ...guideForm, updatedAt: serverTimestamp() });
+            else await addDoc(collection(db, "guides"), { ...guideForm, updatedAt: serverTimestamp() });
+            setIsGuideModalOpen(false);
+        } catch (err) { alert("Error saving Guide"); } finally { setIsSaving(false); }
+    };
+
+    // Helper Upload Gambar
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 800000) { alert("Maksimal 800KB"); return; }
+            const reader = new FileReader();
+            reader.onloadend = () => setFormData({ ...formData, imageBase64: reader.result as string });
+            reader.readAsDataURL(file);
+        }
+    };
+
+    // Helper Insert Format (Untuk SOP & Guide)
+    const insertFormat = (target: 'sop' | 'guide', tag: string) => {
+        const textarea = document.getElementById(target === 'sop' ? 'content-editor' : 'guide-editor') as HTMLTextAreaElement;
         if (!textarea) return;
 
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;
-        const text = formData.content;
+        const text = target === 'sop' ? formData.content : guideForm.content;
         const before = text.substring(0, start);
         const after = text.substring(end, text.length);
 
         let newText = '';
         if (tag === 'bold') newText = `${before}**Teks Tebal**${after}`;
         else if (tag === 'list') newText = `${before}\n- Poin 1\n- Poin 2${after}`;
-        else if (tag === 'number') newText = `${before}\n1. Langkah Pertama\n2. Langkah Kedua${after}`; // <--- FITUR ANGKA
-        else if (tag === 'h2') newText = `${before}\n## Sub Judul Besar${after}`;
-        else if (tag === 'h3') newText = `${before}\n### Sub Judul Kecil${after}`;
-        else if (tag === 'quote') newText = `${before}\n> "Catatan Penting"${after}`;
+        else if (tag === 'number') newText = `${before}\n1. Langkah 1\n2. Langkah 2${after}`;
+        else if (tag === 'h2') newText = `${before}\n## Judul Besar${after}`;
+        else if (tag === 'h3') newText = `${before}\n### Sub Judul${after}`;
+        else if (tag === 'quote') newText = `${before}\n> "Catatan"${after}`;
 
-        setFormData({ ...formData, content: newText });
+        if (target === 'sop') setFormData({ ...formData, content: newText });
+        else setGuideForm({ ...guideForm, content: newText });
+
         setTimeout(() => textarea.focus(), 100);
     };
 
@@ -153,11 +194,14 @@ const AdminDashboard: React.FC = () => {
             </nav>
 
             <main className="max-w-7xl mx-auto p-6 md:p-10">
-                <div className="flex space-x-4 mb-8 border-b border-slate-200">
-                    <button onClick={() => setActiveTab('sop')} className={`pb-4 px-4 font-bold flex items-center transition-colors ${activeTab === 'sop' ? 'text-[#0D5C35] border-b-2 border-[#0D5C35]' : 'text-slate-400 hover:text-slate-600'}`}><LayoutList className="w-5 h-5 mr-2" /> Data SOP ({contents.length})</button>
-                    <button onClick={() => setActiveTab('faq')} className={`pb-4 px-4 font-bold flex items-center transition-colors ${activeTab === 'faq' ? 'text-[#0D5C35] border-b-2 border-[#0D5C35]' : 'text-slate-400 hover:text-slate-600'}`}><HelpCircle className="w-5 h-5 mr-2" /> Data FAQ ({faqs.length})</button>
+                {/* TABS MENU */}
+                <div className="flex space-x-4 mb-8 border-b border-slate-200 overflow-x-auto">
+                    <button onClick={() => setActiveTab('sop')} className={`pb-4 px-4 font-bold flex items-center transition-colors whitespace-nowrap ${activeTab === 'sop' ? 'text-[#0D5C35] border-b-2 border-[#0D5C35]' : 'text-slate-400 hover:text-slate-600'}`}><LayoutList className="w-5 h-5 mr-2" /> Data SOP ({contents.length})</button>
+                    <button onClick={() => setActiveTab('faq')} className={`pb-4 px-4 font-bold flex items-center transition-colors whitespace-nowrap ${activeTab === 'faq' ? 'text-[#0D5C35] border-b-2 border-[#0D5C35]' : 'text-slate-400 hover:text-slate-600'}`}><HelpCircle className="w-5 h-5 mr-2" /> Data FAQ ({faqs.length})</button>
+                    <button onClick={() => setActiveTab('guide')} className={`pb-4 px-4 font-bold flex items-center transition-colors whitespace-nowrap ${activeTab === 'guide' ? 'text-[#0D5C35] border-b-2 border-[#0D5C35]' : 'text-slate-400 hover:text-slate-600'}`}><BookOpen className="w-5 h-5 mr-2" /> Data Panduan ({guides.length})</button>
                 </div>
 
+                {/* --- TAB SOP --- */}
                 {activeTab === 'sop' && (
                     <div>
                         <div className="flex justify-end mb-6">
@@ -175,18 +219,17 @@ const AdminDashboard: React.FC = () => {
                                             <td className="p-5"><span className={`px-3 py-1 rounded-full text-xs font-bold uppercase border ${getCategoryColor(item.category)}`}>{item.category.replace('-', ' ')}</span></td>
                                             <td className="p-5 text-center flex justify-center space-x-2">
                                                 <button onClick={() => handleEditSop(item)} className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition"><Edit className="w-4 h-4" /></button>
-                                                <button onClick={() => handleDeleteSop(item.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
+                                                <button onClick={() => handleDelete("knowledge-base", item.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
-                            {contents.length === 0 && <div className="p-10 text-center text-slate-400">Belum ada data SOP.</div>}
                         </div>
                     </div>
                 )}
 
-                {/* FAQ SECTION */}
+                {/* --- TAB FAQ --- */}
                 {activeTab === 'faq' && (
                     <div>
                         <div className="flex justify-end mb-6">
@@ -195,16 +238,40 @@ const AdminDashboard: React.FC = () => {
                         <div className="grid gap-4">
                             {faqs.map(item => (
                                 <div key={item.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex justify-between items-start">
-                                    <div className="flex-grow pr-4">
-                                        <h3 className="font-bold text-slate-800 text-lg mb-1">Q: {item.question}</h3>
-                                        <p className="text-slate-600">A: {item.answer}</p>
-                                    </div>
+                                    <div className="flex-grow pr-4"><h3 className="font-bold text-slate-800 text-lg mb-1">Q: {item.question}</h3><p className="text-slate-600">A: {item.answer}</p></div>
                                     <div className="flex flex-col space-y-2 flex-shrink-0">
                                         <button onClick={() => handleEditFaq(item)} className="text-amber-600 hover:bg-amber-50 p-2 rounded-lg"><Edit className="w-4 h-4" /></button>
-                                        <button onClick={() => handleDeleteFaq(item.id)} className="text-rose-600 hover:bg-rose-50 p-2 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                                        <button onClick={() => handleDelete("faqs", item.id)} className="text-rose-600 hover:bg-rose-50 p-2 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* --- TAB PANDUAN (BARU) --- */}
+                {activeTab === 'guide' && (
+                    <div>
+                        <div className="flex justify-end mb-6">
+                            {/* Kalau belum ada panduan, tampilkan tombol tambah. Kalau sudah ada, cukup edit aja biar gak duplikat */}
+                            {guides.length === 0 && (
+                                <button onClick={handleAddGuide} className="flex items-center bg-[#0D5C35] text-white px-5 py-2.5 rounded-xl font-bold shadow-lg hover:bg-[#0A492A] transition"><Plus className="w-5 h-5 mr-2" /> Buat Panduan</button>
+                            )}
+                        </div>
+                        <div className="grid gap-4">
+                            {guides.map((item, index) => (
+                                <div key={item.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                                    <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+                                        <h3 className="font-bold text-slate-800">Panduan #{index + 1}</h3>
+                                        <div className="flex space-x-2">
+                                            <button onClick={() => handleEditGuide(item)} className="flex items-center text-amber-600 hover:bg-amber-50 px-3 py-1 rounded-lg text-sm font-bold"><Edit className="w-4 h-4 mr-1" /> Edit</button>
+                                            <button onClick={() => handleDelete("guides", item.id)} className="flex items-center text-rose-600 hover:bg-rose-50 px-3 py-1 rounded-lg text-sm font-bold"><Trash2 className="w-4 h-4 mr-1" /> Hapus</button>
+                                        </div>
+                                    </div>
+                                    <p className="text-slate-500 text-sm line-clamp-3 font-mono bg-slate-50 p-3 rounded">{item.content}</p>
+                                </div>
+                            ))}
+                            {guides.length === 0 && <div className="p-10 text-center text-slate-400 border border-dashed rounded-xl">Belum ada data panduan. Silakan buat baru.</div>}
                         </div>
                     </div>
                 )}
@@ -214,72 +281,65 @@ const AdminDashboard: React.FC = () => {
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl w-full max-w-2xl p-6 overflow-y-auto max-h-[90vh]">
-                        <h3 className="font-bold text-lg mb-4 flex items-center">
-                            {editingId ? <Edit className="w-5 h-5 mr-2 text-amber-600" /> : <Plus className="w-5 h-5 mr-2 text-[#0D5C35]" />}
-                            {editingId ? 'Edit SOP' : 'Tambah SOP Baru'}
-                        </h3>
+                        <h3 className="font-bold text-lg mb-4 flex items-center">{editingId ? 'Edit SOP' : 'Tambah SOP'}</h3>
                         <form onSubmit={handleSaveSop} className="space-y-4">
                             <input type="text" placeholder="Judul" className="w-full p-3 border rounded-lg" required value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
                             <select className="w-full p-3 border rounded-lg" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
                                 <option value="psp">PSP</option><option value="sewa">SEWA</option><option value="penjualan">PENJUALAN</option><option value="penghapusan">PENGHAPUSAN</option><option value="pinjam-pakai">PINJAM PAKAI</option><option value="penggunaan-sementara">PENGGUNAAN SEMENTARA</option><option value="alih-status">ALIH STATUS</option>
                             </select>
                             <input type="text" placeholder="Deskripsi Singkat" className="w-full p-3 border rounded-lg" required value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
-
-                            {/* UPLOAD GAMBAR */}
-                            <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 bg-slate-50">
-                                <label className="block text-sm font-bold text-slate-700 mb-2">Upload Flowchart / Gambar (Opsional)</label>
-                                {!formData.imageBase64 ? (
-                                    <div className="flex flex-col items-center">
-                                        <input type="file" accept="image/*" onChange={handleImageUpload} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100" />
-                                        <p className="text-xs text-slate-400 mt-2">Maksimal 800KB (JPG/PNG)</p>
-                                    </div>
-                                ) : (
-                                    <div className="relative inline-block">
-                                        <img src={formData.imageBase64} alt="Preview" className="max-h-40 rounded-lg border shadow-sm" />
-                                        <button type="button" onClick={handleRemoveImage} className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1 shadow-md hover:bg-rose-600"><X className="w-4 h-4" /></button>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* INPUT PDF */}
-                            <div className="border border-slate-200 rounded-lg p-4 bg-slate-50 mt-4">
-                                <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center"><FileText className="w-4 h-4 mr-2" /> Link Dokumen PDF (Google Drive)</label>
-                                <input type="url" placeholder="https://drive.google.com/file/d/..." className="w-full p-3 border rounded-lg text-sm bg-white focus:ring-[#0D5C35] focus:border-[#0D5C35]" value={formData.pdfUrl} onChange={e => setFormData({ ...formData, pdfUrl: e.target.value })} />
-                                <p className="text-xs text-slate-400 mt-2">Tips: Upload file ke Google Drive, set akses "Anyone with link", lalu copy link-nya ke sini.</p>
-                            </div>
-
-                            {/* EDITOR FORMAT BARU (SUDAH ADA ANGKA 1.2.3) */}
+                            {/* Upload Gambar & PDF (Kode Lama) */}
+                            <input type="file" accept="image/*" onChange={handleImageUpload} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-emerald-50 file:text-emerald-700" />
+                            <input type="url" placeholder="Link Google Drive PDF" className="w-full p-3 border rounded-lg" value={formData.pdfUrl} onChange={e => setFormData({ ...formData, pdfUrl: e.target.value })} />
+                            
+                            {/* Editor SOP */}
                             <div className="space-y-2">
-                                <label className="block text-sm font-bold text-slate-700">Isi Lengkap (Format Guide)</label>
-                                {/* Toolbar */}
-                                <div className="flex flex-wrap gap-2 p-2 bg-slate-100 border border-slate-300 rounded-t-lg">
-                                    <button type="button" onClick={() => insertFormat('h2')} className="px-3 py-1 bg-white border border-slate-300 rounded text-xs font-bold hover:bg-slate-50">H2 (Judul)</button>
-                                    <button type="button" onClick={() => insertFormat('h3')} className="px-3 py-1 bg-white border border-slate-300 rounded text-xs font-bold hover:bg-slate-50">H3 (Sub-Judul)</button>
-                                    <button type="button" onClick={() => insertFormat('bold')} className="px-3 py-1 bg-white border border-slate-300 rounded text-xs font-bold hover:bg-slate-50">B (Tebal)</button>
-                                    <button type="button" onClick={() => insertFormat('list')} className="px-3 py-1 bg-white border border-slate-300 rounded text-xs font-bold hover:bg-slate-50">List (Bulat)</button>
-                                    {/* TOMBOL BARU: ANGKA */}
-                                    <button type="button" onClick={() => insertFormat('number')} className="px-3 py-1 bg-white border border-slate-300 rounded text-xs font-bold hover:bg-slate-50">Angka (1.2.3)</button>
-                                    <button type="button" onClick={() => insertFormat('quote')} className="px-3 py-1 bg-white border border-slate-300 rounded text-xs font-bold hover:bg-slate-50">Quote (Catatan)</button>
+                                <div className="flex flex-wrap gap-2 p-2 bg-slate-100 border rounded-t-lg">
+                                    {['h2', 'h3', 'bold', 'list', 'number', 'quote'].map(tag => (
+                                        <button key={tag} type="button" onClick={() => insertFormat('sop', tag)} className="px-2 py-1 bg-white border rounded text-xs font-bold uppercase">{tag}</button>
+                                    ))}
                                 </div>
-                                <textarea id="content-editor" placeholder="Tulis isi SOP di sini..." rows={10} className="w-full p-4 border border-t-0 border-slate-300 rounded-b-lg focus:ring-[#0D5C35] focus:border-[#0D5C35] font-mono text-sm" required value={formData.content} onChange={e => setFormData({ ...formData, content: e.target.value })}></textarea>
-                                <p className="text-xs text-slate-500">Tips: Gunakan tombol di atas untuk merapikan tulisan.</p>
+                                <textarea id="content-editor" rows={10} className="w-full p-4 border border-t-0 rounded-b-lg font-mono text-sm" required value={formData.content} onChange={e => setFormData({ ...formData, content: e.target.value })}></textarea>
                             </div>
-
-                            <div className="flex justify-end gap-2 mt-4"><button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-500">Batal</button><button type="submit" disabled={isSaving} className="px-4 py-2 bg-[#0D5C35] text-white rounded-lg font-bold flex items-center">{isSaving ? 'Menyimpan...' : (editingId ? 'Update Data' : 'Simpan Data')}</button></div>
+                            <div className="flex justify-end gap-2"><button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-500">Batal</button><button type="submit" disabled={isSaving} className="px-4 py-2 bg-[#0D5C35] text-white rounded-lg font-bold">{isSaving ? 'Menyimpan...' : 'Simpan'}</button></div>
                         </form>
                     </div>
                 </div>
             )}
 
-            {/* MODAL FAQ (Sama Saja) */}
+            {/* MODAL FAQ */}
             {isFaqModalOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl w-full max-w-lg p-6">
-                        <h3 className="font-bold text-lg mb-4 flex items-center">{editingId ? <Edit className="w-5 h-5 mr-2 text-amber-600" /> : <Plus className="w-5 h-5 mr-2 text-[#0D5C35]" />}{editingId ? 'Edit FAQ' : 'Tambah FAQ Baru'}</h3>
+                        <h3 className="font-bold text-lg mb-4">{editingId ? 'Edit FAQ' : 'Tambah FAQ'}</h3>
                         <form onSubmit={handleSaveFaq} className="space-y-4">
-                            <div><label className="block text-sm font-bold text-slate-700 mb-1">Pertanyaan (Q)</label><input type="text" placeholder="Contoh: Cara Reset Password SIMAN?" className="w-full p-3 border rounded-lg" required value={faqForm.question} onChange={e => setFaqForm({ ...faqForm, question: e.target.value })} /></div>
-                            <div><label className="block text-sm font-bold text-slate-700 mb-1">Jawaban (A)</label><textarea placeholder="Tulis jawaban singkat di sini..." rows={3} className="w-full p-3 border rounded-lg" required value={faqForm.answer} onChange={e => setFaqForm({ ...faqForm, answer: e.target.value })}></textarea></div>
-                            <div className="flex justify-end gap-2 mt-4"><button type="button" onClick={() => setIsFaqModalOpen(false)} className="px-4 py-2 text-slate-500">Batal</button><button type="submit" className="px-4 py-2 bg-[#0D5C35] text-white rounded-lg font-bold">{editingId ? 'Update FAQ' : 'Simpan FAQ'}</button></div>
+                            <input type="text" placeholder="Pertanyaan" className="w-full p-3 border rounded-lg" required value={faqForm.question} onChange={e => setFaqForm({ ...faqForm, question: e.target.value })} />
+                            <textarea placeholder="Jawaban" rows={3} className="w-full p-3 border rounded-lg" required value={faqForm.answer} onChange={e => setFaqForm({ ...faqForm, answer: e.target.value })}></textarea>
+                            <div className="flex justify-end gap-2"><button type="button" onClick={() => setIsFaqModalOpen(false)} className="px-4 py-2 text-slate-500">Batal</button><button type="submit" className="px-4 py-2 bg-[#0D5C35] text-white rounded-lg font-bold">Simpan</button></div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL PANDUAN (BARU) */}
+            {isGuideModalOpen && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl w-full max-w-2xl p-6">
+                        <h3 className="font-bold text-lg mb-4">{editingId ? 'Edit Panduan' : 'Buat Panduan Baru'}</h3>
+                        <form onSubmit={handleSaveGuide} className="space-y-4">
+                            <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-800 mb-2 flex items-start"><Quote className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" /> Tulis panduan di sini. Gunakan tombol format untuk merapikan (List/Nomor).</div>
+                            
+                            {/* Editor Guide */}
+                            <div className="space-y-2">
+                                <div className="flex flex-wrap gap-2 p-2 bg-slate-100 border rounded-t-lg">
+                                    {['bold', 'list', 'number'].map(tag => (
+                                        <button key={tag} type="button" onClick={() => insertFormat('guide', tag)} className="px-2 py-1 bg-white border rounded text-xs font-bold uppercase">{tag}</button>
+                                    ))}
+                                </div>
+                                <textarea id="guide-editor" rows={8} className="w-full p-4 border border-t-0 rounded-b-lg font-mono text-sm" required value={guideForm.content} onChange={e => setGuideForm({ ...guideForm, content: e.target.value })} placeholder="Contoh: 1. Pilih Kategori di menu atas..."></textarea>
+                            </div>
+
+                            <div className="flex justify-end gap-2"><button type="button" onClick={() => setIsGuideModalOpen(false)} className="px-4 py-2 text-slate-500">Batal</button><button type="submit" className="px-4 py-2 bg-[#0D5C35] text-white rounded-lg font-bold">Simpan</button></div>
                         </form>
                     </div>
                 </div>
