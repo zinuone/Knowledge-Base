@@ -24,7 +24,7 @@ interface FAQData {
     answer: string;
 }
 
-// Helper Warna Kategori (Sudah Benar)
+// Helper Warna Kategori
 const getCategoryColor = (cat: string) => {
     switch (cat) {
         case 'psp': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
@@ -119,6 +119,29 @@ const AdminDashboard: React.FC = () => {
         } catch (err) { alert("Gagal menyimpan FAQ."); } finally { setIsSaving(false); }
     };
 
+    // --- FUNGSI BANTUAN INSERT FORMAT (SUDAH DIPERBARUI) ---
+    const insertFormat = (tag: string) => {
+        const textarea = document.getElementById('content-editor') as HTMLTextAreaElement;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = formData.content;
+        const before = text.substring(0, start);
+        const after = text.substring(end, text.length);
+
+        let newText = '';
+        if (tag === 'bold') newText = `${before}**Teks Tebal**${after}`;
+        else if (tag === 'list') newText = `${before}\n- Poin 1\n- Poin 2${after}`;
+        else if (tag === 'number') newText = `${before}\n1. Langkah Pertama\n2. Langkah Kedua${after}`; // <--- FITUR ANGKA
+        else if (tag === 'h2') newText = `${before}\n## Sub Judul Besar${after}`;
+        else if (tag === 'h3') newText = `${before}\n### Sub Judul Kecil${after}`;
+        else if (tag === 'quote') newText = `${before}\n> "Catatan Penting"${after}`;
+
+        setFormData({ ...formData, content: newText });
+        setTimeout(() => textarea.focus(), 100);
+    };
+
     return (
         <div className="min-h-screen bg-slate-50 font-sans">
             <nav className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
@@ -149,13 +172,7 @@ const AdminDashboard: React.FC = () => {
                                     {contents.map(item => (
                                         <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                                             <td className="p-5 font-medium">{item.title}</td>
-                                            {/* --- PERBAIKAN DI SINI: LABEL WARNA-WARNI --- */}
-                                            <td className="p-5">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase border ${getCategoryColor(item.category)}`}>
-                                                    {item.category.replace('-', ' ')}
-                                                </span>
-                                            </td>
-                                            {/* --------------------------------------------- */}
+                                            <td className="p-5"><span className={`px-3 py-1 rounded-full text-xs font-bold uppercase border ${getCategoryColor(item.category)}`}>{item.category.replace('-', ' ')}</span></td>
                                             <td className="p-5 text-center flex justify-center space-x-2">
                                                 <button onClick={() => handleEditSop(item)} className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition"><Edit className="w-4 h-4" /></button>
                                                 <button onClick={() => handleDeleteSop(item.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
@@ -169,6 +186,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
                 )}
 
+                {/* FAQ SECTION */}
                 {activeTab === 'faq' && (
                     <div>
                         <div className="flex justify-end mb-6">
@@ -202,11 +220,9 @@ const AdminDashboard: React.FC = () => {
                         </h3>
                         <form onSubmit={handleSaveSop} className="space-y-4">
                             <input type="text" placeholder="Judul" className="w-full p-3 border rounded-lg" required value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
-
                             <select className="w-full p-3 border rounded-lg" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
                                 <option value="psp">PSP</option><option value="sewa">SEWA</option><option value="penjualan">PENJUALAN</option><option value="penghapusan">PENGHAPUSAN</option><option value="pinjam-pakai">PINJAM PAKAI</option><option value="penggunaan-sementara">PENGGUNAAN SEMENTARA</option><option value="alih-status">ALIH STATUS</option>
                             </select>
-
                             <input type="text" placeholder="Deskripsi Singkat" className="w-full p-3 border rounded-lg" required value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
 
                             {/* UPLOAD GAMBAR */}
@@ -226,22 +242,36 @@ const AdminDashboard: React.FC = () => {
                             </div>
 
                             {/* INPUT PDF */}
-                            <div className="mb-4 mt-4">
-                                <label className="block text-sm font-bold text-slate-700 mb-1">Link File PDF / Dokumen (Opsional)</label>
-                                <div className="relative">
-                                    <LinkIcon className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" />
-                                    <input type="url" placeholder="https://drive.google.com/..." className="w-full p-3 pl-10 border rounded-lg text-sm bg-slate-50 focus:ring-[#0D5C35] focus:border-[#0D5C35]" value={formData.pdfUrl} onChange={e => setFormData({ ...formData, pdfUrl: e.target.value })} />
-                                </div>
+                            <div className="border border-slate-200 rounded-lg p-4 bg-slate-50 mt-4">
+                                <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center"><FileText className="w-4 h-4 mr-2" /> Link Dokumen PDF (Google Drive)</label>
+                                <input type="url" placeholder="https://drive.google.com/file/d/..." className="w-full p-3 border rounded-lg text-sm bg-white focus:ring-[#0D5C35] focus:border-[#0D5C35]" value={formData.pdfUrl} onChange={e => setFormData({ ...formData, pdfUrl: e.target.value })} />
+                                <p className="text-xs text-slate-400 mt-2">Tips: Upload file ke Google Drive, set akses "Anyone with link", lalu copy link-nya ke sini.</p>
                             </div>
 
-                            <textarea placeholder="Isi Lengkap" rows={5} className="w-full p-3 border rounded-lg" required value={formData.content} onChange={e => setFormData({ ...formData, content: e.target.value })}></textarea>
-                            <div className="flex justify-end gap-2 mt-4"><button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-500">Batal</button><button type="submit" disabled={isSaving} className="px-4 py-2 bg-[#0D5C35] text-white rounded-lg font-bold">{isSaving ? 'Menyimpan...' : (editingId ? 'Update Data' : 'Simpan Data')}</button></div>
+                            {/* EDITOR FORMAT BARU (SUDAH ADA ANGKA 1.2.3) */}
+                            <div className="space-y-2">
+                                <label className="block text-sm font-bold text-slate-700">Isi Lengkap (Format Guide)</label>
+                                {/* Toolbar */}
+                                <div className="flex flex-wrap gap-2 p-2 bg-slate-100 border border-slate-300 rounded-t-lg">
+                                    <button type="button" onClick={() => insertFormat('h2')} className="px-3 py-1 bg-white border border-slate-300 rounded text-xs font-bold hover:bg-slate-50">H2 (Judul)</button>
+                                    <button type="button" onClick={() => insertFormat('h3')} className="px-3 py-1 bg-white border border-slate-300 rounded text-xs font-bold hover:bg-slate-50">H3 (Sub-Judul)</button>
+                                    <button type="button" onClick={() => insertFormat('bold')} className="px-3 py-1 bg-white border border-slate-300 rounded text-xs font-bold hover:bg-slate-50">B (Tebal)</button>
+                                    <button type="button" onClick={() => insertFormat('list')} className="px-3 py-1 bg-white border border-slate-300 rounded text-xs font-bold hover:bg-slate-50">List (Bulat)</button>
+                                    {/* TOMBOL BARU: ANGKA */}
+                                    <button type="button" onClick={() => insertFormat('number')} className="px-3 py-1 bg-white border border-slate-300 rounded text-xs font-bold hover:bg-slate-50">Angka (1.2.3)</button>
+                                    <button type="button" onClick={() => insertFormat('quote')} className="px-3 py-1 bg-white border border-slate-300 rounded text-xs font-bold hover:bg-slate-50">Quote (Catatan)</button>
+                                </div>
+                                <textarea id="content-editor" placeholder="Tulis isi SOP di sini..." rows={10} className="w-full p-4 border border-t-0 border-slate-300 rounded-b-lg focus:ring-[#0D5C35] focus:border-[#0D5C35] font-mono text-sm" required value={formData.content} onChange={e => setFormData({ ...formData, content: e.target.value })}></textarea>
+                                <p className="text-xs text-slate-500">Tips: Gunakan tombol di atas untuk merapikan tulisan.</p>
+                            </div>
+
+                            <div className="flex justify-end gap-2 mt-4"><button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-500">Batal</button><button type="submit" disabled={isSaving} className="px-4 py-2 bg-[#0D5C35] text-white rounded-lg font-bold flex items-center">{isSaving ? 'Menyimpan...' : (editingId ? 'Update Data' : 'Simpan Data')}</button></div>
                         </form>
                     </div>
                 </div>
             )}
 
-            {/* MODAL FAQ */}
+            {/* MODAL FAQ (Sama Saja) */}
             {isFaqModalOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl w-full max-w-lg p-6">
