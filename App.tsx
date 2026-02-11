@@ -5,7 +5,8 @@ import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from './src/firebase';
 import {
   Search, FileText, Hammer, Key, Trash2, Clock, RefreshCw,
-  Info, Phone, BookOpen, Mail, ArrowUp, Timer, HelpCircle, LogIn // Tambah LogIn icon
+  Info, Phone, BookOpen, Mail, ArrowUp, Timer, HelpCircle, LogIn,
+  Menu, X // IMPORT ICON BARU (Menu & X)
 } from 'lucide-react';
 import KnowledgeCard from './src/components/KnowledgeCard';
 import FAQItem from './src/components/FAQItem';
@@ -28,6 +29,7 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [documents, setDocuments] = useState<ContentData[]>([]);
   const [faqs, setFaqs] = useState<FAQData[]>([]);
+  const [isMenuOpen, setIsMenuOpen] = useState(false); // STATE UNTUK MENU MOBILE
   const navigate = useNavigate();
 
   // 1. DATA MENU UTAMA (7 Kategori)
@@ -66,9 +68,12 @@ const App: React.FC = () => {
   // Navigasi
   const handleCategoryClick = (id: string) => navigate(`/category/${id}`);
   const handleDocClick = (id: string) => navigate(`/detail/${id}`);
+
+  // Fungsi Scroll (Diupdate biar nutup menu pas diklik)
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) element.scrollIntoView({ behavior: 'smooth' });
+    setIsMenuOpen(false); // Tutup menu setelah klik (untuk mobile)
   };
 
   // --- BAGIAN-BAGIAN HALAMAN ---
@@ -154,38 +159,59 @@ const App: React.FC = () => {
     <div className="min-h-screen flex flex-col font-sans relative" id="top">
       {/* HEADER */}
       <header className="relative bg-gradient-to-br from-[#0D5C35] via-[#0A492A] to-[#083D23] text-white pb-32 pt-16 px-4">
-        <nav className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center max-w-7xl mx-auto z-50">
-          
-          {/* LOGO & JUDUL (SUDAH DIPERBAIKI) */}
-          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => scrollToSection('top')}>
-            <div className="bg-white p-1.5 rounded-lg shadow-md">
-              {/* Ini akan mengambil gambar 'logo.png' dari folder 'public' */}
-              <img src="/logo.png" alt="Logo KPKNL" className="w-8 h-8 object-contain" onError={(e) => {e.currentTarget.src = 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Coat_of_arms_of_Indonesia.svg/1200px-Coat_of_arms_of_Indonesia.svg.png'}} /> 
+        <nav className="absolute top-0 left-0 right-0 p-6 max-w-7xl mx-auto z-50">
+          <div className="flex justify-between items-center">
+
+            {/* LOGO */}
+            <div className="flex items-center space-x-3 cursor-pointer" onClick={() => scrollToSection('top')}>
+              <div className="bg-white p-1.5 rounded-lg shadow-md">
+                <img src="/logo.png" alt="Logo KPKNL" className="w-8 h-8 object-contain" onError={(e) => { e.currentTarget.src = 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Coat_of_arms_of_Indonesia.svg/1200px-Coat_of_arms_of_Indonesia.svg.png' }} />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold text-lg leading-none hidden sm:inline tracking-tight">KPKNL KENDARI</span>
+                <span className="text-[10px] uppercase opacity-80 hidden sm:inline tracking-widest text-[#D4AF37]">Divisi PKN</span>
+              </div>
             </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-lg leading-none hidden sm:inline tracking-tight">KPKNL KENDARI</span>
-              <span className="text-[10px] uppercase opacity-80 hidden sm:inline tracking-widest text-[#D4AF37]">Divisi PKN</span>
+
+            {/* DESKTOP MENU (Hidden di HP) */}
+            <div className="hidden md:flex items-center space-x-6">
+              <div className="flex space-x-6 text-sm font-semibold uppercase tracking-wider">
+                <button onClick={() => scrollToSection('top')} className="hover:text-[#D4AF37] transition-colors text-white">Beranda</button>
+                <button onClick={() => scrollToSection('faq')} className="hover:text-[#D4AF37] transition-colors text-white">FAQ</button>
+                <button onClick={() => scrollToSection('panduan')} className="hover:text-[#D4AF37] transition-colors text-white">Panduan</button>
+                <button onClick={() => scrollToSection('kontak')} className="hover:text-[#D4AF37] transition-colors text-white">Kontak</button>
+              </div>
+              <button onClick={() => navigate('/login')} className="flex items-center px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold border border-white/20 transition-all">
+                <LogIn className="w-3 h-3 mr-1.5" /> ADMIN
+              </button>
+            </div>
+
+            {/* MOBILE HAMBURGER BUTTON (Visible di HP) */}
+            <div className="md:hidden flex items-center gap-3">
+              <button
+                onClick={() => navigate('/login')}
+                className="flex items-center px-3 py-1.5 bg-white/10 rounded-full text-[10px] font-bold border border-white/20"
+              >
+                ADMIN
+              </button>
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="text-white p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center space-x-6">
-            <div className="hidden md:flex space-x-6 text-sm font-semibold uppercase tracking-wider">
-              <button onClick={() => scrollToSection('top')} className="hover:text-[#D4AF37] transition-colors text-white">Beranda</button>
-              <button onClick={() => scrollToSection('faq')} className="hover:text-[#D4AF37] transition-colors text-white">FAQ</button>
-              <button onClick={() => scrollToSection('panduan')} className="hover:text-[#D4AF37] transition-colors text-white">Panduan</button>
-              <button onClick={() => scrollToSection('kontak')} className="hover:text-[#D4AF37] transition-colors text-white">Kontak</button>
+          {/* MOBILE MENU DROPDOWN (Animasi Buka Tutup) */}
+          {isMenuOpen && (
+            <div className="md:hidden absolute top-full left-0 right-0 mt-4 mx-4 bg-[#0A492A] rounded-2xl shadow-2xl border border-white/10 p-4 flex flex-col space-y-2 animate-in slide-in-from-top-5 duration-200">
+              <button onClick={() => scrollToSection('top')} className="text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white font-semibold flex items-center"><FileText className="w-4 h-4 mr-3 opacity-70" /> Beranda</button>
+              <button onClick={() => scrollToSection('faq')} className="text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white font-semibold flex items-center"><HelpCircle className="w-4 h-4 mr-3 opacity-70" /> FAQ</button>
+              <button onClick={() => scrollToSection('panduan')} className="text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white font-semibold flex items-center"><BookOpen className="w-4 h-4 mr-3 opacity-70" /> Panduan</button>
+              <button onClick={() => scrollToSection('kontak')} className="text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white font-semibold flex items-center"><Phone className="w-4 h-4 mr-3 opacity-70" /> Kontak</button>
             </div>
-            
-            {/* TOMBOL LOGIN KHUSUS (BARU) */}
-            <button 
-              onClick={() => navigate('/login')} 
-              className="flex items-center px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold border border-white/20 transition-all"
-              title="Login Admin"
-            >
-              <LogIn className="w-3 h-3 mr-1.5" />
-              ADMIN
-            </button>
-          </div>
+          )}
         </nav>
 
         {/* HERO */}
@@ -227,4 +253,4 @@ const App: React.FC = () => {
   );
 };
 
-export default App; 
+export default App;
