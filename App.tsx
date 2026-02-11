@@ -86,7 +86,8 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {searchResults.length > 0 ? (
                 searchResults.map((doc) => (
-                  <div key={doc.id} onClick={() => handleDocClick(doc.id)} className="cursor-pointer transition-transform hover:scale-105">
+                  // UPDATE 1: Tambah 'h-full' agar kartu mengisi tinggi grid
+                  <div key={doc.id} onClick={() => handleDocClick(doc.id)} className="cursor-pointer transition-transform hover:scale-105 h-full">
                     <KnowledgeCard title={doc.title} description={doc.description} icon={<FileText className="w-8 h-8" />} colorClass="bg-slate-100 text-slate-700" />
                   </div>
                 ))
@@ -98,7 +99,8 @@ const App: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {categories.map((cat) => (
-              <div key={cat.id} onClick={() => handleCategoryClick(cat.id)} className="cursor-pointer transition-transform hover:scale-105 active:scale-95">
+              // UPDATE 2: Tambah 'h-full' di sini juga
+              <div key={cat.id} onClick={() => handleCategoryClick(cat.id)} className="cursor-pointer transition-transform hover:scale-105 active:scale-95 h-full">
                 <KnowledgeCard title={cat.title} description={cat.description} icon={cat.icon} colorClass={cat.color} />
               </div>
             ))}
