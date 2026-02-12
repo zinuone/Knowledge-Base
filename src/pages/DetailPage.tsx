@@ -33,22 +33,20 @@ const DetailPage: React.FC = () => {
 
   // State Utama
   const [data, setData] = useState<ContentData | null>(null);
-  const [relatedDocs, setRelatedDocs] = useState<ContentData[]>([]); // Data Rekomendasi
+  const [relatedDocs, setRelatedDocs] = useState<ContentData[]>([]);
 
   // State UI
   const [loading, setLoading] = useState(true);
   const [hasVoted, setHasVoted] = useState(false);
-  const [isCopied, setIsCopied] = useState(false); // Untuk notif copy link
+  const [isCopied, setIsCopied] = useState(false);
 
-  // 1. Fetch Data Utama & Related Content
   useEffect(() => {
     const fetchData = async () => {
       if (!id) return;
-      setLoading(true); // Reset loading saat ganti halaman (klik related)
-      window.scrollTo(0, 0); // Scroll ke atas saat pindah halaman
+      setLoading(true);
+      window.scrollTo(0, 0);
 
       try {
-        // A. Ambil Dokumen Utama
         const docRef = doc(db, "knowledge-base", id);
         const docSnap = await getDoc(docRef);
 
@@ -56,25 +54,23 @@ const DetailPage: React.FC = () => {
           const mainData = { id: docSnap.id, ...docSnap.data() } as ContentData;
           setData(mainData);
 
-          // Logic View Counter (Anti Spam Sesi)
           const sessionKey = `viewed_${id}`;
           if (!sessionStorage.getItem(sessionKey)) {
             await updateDoc(docRef, { views: increment(1) });
             sessionStorage.setItem(sessionKey, 'true');
           }
 
-          // B. Ambil Related Content (Kategori Sama, Kecuali Diri Sendiri)
           const relatedQuery = query(
             collection(db, "knowledge-base"),
             where("category", "==", mainData.category),
-            limit(4) // Ambil 4, nanti kita filter dokumen yg sedang dibuka
+            limit(4)
           );
 
           const relatedSnap = await getDocs(relatedQuery);
           const relatedList = relatedSnap.docs
             .map(d => ({ id: d.id, ...d.data() } as ContentData))
-            .filter(item => item.id !== id) // Hapus dokumen yg sedang dibuka
-            .slice(0, 3); // Ambil maksimal 3
+            .filter(item => item.id !== id)
+            .slice(0, 3);
 
           setRelatedDocs(relatedList);
         }
@@ -84,7 +80,6 @@ const DetailPage: React.FC = () => {
     fetchData();
   }, [id]);
 
-  // 2. Fungsi Voting
   const handleVote = async (type: 'like' | 'dislike') => {
     if (!id || hasVoted) return;
     try {
@@ -97,14 +92,12 @@ const DetailPage: React.FC = () => {
     } catch (error) { console.error("Gagal voting:", error); }
   };
 
-  // 3. Fungsi Share (Copy Link)
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  // Helper Warna Kategori
   const getCategoryStyle = (cat: string) => {
     switch (cat) {
       case 'psp': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
@@ -126,8 +119,6 @@ const DetailPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAF9] pb-20 font-sans">
-
-      {/* HEADER (NAVBAR) */}
       <header className="bg-gradient-to-r from-[#0D5C35] to-[#0A492A] text-white p-6 shadow-lg sticky top-0 z-50">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center">
@@ -141,8 +132,6 @@ const DetailPage: React.FC = () => {
             </button>
             <h1 className="text-lg md:text-xl font-bold truncate">Knowledge Base</h1>
           </div>
-
-          {/* SHARE BUTTON */}
           <button
             onClick={handleShare}
             aria-label="Bagikan Halaman Ini"
@@ -156,8 +145,6 @@ const DetailPage: React.FC = () => {
       </header>
 
       <main className="max-w-4xl mx-auto mt-8 px-4">
-
-        {/* BREADCRUMBS (NEW FEATURE) */}
         <nav aria-label="Breadcrumb" className="flex items-center text-xs md:text-sm text-slate-500 mb-6 space-x-2 overflow-x-auto whitespace-nowrap pb-2">
           <button onClick={() => navigate('/')} className="hover:text-[#0D5C35] flex items-center transition-colors" aria-label="Ke Beranda">
             <Home className="w-3 h-3 mr-1" /> Beranda
@@ -170,15 +157,11 @@ const DetailPage: React.FC = () => {
           <span className="text-slate-800 font-medium truncate max-w-[150px] md:max-w-xs">{data.title}</span>
         </nav>
 
-        {/* KARTU UTAMA */}
         <div className="bg-white rounded-3xl shadow-md border border-slate-100 overflow-hidden animate-in fade-in duration-500">
-
-          {/* HEADER KARTU */}
           <div className="relative p-8 md:p-12 border-b border-slate-100 overflow-hidden bg-gradient-to-br from-white via-slate-50 to-emerald-50/30">
             <div className="absolute -right-6 -top-6 opacity-5 pointer-events-none">
               <FileText className="w-64 h-64 text-[#0D5C35]" />
             </div>
-
             <div className="relative z-10">
               <div className="flex flex-wrap items-center gap-3 mb-6">
                 <span className={`inline-flex items-center px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border shadow-sm ${categoryStyle}`}>
@@ -194,11 +177,9 @@ const DetailPage: React.FC = () => {
                   {data.views || 0} Views
                 </span>
               </div>
-
               <h1 className="text-3xl md:text-5xl font-black text-slate-800 mb-4 leading-tight tracking-tight">
                 {data.title}
               </h1>
-
               <p className="text-lg text-slate-500 font-medium max-w-2xl leading-relaxed">
                 {data.description}
               </p>
@@ -206,8 +187,7 @@ const DetailPage: React.FC = () => {
           </div>
 
           <div className="p-8 md:p-10">
-
-            {/* KONTEN UTAMA */}
+            {/* FIX: Hapus prop components={{li:...}} karena sudah ditangani prose */}
             <div className="prose prose-slate max-w-none mb-12
               prose-headings:scroll-mt-20
               prose-h2:text-2xl prose-h2:font-extrabold prose-h2:text-slate-800 prose-h2:mt-10 prose-h2:mb-6 prose-h2:pb-4 prose-h2:border-b-2 prose-h2:border-slate-100
@@ -216,12 +196,11 @@ const DetailPage: React.FC = () => {
               prose-li:marker:text-[#D4AF37] prose-li:marker:font-extrabold
               prose-strong:text-slate-900 prose-strong:font-bold prose-strong:bg-slate-100 prose-strong:px-1 prose-strong:rounded-md
               ">
-              <ReactMarkdown components={{ li: ({ node, ...props }) => <li className="pl-2" {...props} /> }}>
+              <ReactMarkdown>
                 {data.content}
               </ReactMarkdown>
             </div>
 
-            {/* FEEDBACK SECTION */}
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 mb-10 flex flex-col md:flex-row items-center justify-between">
               <div>
                 <h4 className="font-bold text-slate-800">Apakah informasi ini membantu?</h4>
@@ -249,7 +228,6 @@ const DetailPage: React.FC = () => {
               </div>
             </div>
 
-            {/* LAMPIRAN GAMBAR */}
             {data.imageBase64 && (
               <div className="mb-10 mt-8">
                 <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
@@ -265,7 +243,6 @@ const DetailPage: React.FC = () => {
               </div>
             )}
 
-            {/* TOMBOL PDF */}
             {data.pdfUrl && (
               <div className="mt-12 pt-8 border-t border-slate-100">
                 <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
@@ -289,11 +266,9 @@ const DetailPage: React.FC = () => {
                 </a>
               </div>
             )}
-
           </div>
         </div>
 
-        {/* RELATED CONTENT SECTION (NEW FEATURE) */}
         {relatedDocs.length > 0 && (
           <div className="mt-16 mb-10">
             <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center">
@@ -321,7 +296,6 @@ const DetailPage: React.FC = () => {
             </div>
           </div>
         )}
-
       </main>
     </div>
   );
