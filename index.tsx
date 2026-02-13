@@ -34,7 +34,6 @@ root.render(
 
         <Route path="/category/:categoryId" element={<CategoryPage />} />
 
-        {/* --- INI YANG TADINYA HILANG --- */}
         {/* Halaman Admin (Dilindungi Satpam/ProtectedRoute) */}
         <Route
           path="/admin"

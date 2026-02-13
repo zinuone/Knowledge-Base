@@ -11,6 +11,8 @@ import {
 import ReactMarkdown from 'react-markdown';
 import KnowledgeCard from './src/components/KnowledgeCard';
 import FAQItem from './src/components/FAQItem';
+// IMPORT BARU: Skeleton Loader
+import { SkeletonCard, SkeletonRow } from './src/components/SkeletonLoader';
 
 // Tipe Data
 interface ContentData {
@@ -40,8 +42,9 @@ const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
-  // STATE ANIMASI LOADING (Untuk Efek Entrance)
-  const [isLoaded, setIsLoaded] = useState(false);
+  // STATE LOADING
+  const [isLoaded, setIsLoaded] = useState(false); // Untuk animasi entrance header
+  const [isLoadingData, setIsLoadingData] = useState(true); // Untuk data Firebase
 
   // STATE TABEL
   const [currentPage, setCurrentPage] = useState(1);
@@ -62,13 +65,21 @@ const App: React.FC = () => {
 
   // 2. FETCH DATA & ANIMASI TRIGGER
   useEffect(() => {
-    // Trigger Animasi Masuk setelah komponen di-mount
     setTimeout(() => setIsLoaded(true), 100);
 
+    // Set loading true di awal
+    setIsLoadingData(true);
+
     const qSop = query(collection(db, "knowledge-base"), orderBy("updatedAt", "desc"));
-    const unsubSop = onSnapshot(qSop, (snap) => setDocuments(snap.docs.map(d => ({ id: d.id, ...d.data() })) as ContentData[]));
+    const unsubSop = onSnapshot(qSop, (snap) => {
+      setDocuments(snap.docs.map(d => ({ id: d.id, ...d.data() })) as ContentData[]);
+      // Matikan loading setelah data pertama (SOP) masuk
+      setIsLoadingData(false);
+    });
+
     const qFaq = query(collection(db, "faqs"), orderBy("createdAt", "desc"));
     const unsubFaq = onSnapshot(qFaq, (snap) => setFaqs(snap.docs.map(d => ({ id: d.id, ...d.data() })) as FAQData[]));
+
     const qGuide = query(collection(db, "guides"), orderBy("updatedAt", "desc"));
     const unsubGuide = onSnapshot(qGuide, (snap) => setGuides(snap.docs.map(d => ({ id: d.id, ...d.data() })) as GuideData[]));
 
@@ -128,10 +139,7 @@ const App: React.FC = () => {
       {/* 1. SECTION GRID KATEGORI */}
       <section className={`transition-all duration-1000 delay-300 ease-out transform ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
         <div className="flex items-center space-x-3 mb-8 px-2 pl-4 border-l-4 border-[#D4AF37]">
-          {/* Ikon: Warna Emas biar mewah & kontras di hijau */}
           <Grid className="w-6 h-6 text-[#D4AF37]" />
-
-          {/* Teks: Warna PUTIH (Wajib) karena backgroundnya Hijau */}
           <h3 className="font-black text-white text-xl uppercase tracking-widest drop-shadow-sm">
             Kategori Layanan
           </h3>
@@ -152,18 +160,27 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* GRID KATEGORI */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {categories.map((cat, index) => (
-            <div
-              key={cat.id}
-              onClick={() => handleCategoryClick(cat.id)}
-              className="cursor-pointer transition-transform hover:scale-105 active:scale-95 h-full"
-              // Animasi Staggered: Muncul berurutan (delay bertingkat)
-              style={{ animationDelay: `${index * 100}ms` }}
-            >
-              <KnowledgeCard title={cat.title} description={cat.description} icon={cat.icon} colorClass={cat.color} />
-            </div>
-          ))}
+          {/* LOGIK SKELETON: Kalau belum load animasi entrance (awal banget), tampilkan Skeleton */}
+          {!isLoaded ? (
+            // Tampilkan 6 Skeleton Cards saat loading awal
+            Array.from({ length: 6 }).map((_, idx) => (
+              <SkeletonCard key={idx} />
+            ))
+          ) : (
+            // Tampilkan Data Asli setelah animasi siap
+            categories.map((cat, index) => (
+              <div
+                key={cat.id}
+                onClick={() => handleCategoryClick(cat.id)}
+                className="cursor-pointer transition-transform hover:scale-105 active:scale-95 h-full [animation-delay:var(--delay)]"
+                style={{ '--delay': `${index * 100}ms` } as React.CSSProperties}
+              >
+                <KnowledgeCard title={cat.title} description={cat.description} icon={cat.icon} colorClass={cat.color} />
+              </div>
+            ))
+          )}
         </div>
       </section>
 
@@ -209,7 +226,13 @@ const App: React.FC = () => {
               <tr><th className="px-6 py-4 w-16 text-center">#</th><th className="px-6 py-4">Judul Dokumen / Informasi</th><th className="px-6 py-4 w-40 text-center">Aksi</th></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {currentTableDocs.length > 0 ? (
+              {/* LOGIK SKELETON TABEL */}
+              {isLoadingData ? (
+                // Tampilkan 5 Baris Skeleton saat data Firebase loading
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <SkeletonRow key={idx} />
+                ))
+              ) : currentTableDocs.length > 0 ? (
                 currentTableDocs.map((doc, index) => (
                   <tr key={doc.id} className="hover:bg-slate-50 transition-all duration-200 hover:scale-[1.01] hover:shadow-sm cursor-default group bg-white">
                     <td className="px-6 py-4 text-center text-slate-400 font-medium">{indexOfFirstItem + index + 1}</td>
