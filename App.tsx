@@ -10,7 +10,6 @@ import {
   Instagram, Globe, Facebook, Filter,
   Youtube,
   Scale,
-  Scale3D
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import KnowledgeCard from './src/components/KnowledgeCard';
@@ -25,10 +24,9 @@ const FadeInSection: React.FC<{ children: React.ReactNode, delay?: string }> = (
   useEffect(() => {
     const observer = new IntersectionObserver(entries => {
       entries.forEach(entry => {
-        // Jika elemen muncul di layar (viewport), set isVisible true
         if (entry.isIntersecting) setIsVisible(true);
       });
-    }, { threshold: 0.1 }); // Muncul saat 10% elemen terlihat
+    }, { threshold: 0.1 }); 
 
     const currentRef = domRef.current;
     if (currentRef) observer.observe(currentRef);
@@ -112,11 +110,17 @@ const App: React.FC = () => {
     const qGuide = query(collection(db, "guides"), orderBy("updatedAt", "desc"));
     const unsubGuide = onSnapshot(qGuide, (snap) => setGuides(snap.docs.map(d => ({ id: d.id, ...d.data() })) as GuideData[]));
 
-    const handleScroll = () => setIsScrolled(window.scrollY > 50);
+    // PERBAIKAN 1: Tambahkan logika auto-close menu saat scroll
+    const handleScroll = () => {
+        setIsScrolled(window.scrollY > 50);
+        if (window.scrollY > 50 && isMenuOpen) {
+            setIsMenuOpen(false); // Tutup menu jika user scroll
+        }
+    };
     window.addEventListener('scroll', handleScroll);
 
     return () => { unsubSop(); unsubFaq(); unsubGuide(); window.removeEventListener('scroll', handleScroll); };
-  }, []);
+  }, [isMenuOpen]); // Tambahkan isMenuOpen ke dependency
 
   // LOGIC FILTER
   const searchResults = useMemo(() => {
@@ -136,13 +140,11 @@ const App: React.FC = () => {
     });
   }, [searchQuery, selectedCategoryFilter, documents]);
 
-  // Pagination Logic
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentTableDocs = filteredTableDocs.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredTableDocs.length / itemsPerPage);
 
-  // Actions
   const handleCategoryClick = (id: string) => navigate(`/category/${id}`);
   const handleDocClick = (id: string) => navigate(`/detail/${id}`);
   const scrollToSection = (id: string) => {
@@ -174,14 +176,11 @@ const App: React.FC = () => {
   // COMPONENTS
   const SectionHome = () => (
     <div className="space-y-4">
-      {/* 1. SECTION GRID KATEGORI */}
       <section className={`transition-all duration-1000 delay-300 ease-out transform ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
         <div className="flex items-center space-x-3 mb-8 px-2 pl-4 border-l-4 border-[#D4AF37]">
           <Grid className="w-6 h-6 text-[#D4AF37]" />
           <h3 className="font-black text-white text-xl uppercase tracking-widest drop-shadow-sm">Kategori Layanan</h3>
         </div>
-
-        {/* HASIL PENCARIAN (GRID) */}
         {searchQuery && searchResults.length > 0 && (
           <div className="mb-8 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl animate-in fade-in zoom-in duration-300">
             <p className="text-emerald-800 text-sm font-bold mb-4">Hasil Pencarian Cepat:</p>
@@ -195,8 +194,6 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
-
-        {/* GRID KATEGORI */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {!isLoaded ? Array.from({ length: 6 }).map((_, idx) => <SkeletonCard key={idx} />) :
             categories.map((cat, index) => (
@@ -208,7 +205,6 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      {/* 2. PEMISAH (DIBUNGKUS ANIMASI) */}
       <FadeInSection delay="delay-100">
         <div className="relative flex items-center py-16">
           <div className="flex-grow border-t-2 border-slate-100"></div>
@@ -217,7 +213,6 @@ const App: React.FC = () => {
         </div>
       </FadeInSection>
 
-      {/* 3. TABEL DATA LENGKAP (DIBUNGKUS ANIMASI) */}
       <FadeInSection delay="delay-200">
         <section id="document-table-section" className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50/50 backdrop-blur-sm">
@@ -225,7 +220,6 @@ const App: React.FC = () => {
               <List className="w-5 h-5 text-[#0D5C35]" />
               <h3 className="font-bold text-slate-800 text-lg">Daftar Seluruh Dokumen</h3>
             </div>
-
             <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4 text-sm w-full md:w-auto">
               <div className="flex items-center text-slate-600 bg-white border border-slate-300 rounded-lg px-2 py-1">
                 <Filter className="w-4 h-4 mr-2 text-slate-400" />
@@ -238,7 +232,6 @@ const App: React.FC = () => {
                   {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.title}</option>)}
                 </select>
               </div>
-
               <div className="flex items-center text-slate-600">
                 <span className="mr-2">Tampil</span>
                 <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-slate-300 rounded-lg px-2 py-1 bg-white focus:ring-2 focus:ring-[#0D5C35] outline-none cursor-pointer">
@@ -248,7 +241,6 @@ const App: React.FC = () => {
               </div>
             </div>
           </div>
-
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider border-b border-slate-200">
@@ -264,18 +256,14 @@ const App: React.FC = () => {
                           <div className="flex items-center space-x-2 mb-1">
                             <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500 border border-slate-200 group-hover:bg-[#0D5C35] group-hover:text-white transition-colors">{doc.category.replace('-', ' ')}</span>
                             {isNewDocument(doc.updatedAt) && (
-                              <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-600 border border-amber-200 animate-pulse">
-                                Baru
-                              </span>
+                              <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-600 border border-amber-200 animate-pulse">Baru</span>
                             )}
                           </div>
                           <h4 className="text-slate-900 font-bold text-base mb-1 group-hover:text-[#0D5C35] transition-colors">{doc.title}</h4>
                           <p className="text-slate-400 text-xs flex items-center">Update: {formatDate(doc.updatedAt)}</p>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <button onClick={() => handleDocClick(doc.id)} className="inline-flex items-center px-4 py-2 bg-[#00A3C8] text-white rounded-lg font-bold shadow-md shadow-cyan-100 hover:bg-[#008CAE] hover:shadow-lg hover:-translate-y-0.5 transition-all text-xs">
-                            <Eye className="w-3 h-3 mr-1.5" /> Lihat
-                          </button>
+                          <button onClick={() => handleDocClick(doc.id)} className="inline-flex items-center px-4 py-2 bg-[#00A3C8] text-white rounded-lg font-bold shadow-md shadow-cyan-100 hover:bg-[#008CAE] hover:shadow-lg hover:-translate-y-0.5 transition-all text-xs"><Eye className="w-3 h-3 mr-1.5" /> Lihat</button>
                         </td>
                       </tr>
                     ))
@@ -285,7 +273,6 @@ const App: React.FC = () => {
               </tbody>
             </table>
           </div>
-
           <div className="p-4 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-slate-500">
             <div>Menampilkan {currentTableDocs.length > 0 ? indexOfFirstItem + 1 : 0} sampai {Math.min(indexOfLastItem, filteredTableDocs.length)} dari {filteredTableDocs.length} data</div>
             <div className="flex items-center space-x-2">
@@ -325,25 +312,19 @@ const App: React.FC = () => {
       <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out ${isScrolled ? 'bg-[#0A492A]/90 backdrop-blur-md shadow-lg py-3' : 'bg-transparent py-6'}`}>
         <nav className="max-w-7xl mx-auto px-6">
           <div className="flex justify-between items-center">
-
-            {/* === HEADER BARU: DUAL LOGO KEMENKEU & KPKNL === */}
+            
+            {/* PERBAIKAN 2: Logo KPKNL Muncul di Mobile (Dihapus class hidden) */}
             <div className="flex items-center cursor-pointer" onClick={() => scrollToSection('top')}>
-
               {/* 1. Logo Kemenkeu (Kiri) */}
               <div className="bg-white p-1.5 rounded-lg shadow-md hover:scale-105 transition-transform flex-shrink-0">
-                <img
-                  src="/logo_kemenkeu.png"
-                  alt="Logo Kemenkeu"
-                  className="w-8 h-8 object-contain"
-                  onError={(e) => { e.currentTarget.style.display = 'none' }}
-                />
+                <img src="/logo_kemenkeu.png" alt="Logo Kemenkeu" className="w-8 h-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none' }} />
               </div>
 
-              {/* Garis Pemisah (Divider) */}
+              {/* Garis Pemisah (Divider - Tetap Hidden di Mobile agar rapi) */}
               <div className="h-8 w-px bg-white/20 mx-3 hidden sm:block"></div>
 
-              {/* 2. Logo KPKNL (Kanan) */}
-              <div className="bg-white p-1.5 rounded-lg shadow-md hover:scale-105 transition-transform hidden sm:block flex-shrink-0">
+              {/* 2. Logo KPKNL (Kanan - SEKARANG MUNCUL DI MOBILE) */}
+              <div className="bg-white p-1.5 rounded-lg shadow-md hover:scale-105 transition-transform flex-shrink-0 ml-2 sm:ml-0">
                 <img src="/logo.png" alt="Logo KPKNL" className="w-8 h-8 object-contain" />
               </div>
 
@@ -361,17 +342,14 @@ const App: React.FC = () => {
               <div className="flex space-x-6 text-sm font-semibold uppercase tracking-wider">{['Beranda', 'FAQ', 'Panduan', 'Kontak'].map(item => (<button key={item} onClick={() => scrollToSection(item.toLowerCase())} aria-label={`Ke Bagian ${item}`} className="text-white hover:text-[#D4AF37] transition-colors">{item}</button>))}</div>
               <button onClick={() => navigate('/login')} aria-label="Login Admin" className="flex items-center px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold text-white border border-white/20 transition-all"><LogIn className="w-3 h-3 mr-1.5" /> Admin</button>
             </div>
-
             {/* Menu Mobile Toggle */}
             <div className="md:hidden flex items-center gap-3"><button onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Buka Menu" className="text-white p-2 hover:bg-white/10 rounded-lg">{isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}</button></div>
           </div>
-
           {/* Mobile Menu Dropdown */}
           {isMenuOpen && (<div className="md:hidden absolute top-full left-0 right-0 mt-4 mx-4 bg-[#0A492A] rounded-2xl shadow-2xl border border-white/10 p-4 flex flex-col space-y-2 animate-in slide-in-from-top-5 duration-200">{['Beranda', 'FAQ', 'Panduan', 'Kontak'].map(item => (<button key={item} onClick={() => scrollToSection(item.toLowerCase())} className="text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white font-semibold flex items-center"><FileText className="w-4 h-4 mr-3 opacity-70" /> {item}</button>))}<div className="mt-4 pt-4 border-t border-white/10"><button onClick={() => navigate('/login')} className="w-full text-left px-4 py-3 rounded-xl bg-white/10 text-[#D4AF37] font-bold flex items-center hover:bg-white/20 transition-all"><LogIn className="w-4 h-4 mr-3" /> Login Admin</button></div></div>)}
         </nav>
       </header>
 
-      {/* HERO SECTION - Dengan Animasi Entrance */}
       <div className="relative bg-gradient-to-br from-[#0D5C35] via-[#0A492A] to-[#083D23] pt-40 pb-32 px-4">
         <div className={`max-w-4xl mx-auto text-center transition-all duration-1000 transform ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
           <h1 className="text-white text-4xl md:text-5xl font-extrabold mb-6 tracking-tight">KNOWLEDGE BASE <br className="sm:hidden" /> <span className="text-[#D4AF37]">KPKNL KENDARI</span></h1>
@@ -379,21 +357,9 @@ const App: React.FC = () => {
           <div className="relative max-w-2xl mx-auto">
             <div className="relative group">
               <input type="text" className="w-full py-4 px-6 pl-14 pr-16 rounded-full bg-white text-slate-900 shadow-2xl outline-none focus:ring-4 focus:ring-[#D4AF37]/30 transition-all text-lg placeholder:text-slate-400" placeholder="Cari SOP atau Layanan..." aria-label="Kotak Pencarian" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearchAction()} />
-
               <button onClick={handleSearchAction} aria-label="Tombol Cari" className="absolute left-5 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-[#0D5C35] transition-colors"><Search className="w-6 h-6" /></button>
-
-              {/* FITUR 1: TOMBOL HAPUS PENCARIAN (X) */}
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-rose-500 bg-slate-100 hover:bg-rose-50 p-1.5 rounded-full transition-all"
-                  aria-label="Hapus Pencarian"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
+              {searchQuery && (<button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-rose-500 bg-slate-100 hover:bg-rose-50 p-1.5 rounded-full transition-all" aria-label="Hapus Pencarian"><X className="w-4 h-4" /></button>)}
             </div>
-            {/* QUICK TAGS / PENCARIAN CEPAT */}
             <div className="mt-4 flex flex-wrap justify-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-200">
               <span className="text-white/70 text-xs sm:text-sm font-medium mr-1 py-1">Pencarian Populer:</span>
               {['Sewa BMN', 'Lelang', 'Penghapusan', 'Status Penggunaan'].map(tag => (
@@ -404,22 +370,11 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* MAIN CONTENT */}
       <main className="flex-grow max-w-7xl mx-auto px-4 -mt-16 relative z-10 w-full mb-20 space-y-32">
         <div id="beranda"><SectionHome /></div>
-
-        {/* FITUR 2: SECTION DENGAN SCROLL REVEAL (FADE IN) */}
-        <FadeInSection>
-          <div id="faq" className="pt-10 scroll-mt-20"><SectionFAQ /></div>
-        </FadeInSection>
-
-        <FadeInSection delay="delay-100">
-          <div id="panduan" className="pt-10 scroll-mt-20"><SectionPanduan /></div>
-        </FadeInSection>
-
-        <FadeInSection delay="delay-200">
-          <div id="kontak" className="pt-10 scroll-mt-20"><SectionKontak /></div>
-        </FadeInSection>
+        <FadeInSection><div id="faq" className="pt-10 scroll-mt-20"><SectionFAQ /></div></FadeInSection>
+        <FadeInSection delay="delay-100"><div id="panduan" className="pt-10 scroll-mt-20"><SectionPanduan /></div></FadeInSection>
+        <FadeInSection delay="delay-200"><div id="kontak" className="pt-10 scroll-mt-20"><SectionKontak /></div></FadeInSection>
       </main>
 
       <footer className="bg-[#0A492A] text-[#EAF2EE]/70 py-12 px-4 border-t border-white/5">
@@ -429,15 +384,12 @@ const App: React.FC = () => {
             <p className="text-sm">Direktorat Jenderal Kekayaan Negara (DJKN)</p>
             <p className="text-xs mt-1 text-[#D4AF37] opacity-80 uppercase tracking-widest">Kementerian Keuangan RI</p>
           </div>
-
-          {/* SOCIAL MEDIA ICONS */}
           <div className="flex space-x-4">
-            <a href="https://www.instagram.com/kpknlkendari" className="p-2 bg-white/5 hover:bg-white/10   rounded-full transition-colors text-white" aria-label="Instagram"><Instagram className="w-5 h-5" /></a>
-            <a href="https://www.youtube.com/@kpknlkendarimelulo9245" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-white" aria-label="Facebook"><Youtube className="w-5 h-5" /></a>
+            <a href="https://www.instagram.com/kpknlkendari" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-white" aria-label="Instagram"><Instagram className="w-5 h-5" /></a>
+            <a href="https://www.youtube.com/@kpknlkendarimelulo9245" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-white" aria-label="Youtube"><Youtube className="w-5 h-5" /></a>
             <a href="https://www.djkn.kemenkeu.go.id/kpknl-kendari" target="_blank" rel="noopener noreferrer" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-white" aria-label="Website Resmi"><Globe className="w-5 h-5" /></a>
-            <a href="https://lelang.go.id/" target="_blank" rel="noopener noreferrer" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-white" aria-label="Website Resmi"><Scale className="w-5 h-5" /></a>
+            <a href="https://lelang.go.id/" target="_blank" rel="noopener noreferrer" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-white" aria-label="Lelang"><Scale className="w-5 h-5" /></a>
           </div>
-
           <div className="text-center md:text-right"><p className="text-sm font-medium">Copyright © 2026 KPKNL Kendari</p><p className="text-xs mt-1 text-slate-400 italic">"Melayani dengan Hati, Mengelola dengan Integritas"</p></div>
         </div>
       </footer>
