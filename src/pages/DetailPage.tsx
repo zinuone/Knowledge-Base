@@ -1,17 +1,18 @@
 // File: src/pages/DetailPage.tsx
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  doc, getDoc, updateDoc, increment, 
-  collection, query, where, limit, getDocs 
-} from 'firebase/firestore'; 
+import {
+  doc, getDoc, updateDoc, increment,
+  collection, query, where, limit, getDocs
+} from 'firebase/firestore';
 import { db } from '../firebase';
-import { 
-  ArrowLeft, Calendar, FileText, Image as ImageIcon, Download, 
-  Eye, ThumbsUp, ThumbsDown, Share2, Check, Home, ChevronRight 
+import {
+  ArrowLeft, Calendar, FileText, Image as ImageIcon, Download,
+  Eye, ThumbsUp, ThumbsDown, Share2, Check, Home, ChevronRight,
+  Maximize2, X // Import Icon Tambahan
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import toast, { Toaster } from 'react-hot-toast'; // 1. IMPORT TOAST
+import toast, { Toaster } from 'react-hot-toast';
 
 // Tipe Data
 interface ContentData {
@@ -32,80 +33,90 @@ const DetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [data, setData] = useState<ContentData | null>(null);
-  const [relatedDocs, setRelatedDocs] = useState<ContentData[]>([]); 
+  const [relatedDocs, setRelatedDocs] = useState<ContentData[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [hasVoted, setHasVoted] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
+  // STATE BARU: Progress Bar & Lightbox
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+  // 1. Logic Scroll Progress Bar
+  useEffect(() => {
+    const handleScroll = () => {
+      const totalScroll = document.documentElement.scrollTop;
+      const windowHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      const scroll = totalScroll / windowHeight;
+      setScrollProgress(scroll);
+    }
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       if (!id) return;
-      setLoading(true); 
-      window.scrollTo(0, 0); 
+      setLoading(true);
+      window.scrollTo(0, 0);
 
       try {
         const docRef = doc(db, "knowledge-base", id);
         const docSnap = await getDoc(docRef);
-        
+
         if (docSnap.exists()) {
           const mainData = { id: docSnap.id, ...docSnap.data() } as ContentData;
           setData(mainData);
-          
+
           const sessionKey = `viewed_${id}`;
           if (!sessionStorage.getItem(sessionKey)) {
-             await updateDoc(docRef, { views: increment(1) });
-             sessionStorage.setItem(sessionKey, 'true');
+            await updateDoc(docRef, { views: increment(1) });
+            sessionStorage.setItem(sessionKey, 'true');
           }
 
           const relatedQuery = query(
             collection(db, "knowledge-base"),
             where("category", "==", mainData.category),
-            limit(4) 
+            limit(4)
           );
-          
+
           const relatedSnap = await getDocs(relatedQuery);
           const relatedList = relatedSnap.docs
             .map(d => ({ id: d.id, ...d.data() } as ContentData))
-            .filter(item => item.id !== id) 
-            .slice(0, 3); 
-            
+            .filter(item => item.id !== id)
+            .slice(0, 3);
+
           setRelatedDocs(relatedList);
         }
-      } catch (error) { console.error("Error:", error); } 
+      } catch (error) { console.error("Error:", error); }
       finally { setLoading(false); }
     };
     fetchData();
   }, [id]);
 
-  // 2. Voting dengan Toast
   const handleVote = async (type: 'like' | 'dislike') => {
     if (!id || hasVoted) return;
-    
-    // Tampilkan Loading Toast
     const toastId = toast.loading('Mengirim masukan...');
-    
     try {
-        const docRef = doc(db, "knowledge-base", id);
-        await updateDoc(docRef, { 
-            [type === 'like' ? 'likes' : 'dislikes']: increment(1) 
-        });
-        setHasVoted(true);
-        
-        // Update Toast jadi Sukses
-        toast.success('Terima kasih atas masukan Anda!', { id: toastId });
-    } catch (error) { 
-        console.error("Gagal voting:", error); 
-        toast.error('Gagal mengirim masukan.', { id: toastId });
+      const docRef = doc(db, "knowledge-base", id);
+      await updateDoc(docRef, {
+        [type === 'like' ? 'likes' : 'dislikes']: increment(1)
+      });
+      setHasVoted(true);
+      toast.success('Terima kasih atas masukan Anda!', { id: toastId });
+    } catch (error) {
+      console.error("Gagal voting:", error);
+      toast.error('Gagal mengirim masukan.', { id: toastId });
     }
   };
 
-  // 3. Share dengan Toast
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
     setIsCopied(true);
     toast.success('Link berhasil disalin!', {
-        icon: '🔗',
-        style: { borderRadius: '10px', background: '#333', color: '#fff' },
+      icon: '🔗',
+      style: { borderRadius: '10px', background: '#333', color: '#fff' },
     });
     setTimeout(() => setIsCopied(false), 2000);
   };
@@ -130,15 +141,36 @@ const DetailPage: React.FC = () => {
   const categoryStyle = getCategoryStyle(data.category);
 
   return (
-    <div className="min-h-screen bg-[#F8FAF9] pb-20 font-sans">
-      {/* 4. PASANG KOMPONEN TOASTER DI SINI */}
+    <div className="min-h-screen bg-[#F8FAF9] pb-20 font-sans relative">
       <Toaster position="top-center" reverseOrder={false} />
+
+      {/* FITUR 1: READING PROGRESS BAR */}
+      <div className="fixed top-0 left-0 h-1.5 bg-[#D4AF37] z-[60] transition-all duration-150 ease-out shadow-[0_0_10px_#D4AF37]" style={{ width: `${scrollProgress * 100}%` }} />
+
+      {/* FITUR 2: IMAGE LIGHTBOX (MODAL ZOOM) */}
+      {isLightboxOpen && data.imageBase64 && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300"
+          onClick={() => setIsLightboxOpen(false)}
+        >
+          <button className="absolute top-6 right-6 text-white/80 hover:text-white transition-colors bg-white/10 p-2 rounded-full">
+            <X className="w-8 h-8" />
+          </button>
+          <img
+            src={data.imageBase64}
+            alt="Full Preview"
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl scale-100 transition-transform duration-300"
+            onClick={(e) => e.stopPropagation()} // Biar klik gambar gak nutup modal
+          />
+          <p className="absolute bottom-6 text-white/60 text-sm font-medium">Klik di luar gambar untuk menutup</p>
+        </div>
+      )}
 
       <header className="bg-gradient-to-r from-[#0D5C35] to-[#0A492A] text-white p-6 shadow-lg sticky top-0 z-50">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center">
-            <button 
-              onClick={() => { if (data?.category) { navigate(`/category/${data.category}`); } else { navigate('/'); } }} 
+            <button
+              onClick={() => { if (data?.category) { navigate(`/category/${data.category}`); } else { navigate('/'); } }}
               aria-label="Kembali"
               className="mr-4 p-2 hover:bg-white/20 rounded-full transition cursor-pointer"
             >
@@ -147,7 +179,7 @@ const DetailPage: React.FC = () => {
             <h1 className="text-lg md:text-xl font-bold truncate">Knowledge Base</h1>
           </div>
 
-          <button 
+          <button
             onClick={handleShare}
             aria-label="Bagikan Halaman Ini"
             className="flex items-center bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg transition-all text-xs font-bold border border-white/20"
@@ -159,17 +191,17 @@ const DetailPage: React.FC = () => {
       </header>
 
       <main className="max-w-4xl mx-auto mt-8 px-4">
-        
+
         <nav aria-label="Breadcrumb" className="flex items-center text-xs md:text-sm text-slate-500 mb-6 space-x-2 overflow-x-auto whitespace-nowrap pb-2">
-            <button onClick={() => navigate('/')} className="hover:text-[#0D5C35] flex items-center transition-colors" aria-label="Ke Beranda">
-                <Home className="w-3 h-3 mr-1" /> Beranda
-            </button>
-            <ChevronRight className="w-3 h-3 text-slate-300 flex-shrink-0" />
-            <button onClick={() => navigate(`/category/${data.category}`)} className="hover:text-[#0D5C35] uppercase font-bold transition-colors" aria-label={`Ke Kategori ${data.category}`}>
-                {data.category.replace('-', ' ')}
-            </button>
-            <ChevronRight className="w-3 h-3 text-slate-300 flex-shrink-0" />
-            <span className="text-slate-800 font-medium truncate max-w-[150px] md:max-w-xs">{data.title}</span>
+          <button onClick={() => navigate('/')} className="hover:text-[#0D5C35] flex items-center transition-colors" aria-label="Ke Beranda">
+            <Home className="w-3 h-3 mr-1" /> Beranda
+          </button>
+          <ChevronRight className="w-3 h-3 text-slate-300 flex-shrink-0" />
+          <button onClick={() => navigate(`/category/${data.category}`)} className="hover:text-[#0D5C35] uppercase font-bold transition-colors" aria-label={`Ke Kategori ${data.category}`}>
+            {data.category.replace('-', ' ')}
+          </button>
+          <ChevronRight className="w-3 h-3 text-slate-300 flex-shrink-0" />
+          <span className="text-slate-800 font-medium truncate max-w-[150px] md:max-w-xs">{data.title}</span>
         </nav>
 
         <div className="bg-white rounded-3xl shadow-md border border-slate-100 overflow-hidden animate-in fade-in duration-500">
@@ -193,7 +225,7 @@ const DetailPage: React.FC = () => {
                   {data.views || 0} Views
                 </span>
               </div>
-              
+
               <h1 className="text-3xl md:text-5xl font-black text-slate-800 mb-4 leading-tight tracking-tight">
                 {data.title}
               </h1>
@@ -213,47 +245,46 @@ const DetailPage: React.FC = () => {
               prose-li:marker:text-[#D4AF37] prose-li:marker:font-extrabold
               prose-strong:text-slate-900 prose-strong:font-bold prose-strong:bg-slate-100 prose-strong:px-1 prose-strong:rounded-md
               ">
-              <ReactMarkdown>{data.content}</ReactMarkdown>
+              <ReactMarkdown components={{ li: ({ node, ...props }) => <li className="pl-2" {...props} /> }}>
+                {data.content}
+              </ReactMarkdown>
             </div>
 
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 mb-10 flex flex-col md:flex-row items-center justify-between">
-                <div>
-                    <h4 className="font-bold text-slate-800">Apakah informasi ini membantu?</h4>
-                    <p className="text-sm text-slate-500">Bantu kami meningkatkan kualitas layanan.</p>
-                </div>
-                <div className="flex space-x-3 mt-4 md:mt-0">
-                    <button 
-                        onClick={() => handleVote('like')}
-                        disabled={hasVoted}
-                        aria-label="Suka"
-                        className={`flex items-center px-4 py-2 rounded-xl font-bold transition-all ${hasVoted ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 shadow-sm'}`}
-                    >
-                        <ThumbsUp className="w-4 h-4 mr-2" /> Ya, Membantu
-                    </button>
-                    <button 
-                        onClick={() => handleVote('dislike')}
-                        disabled={hasVoted}
-                        aria-label="Tidak Suka"
-                        className={`flex items-center px-4 py-2 rounded-xl font-bold transition-all ${hasVoted ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 shadow-sm'}`}
-                    >
-                        <ThumbsDown className="w-4 h-4 mr-2" /> Tidak
-                    </button>
-                </div>
+              <div>
+                <h4 className="font-bold text-slate-800">Apakah informasi ini membantu?</h4>
+                <p className="text-sm text-slate-500">Bantu kami meningkatkan kualitas layanan.</p>
+              </div>
+              <div className="flex space-x-3 mt-4 md:mt-0">
+                <button onClick={() => handleVote('like')} disabled={hasVoted} aria-label="Suka" className={`flex items-center px-4 py-2 rounded-xl font-bold transition-all ${hasVoted ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 shadow-sm'}`}><ThumbsUp className="w-4 h-4 mr-2" /> Ya, Membantu</button>
+                <button onClick={() => handleVote('dislike')} disabled={hasVoted} aria-label="Tidak Suka" className={`flex items-center px-4 py-2 rounded-xl font-bold transition-all ${hasVoted ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 shadow-sm'}`}><ThumbsDown className="w-4 h-4 mr-2" /> Tidak</button>
+              </div>
             </div>
 
             {data.imageBase64 && (
               <div className="mb-10 mt-8">
                 <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><span className="w-1 h-6 bg-[#0D5C35] rounded-full mr-3"></span>Lampiran Visual</h3>
-                <div className="p-2 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl">
+
+                {/* TRIGGER LIGHTBOX */}
+                <div
+                  className="p-2 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl cursor-zoom-in group relative overflow-hidden"
+                  onClick={() => setIsLightboxOpen(true)}
+                  title="Klik untuk memperbesar gambar"
+                >
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center z-10">
+                    <div className="bg-white/90 p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg transform translate-y-2 group-hover:translate-y-0">
+                      <Maximize2 className="w-6 h-6 text-slate-700" />
+                    </div>
+                  </div>
                   <img src={data.imageBase64} alt="Lampiran" className="w-full h-auto object-contain max-h-[600px] rounded-xl bg-white shadow-sm" />
-                  <p className="text-center text-xs text-slate-400 mt-2 py-1 flex justify-center items-center"><ImageIcon className="w-3 h-3 mr-1" /> Gambar Flowchart / Tabel Pendukung</p>
+                  <p className="text-center text-xs text-slate-400 mt-2 py-1 flex justify-center items-center"><ImageIcon className="w-3 h-3 mr-1" /> Klik gambar untuk memperbesar</p>
                 </div>
               </div>
             )}
 
             {data.pdfUrl && (
               <div className="mt-12 pt-8 border-t border-slate-100">
-                 <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><span className="w-1 h-6 bg-rose-500 rounded-full mr-3"></span>Dokumen Asli</h3>
+                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><span className="w-1 h-6 bg-rose-500 rounded-full mr-3"></span>Dokumen Asli</h3>
                 <a href={data.pdfUrl} target="_blank" rel="noopener noreferrer" className="group block w-full bg-white border border-rose-100 hover:border-rose-300 rounded-2xl p-1 shadow-sm hover:shadow-md transition-all duration-300">
                   <div className="flex items-center justify-between p-4 bg-gradient-to-r from-rose-50 to-white rounded-xl">
                     <div className="flex items-center space-x-4">
@@ -270,18 +301,18 @@ const DetailPage: React.FC = () => {
         </div>
 
         {relatedDocs.length > 0 && (
-            <div className="mt-16 mb-10">
-                <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center"><div className="w-1 h-6 bg-[#0D5C35] rounded-full mr-3"></div>Lihat Juga Informasi Terkait</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {relatedDocs.map((item) => (
-                        <div key={item.id} onClick={() => navigate(`/detail/${item.id}`)} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-emerald-100 cursor-pointer transition-all group">
-                            <span className={`inline-block px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mb-3 border ${getCategoryStyle(item.category)}`}>{item.category.replace('-', ' ')}</span>
-                            <h4 className="font-bold text-slate-800 group-hover:text-[#0D5C35] transition-colors line-clamp-2 mb-2">{item.title}</h4>
-                            <p className="text-xs text-slate-400 line-clamp-2">{item.description}</p>
-                        </div>
-                    ))}
+          <div className="mt-16 mb-10">
+            <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center"><div className="w-1 h-6 bg-[#0D5C35] rounded-full mr-3"></div>Lihat Juga Informasi Terkait</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {relatedDocs.map((item) => (
+                <div key={item.id} onClick={() => navigate(`/detail/${item.id}`)} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-emerald-100 cursor-pointer transition-all group">
+                  <span className={`inline-block px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mb-3 border ${getCategoryStyle(item.category)}`}>{item.category.replace('-', ' ')}</span>
+                  <h4 className="font-bold text-slate-800 group-hover:text-[#0D5C35] transition-colors line-clamp-2 mb-2">{item.title}</h4>
+                  <p className="text-xs text-slate-400 line-clamp-2">{item.description}</p>
                 </div>
+              ))}
             </div>
+          </div>
         )}
       </main>
     </div>

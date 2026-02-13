@@ -8,13 +8,14 @@ import {
 import { auth, db } from '../firebase';
 import { 
     LogOut, Plus, Trash2, FileText, HelpCircle, LayoutList, Edit, BookOpen, Quote, 
-    Eye, ThumbsUp, BarChart3, PieChart as PieChartIcon, TrendingUp, FileSpreadsheet 
+    Eye, ThumbsUp, BarChart3, PieChart as PieChartIcon, TrendingUp, FileSpreadsheet,
+    AlertTriangle, X // Import Icon Tambahan
 } from 'lucide-react';
 import { 
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend 
 } from 'recharts';
 import * as XLSX from 'xlsx';
-import toast, { Toaster } from 'react-hot-toast'; // 1. IMPORT TOAST
+import toast, { Toaster } from 'react-hot-toast';
 
 // Tipe Data
 interface ContentData {
@@ -64,9 +65,20 @@ const AdminDashboard: React.FC = () => {
     const [faqs, setFaqs] = useState<FAQData[]>([]);
     const [guides, setGuides] = useState<GuideData[]>([]);
 
+    // Modal States
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
     const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
+    
+    // STATE BARU: Konfirmasi Modal (Hapus & Logout)
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean;
+        type: 'delete' | 'logout';
+        title: string;
+        message: string;
+        onConfirm: () => void;
+    }>({ isOpen: false, type: 'delete', title: '', message: '', onConfirm: () => {} });
+
     const [isSaving, setIsSaving] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -102,25 +114,42 @@ const AdminDashboard: React.FC = () => {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Laporan SOP");
         XLSX.writeFile(wb, `Laporan_KPKNL_KnowledgeBase_${new Date().toISOString().split('T')[0]}.xlsx`);
-        toast.success("Laporan berhasil didownload!"); // TOAST EXPORT
+        toast.success("Laporan berhasil didownload!"); 
     };
 
-    const handleLogout = async () => { 
-        await signOut(auth); 
-        toast('Sampai jumpa!', { icon: '👋' }); // TOAST LOGOUT
-        navigate('/login'); 
+    // --- LOGIC KONFIRMASI DELETE ---
+    const confirmDelete = (collectionName: string, id: string) => {
+        setConfirmModal({
+            isOpen: true,
+            type: 'delete',
+            title: 'Hapus Data?',
+            message: 'Tindakan ini tidak dapat dibatalkan. Data akan hilang permanen.',
+            onConfirm: async () => {
+                const deletePromise = deleteDoc(doc(db, collectionName, id));
+                toast.promise(deletePromise, {
+                    loading: 'Menghapus data...',
+                    success: 'Data berhasil dihapus!',
+                    error: 'Gagal menghapus data.',
+                });
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            }
+        });
     };
 
-    // 2. DELETE DENGAN TOAST PROMISE (Canggih!)
-    const handleDelete = async (collectionName: string, id: string) => { 
-        if (confirm("Yakin hapus data ini?")) {
-            const deletePromise = deleteDoc(doc(db, collectionName, id));
-            toast.promise(deletePromise, {
-                loading: 'Menghapus data...',
-                success: 'Data berhasil dihapus!',
-                error: 'Gagal menghapus data.',
-            });
-        }
+    // --- LOGIC KONFIRMASI LOGOUT ---
+    const confirmLogout = () => {
+        setConfirmModal({
+            isOpen: true,
+            type: 'logout',
+            title: 'Konfirmasi Keluar',
+            message: 'Apakah Anda yakin ingin keluar dari sesi Admin?',
+            onConfirm: async () => {
+                await signOut(auth); 
+                toast('Sampai jumpa!', { icon: '👋' });
+                navigate('/login');
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            }
+        });
     };
 
     const handleEditSop = (item: ContentData) => { setEditingId(item.id); setFormData({ ...item, imageBase64: item.imageBase64 || '', pdfUrl: item.pdfUrl || '' }); setIsModalOpen(true); };
@@ -131,7 +160,6 @@ const AdminDashboard: React.FC = () => {
     const handleAddFaq = () => { setEditingId(null); setFaqForm({ question: '', answer: '' }); setIsFaqModalOpen(true); };
     const handleAddGuide = () => { setEditingId(null); setGuideForm({ content: '' }); setIsGuideModalOpen(true); };
 
-    // 3. SAVE SOP DENGAN TOAST
     const handleSaveSop = async (e: React.FormEvent) => { 
         e.preventDefault(); setIsSaving(true); 
         const savePromise = editingId 
@@ -147,7 +175,6 @@ const AdminDashboard: React.FC = () => {
         setIsSaving(false); setIsModalOpen(false);
     };
 
-    // 4. SAVE FAQ DENGAN TOAST
     const handleSaveFaq = async (e: React.FormEvent) => { 
         e.preventDefault(); setIsSaving(true); 
         const savePromise = editingId 
@@ -158,7 +185,6 @@ const AdminDashboard: React.FC = () => {
         setIsSaving(false); setIsFaqModalOpen(false); 
     };
 
-    // 5. SAVE GUIDE DENGAN TOAST
     const handleSaveGuide = async (e: React.FormEvent) => { 
         e.preventDefault(); setIsSaving(true); 
         const savePromise = editingId 
@@ -185,11 +211,13 @@ const AdminDashboard: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 font-sans">
-            <Toaster position="top-right" /> {/* PASANG TOASTER DISINI */}
+            <Toaster position="top-right" /> 
             
+            {/* HEADER */}
             <nav className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
                 <div className="flex items-center space-x-3"><div className="bg-[#0D5C35] p-2 rounded-lg"><FileText className="text-white w-5 h-5" /></div><div><h1 className="font-bold text-slate-800 text-lg leading-none">Admin Panel</h1><span className="text-xs text-slate-500 uppercase">KPKNL Knowledge Base</span></div></div>
-                <button onClick={handleLogout} className="flex items-center text-rose-600 hover:text-rose-700 font-medium text-sm"><LogOut className="w-4 h-4 mr-2" /> Keluar</button>
+                {/* UPDATE: Panggil fungsi confirmLogout saat klik */}
+                <button onClick={confirmLogout} className="flex items-center text-rose-600 hover:text-rose-700 font-medium text-sm transition-colors hover:bg-rose-50 px-3 py-2 rounded-lg"><LogOut className="w-4 h-4 mr-2" /> Keluar</button>
             </nav>
 
             <main className="max-w-7xl mx-auto p-6 md:p-10">
@@ -200,6 +228,7 @@ const AdminDashboard: React.FC = () => {
                     <button onClick={() => setActiveTab('guide')} className={`pb-3 px-4 font-bold flex items-center transition-colors whitespace-nowrap ${activeTab === 'guide' ? 'text-[#0D5C35] border-b-2 border-[#0D5C35]' : 'text-slate-400 hover:text-slate-600'}`}><BookOpen className="w-5 h-5 mr-2" /> Data Panduan ({guides.length})</button>
                 </div>
 
+                {/* --- TAB DASHBOARD --- */}
                 {activeTab === 'overview' && (
                     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -232,7 +261,6 @@ const AdminDashboard: React.FC = () => {
                                     </ResponsiveContainer>
                                 </div>
                             </div>
-
                             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                                 <h3 className="font-bold text-slate-800 mb-6 flex items-center"><PieChartIcon className="w-5 h-5 mr-2 text-[#0D5C35]" /> Distribusi Kategori</h3>
                                 <div className="h-64">
@@ -253,6 +281,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
                 )}
 
+                {/* --- TAB SOP --- */}
                 {activeTab === 'sop' && (
                     <div className="animate-in fade-in zoom-in duration-300">
                         <div className="flex justify-end mb-6 space-x-3">
@@ -281,7 +310,8 @@ const AdminDashboard: React.FC = () => {
                                             </td>
                                             <td className="p-5 text-center flex justify-center space-x-2">
                                                 <button onClick={() => handleEditSop(item)} aria-label="Edit SOP" className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition"><Edit className="w-4 h-4" /></button>
-                                                <button onClick={() => handleDelete("knowledge-base", item.id)} aria-label="Hapus SOP" className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
+                                                {/* UPDATE: Panggil confirmDelete */}
+                                                <button onClick={() => confirmDelete("knowledge-base", item.id)} aria-label="Hapus SOP" className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
                                             </td>
                                         </tr>
                                     ))}
@@ -291,22 +321,55 @@ const AdminDashboard: React.FC = () => {
                     </div>
                 )}
 
+                {/* --- TAB FAQ --- */}
                 {activeTab === 'faq' && (
                     <div className="grid gap-4 animate-in fade-in zoom-in duration-300">
                         <div className="flex justify-end mb-6"><button onClick={handleAddFaq} className="flex items-center bg-[#0D5C35] text-white px-5 py-2.5 rounded-xl font-bold shadow-lg hover:bg-[#0A492A] transition"><Plus className="w-5 h-5 mr-2" /> Tambah FAQ</button></div>
-                        {faqs.map(item => (<div key={item.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex justify-between items-start"><div className="flex-grow pr-4"><h3 className="font-bold text-slate-800 text-lg mb-1">Q: {item.question}</h3><p className="text-slate-600">A: {item.answer}</p></div><div className="flex flex-col space-y-2 flex-shrink-0"><button onClick={() => handleEditFaq(item)} aria-label="Edit FAQ" className="text-amber-600 hover:bg-amber-50 p-2 rounded-lg"><Edit className="w-4 h-4" /></button><button onClick={() => handleDelete("faqs", item.id)} aria-label="Hapus FAQ" className="text-rose-600 hover:bg-rose-50 p-2 rounded-lg"><Trash2 className="w-4 h-4" /></button></div></div>))}
+                        {faqs.map(item => (<div key={item.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex justify-between items-start"><div className="flex-grow pr-4"><h3 className="font-bold text-slate-800 text-lg mb-1">Q: {item.question}</h3><p className="text-slate-600">A: {item.answer}</p></div><div className="flex flex-col space-y-2 flex-shrink-0"><button onClick={() => handleEditFaq(item)} aria-label="Edit FAQ" className="text-amber-600 hover:bg-amber-50 p-2 rounded-lg"><Edit className="w-4 h-4" /></button><button onClick={() => confirmDelete("faqs", item.id)} aria-label="Hapus FAQ" className="text-rose-600 hover:bg-rose-50 p-2 rounded-lg"><Trash2 className="w-4 h-4" /></button></div></div>))}
                     </div>
                 )}
                 
+                {/* --- TAB GUIDE --- */}
                 {activeTab === 'guide' && (
                     <div className="grid gap-4 animate-in fade-in zoom-in duration-300">
                         <div className="flex justify-end mb-6">{guides.length === 0 && (<button onClick={handleAddGuide} className="flex items-center bg-[#0D5C35] text-white px-5 py-2.5 rounded-xl font-bold shadow-lg hover:bg-[#0A492A] transition"><Plus className="w-5 h-5 mr-2" /> Buat Panduan</button>)}</div>
-                        {guides.map((item, index) => (<div key={item.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm"><div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2"><h3 className="font-bold text-slate-800">Panduan #{index + 1}</h3><div className="flex space-x-2"><button onClick={() => handleEditGuide(item)} aria-label="Edit Panduan" className="flex items-center text-amber-600 hover:bg-amber-50 px-3 py-1 rounded-lg text-sm font-bold"><Edit className="w-4 h-4 mr-1" /> Edit</button><button onClick={() => handleDelete("guides", item.id)} aria-label="Hapus Panduan" className="flex items-center text-rose-600 hover:bg-rose-50 px-3 py-1 rounded-lg text-sm font-bold"><Trash2 className="w-4 h-4 mr-1" /> Hapus</button></div></div><p className="text-slate-500 text-sm line-clamp-3 font-mono bg-slate-50 p-3 rounded">{item.content}</p></div>))}
+                        {guides.map((item, index) => (<div key={item.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm"><div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2"><h3 className="font-bold text-slate-800">Panduan #{index + 1}</h3><div className="flex space-x-2"><button onClick={() => handleEditGuide(item)} aria-label="Edit Panduan" className="flex items-center text-amber-600 hover:bg-amber-50 px-3 py-1 rounded-lg text-sm font-bold"><Edit className="w-4 h-4 mr-1" /> Edit</button><button onClick={() => confirmDelete("guides", item.id)} aria-label="Hapus Panduan" className="flex items-center text-rose-600 hover:bg-rose-50 px-3 py-1 rounded-lg text-sm font-bold"><Trash2 className="w-4 h-4 mr-1" /> Hapus</button></div></div><p className="text-slate-500 text-sm line-clamp-3 font-mono bg-slate-50 p-3 rounded">{item.content}</p></div>))}
                     </div>
                 )}
             </main>
 
-            {/* MODALS SAMA SEPERTI SEBELUMNYA */}
+            {/* --- MODAL BARU: KONFIRMASI HAPUS / LOGOUT --- */}
+            {confirmModal.isOpen && (
+                <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl transform scale-100 transition-all">
+                        <div className="flex flex-col items-center text-center">
+                            <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${confirmModal.type === 'delete' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
+                                <AlertTriangle className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">{confirmModal.title}</h3>
+                            <p className="text-slate-500 mb-6 leading-relaxed text-sm">
+                                {confirmModal.message}
+                            </p>
+                            <div className="flex w-full space-x-3">
+                                <button 
+                                    onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                                    className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"
+                                >
+                                    Batal
+                                </button>
+                                <button 
+                                    onClick={confirmModal.onConfirm}
+                                    className={`flex-1 px-4 py-2.5 text-white font-bold rounded-xl shadow-lg transition-all transform active:scale-95 ${confirmModal.type === 'delete' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-200' : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'}`}
+                                >
+                                    {confirmModal.type === 'delete' ? 'Ya, Hapus' : 'Ya, Keluar'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODALS INPUT (SOP/FAQ/GUIDE) - TETAP SAMA */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl w-full max-w-2xl p-6 overflow-y-auto max-h-[90vh]">
