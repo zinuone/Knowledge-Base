@@ -6,13 +6,13 @@ import {
     collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, serverTimestamp, query, orderBy
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { 
-    LogOut, Plus, Trash2, FileText, HelpCircle, LayoutList, Edit, BookOpen, Quote, 
+import {
+    LogOut, Plus, Trash2, FileText, HelpCircle, LayoutList, Edit, BookOpen, Quote,
     Eye, ThumbsUp, BarChart3, PieChart as PieChartIcon, TrendingUp, FileSpreadsheet,
-    AlertTriangle, X // Import Icon Tambahan
+    AlertTriangle, X
 } from 'lucide-react';
-import { 
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend 
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import toast, { Toaster } from 'react-hot-toast';
@@ -28,7 +28,7 @@ interface ContentData {
     pdfUrl?: string;
     views?: number;
     likes?: number;
-    updatedAt?: any; 
+    updatedAt?: any;
 }
 
 interface FAQData {
@@ -39,7 +39,7 @@ interface FAQData {
 
 interface GuideData {
     id: string;
-    content: string; 
+    content: string;
 }
 
 const getCategoryColor = (cat: string) => {
@@ -60,7 +60,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 const AdminDashboard: React.FC = () => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'overview' | 'sop' | 'faq' | 'guide'>('overview');
-    
+
     const [contents, setContents] = useState<ContentData[]>([]);
     const [faqs, setFaqs] = useState<FAQData[]>([]);
     const [guides, setGuides] = useState<GuideData[]>([]);
@@ -69,15 +69,15 @@ const AdminDashboard: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
     const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
-    
-    // STATE BARU: Konfirmasi Modal (Hapus & Logout)
+
+    // Konfirmasi Modal (Hapus & Logout)
     const [confirmModal, setConfirmModal] = useState<{
         isOpen: boolean;
         type: 'delete' | 'logout';
         title: string;
         message: string;
         onConfirm: () => void;
-    }>({ isOpen: false, type: 'delete', title: '', message: '', onConfirm: () => {} });
+    }>({ isOpen: false, type: 'delete', title: '', message: '', onConfirm: () => { } });
 
     const [isSaving, setIsSaving] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -114,10 +114,9 @@ const AdminDashboard: React.FC = () => {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Laporan SOP");
         XLSX.writeFile(wb, `Laporan_KPKNL_KnowledgeBase_${new Date().toISOString().split('T')[0]}.xlsx`);
-        toast.success("Laporan berhasil didownload!"); 
+        toast.success("Laporan berhasil didownload!");
     };
 
-    // --- LOGIC KONFIRMASI DELETE ---
     const confirmDelete = (collectionName: string, id: string) => {
         setConfirmModal({
             isOpen: true,
@@ -136,7 +135,6 @@ const AdminDashboard: React.FC = () => {
         });
     };
 
-    // --- LOGIC KONFIRMASI LOGOUT ---
     const confirmLogout = () => {
         setConfirmModal({
             isOpen: true,
@@ -144,7 +142,7 @@ const AdminDashboard: React.FC = () => {
             title: 'Konfirmasi Keluar',
             message: 'Apakah Anda yakin ingin keluar dari sesi Admin?',
             onConfirm: async () => {
-                await signOut(auth); 
+                await signOut(auth);
                 toast('Sampai jumpa!', { icon: '👋' });
                 navigate('/login');
                 setConfirmModal(prev => ({ ...prev, isOpen: false }));
@@ -155,48 +153,48 @@ const AdminDashboard: React.FC = () => {
     const handleEditSop = (item: ContentData) => { setEditingId(item.id); setFormData({ ...item, imageBase64: item.imageBase64 || '', pdfUrl: item.pdfUrl || '' }); setIsModalOpen(true); };
     const handleEditFaq = (item: FAQData) => { setEditingId(item.id); setFaqForm({ ...item }); setIsFaqModalOpen(true); };
     const handleEditGuide = (item: GuideData) => { setEditingId(item.id); setGuideForm({ content: item.content }); setIsGuideModalOpen(true); };
-    
+
     const handleAddSop = () => { setEditingId(null); setFormData({ title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '' }); setIsModalOpen(true); };
     const handleAddFaq = () => { setEditingId(null); setFaqForm({ question: '', answer: '' }); setIsFaqModalOpen(true); };
     const handleAddGuide = () => { setEditingId(null); setGuideForm({ content: '' }); setIsGuideModalOpen(true); };
 
-    const handleSaveSop = async (e: React.FormEvent) => { 
-        e.preventDefault(); setIsSaving(true); 
-        const savePromise = editingId 
+    const handleSaveSop = async (e: React.FormEvent) => {
+        e.preventDefault(); setIsSaving(true);
+        const savePromise = editingId
             ? updateDoc(doc(db, "knowledge-base", editingId), { ...formData, updatedAt: serverTimestamp() })
             : addDoc(collection(db, "knowledge-base"), { ...formData, updatedAt: serverTimestamp(), views: 0, likes: 0, dislikes: 0 });
-        
+
         await toast.promise(savePromise, {
             loading: 'Menyimpan SOP...',
             success: 'SOP berhasil disimpan!',
             error: 'Gagal menyimpan SOP.',
         });
-        
+
         setIsSaving(false); setIsModalOpen(false);
     };
 
-    const handleSaveFaq = async (e: React.FormEvent) => { 
-        e.preventDefault(); setIsSaving(true); 
-        const savePromise = editingId 
+    const handleSaveFaq = async (e: React.FormEvent) => {
+        e.preventDefault(); setIsSaving(true);
+        const savePromise = editingId
             ? updateDoc(doc(db, "faqs", editingId), { ...faqForm, createdAt: serverTimestamp() })
             : addDoc(collection(db, "faqs"), { ...faqForm, createdAt: serverTimestamp() });
 
         await toast.promise(savePromise, { loading: 'Menyimpan FAQ...', success: 'FAQ berhasil disimpan!', error: 'Gagal menyimpan FAQ.' });
-        setIsSaving(false); setIsFaqModalOpen(false); 
+        setIsSaving(false); setIsFaqModalOpen(false);
     };
 
-    const handleSaveGuide = async (e: React.FormEvent) => { 
-        e.preventDefault(); setIsSaving(true); 
-        const savePromise = editingId 
+    const handleSaveGuide = async (e: React.FormEvent) => {
+        e.preventDefault(); setIsSaving(true);
+        const savePromise = editingId
             ? updateDoc(doc(db, "guides", editingId), { ...guideForm, updatedAt: serverTimestamp() })
             : addDoc(collection(db, "guides"), { ...guideForm, updatedAt: serverTimestamp() });
 
         await toast.promise(savePromise, { loading: 'Menyimpan Panduan...', success: 'Panduan berhasil disimpan!', error: 'Gagal menyimpan Panduan.' });
-        setIsSaving(false); setIsGuideModalOpen(false); 
+        setIsSaving(false); setIsGuideModalOpen(false);
     };
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { if (file.size > 800000) { toast.error("Maksimal ukuran gambar 800KB"); return; } const reader = new FileReader(); reader.onloadend = () => setFormData({ ...formData, imageBase64: reader.result as string }); reader.readAsDataURL(file); } };
-    
+
     const insertFormat = (target: 'sop' | 'guide', tag: string) => {
         const textarea = document.getElementById(target === 'sop' ? 'content-editor' : 'guide-editor') as HTMLTextAreaElement;
         if (!textarea) return;
@@ -211,12 +209,10 @@ const AdminDashboard: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 font-sans">
-            <Toaster position="top-right" /> 
-            
-            {/* HEADER */}
+            <Toaster position="top-right" />
+
             <nav className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
                 <div className="flex items-center space-x-3"><div className="bg-[#0D5C35] p-2 rounded-lg"><FileText className="text-white w-5 h-5" /></div><div><h1 className="font-bold text-slate-800 text-lg leading-none">Admin Panel</h1><span className="text-xs text-slate-500 uppercase">KPKNL Knowledge Base</span></div></div>
-                {/* UPDATE: Panggil fungsi confirmLogout saat klik */}
                 <button onClick={confirmLogout} className="flex items-center text-rose-600 hover:text-rose-700 font-medium text-sm transition-colors hover:bg-rose-50 px-3 py-2 rounded-lg"><LogOut className="w-4 h-4 mr-2" /> Keluar</button>
             </nav>
 
@@ -228,7 +224,6 @@ const AdminDashboard: React.FC = () => {
                     <button onClick={() => setActiveTab('guide')} className={`pb-3 px-4 font-bold flex items-center transition-colors whitespace-nowrap ${activeTab === 'guide' ? 'text-[#0D5C35] border-b-2 border-[#0D5C35]' : 'text-slate-400 hover:text-slate-600'}`}><BookOpen className="w-5 h-5 mr-2" /> Data Panduan ({guides.length})</button>
                 </div>
 
-                {/* --- TAB DASHBOARD --- */}
                 {activeTab === 'overview' && (
                     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -254,8 +249,8 @@ const AdminDashboard: React.FC = () => {
                                         <BarChart data={stats.topViewed} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                                             <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
                                             <XAxis type="number" hide />
-                                            <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 10}} />
-                                            <Tooltip cursor={{fill: '#f0fdf4'}} />
+                                            <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 10 }} />
+                                            <Tooltip cursor={{ fill: '#f0fdf4' }} />
                                             <Bar dataKey="views" fill="#0D5C35" radius={[0, 4, 4, 0]} barSize={20} />
                                         </BarChart>
                                     </ResponsiveContainer>
@@ -281,7 +276,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
                 )}
 
-                {/* --- TAB SOP --- */}
+                {/* --- TAB SOP (DIPERBAIKI) --- */}
                 {activeTab === 'sop' && (
                     <div className="animate-in fade-in zoom-in duration-300">
                         <div className="flex justify-end mb-6 space-x-3">
@@ -292,8 +287,10 @@ const AdminDashboard: React.FC = () => {
                                 <Plus className="w-5 h-5 mr-2" /> Tambah SOP
                             </button>
                         </div>
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                            <table className="w-full text-left border-collapse">
+                        {/* PERBAIKAN: Ditambahkan overflow-x-auto supaya bisa scroll samping */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden overflow-x-auto">
+                            {/* PERBAIKAN: Ditambahkan min-w-[800px] supaya tabel tidak gepeng di HP */}
+                            <table className="w-full text-left border-collapse min-w-[800px]">
                                 <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold">
                                     <tr><th className="p-5">Judul</th><th className="p-5">Kategori</th><th className="p-5 text-center">Statistik</th><th className="p-5 text-center">Aksi</th></tr>
                                 </thead>
@@ -310,7 +307,6 @@ const AdminDashboard: React.FC = () => {
                                             </td>
                                             <td className="p-5 text-center flex justify-center space-x-2">
                                                 <button onClick={() => handleEditSop(item)} aria-label="Edit SOP" className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition"><Edit className="w-4 h-4" /></button>
-                                                {/* UPDATE: Panggil confirmDelete */}
                                                 <button onClick={() => confirmDelete("knowledge-base", item.id)} aria-label="Hapus SOP" className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
                                             </td>
                                         </tr>
@@ -328,7 +324,7 @@ const AdminDashboard: React.FC = () => {
                         {faqs.map(item => (<div key={item.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex justify-between items-start"><div className="flex-grow pr-4"><h3 className="font-bold text-slate-800 text-lg mb-1">Q: {item.question}</h3><p className="text-slate-600">A: {item.answer}</p></div><div className="flex flex-col space-y-2 flex-shrink-0"><button onClick={() => handleEditFaq(item)} aria-label="Edit FAQ" className="text-amber-600 hover:bg-amber-50 p-2 rounded-lg"><Edit className="w-4 h-4" /></button><button onClick={() => confirmDelete("faqs", item.id)} aria-label="Hapus FAQ" className="text-rose-600 hover:bg-rose-50 p-2 rounded-lg"><Trash2 className="w-4 h-4" /></button></div></div>))}
                     </div>
                 )}
-                
+
                 {/* --- TAB GUIDE --- */}
                 {activeTab === 'guide' && (
                     <div className="grid gap-4 animate-in fade-in zoom-in duration-300">
@@ -338,7 +334,7 @@ const AdminDashboard: React.FC = () => {
                 )}
             </main>
 
-            {/* --- MODAL BARU: KONFIRMASI HAPUS / LOGOUT --- */}
+            {/* MODAL KONFIRMASI */}
             {confirmModal.isOpen && (
                 <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl transform scale-100 transition-all">
@@ -351,13 +347,13 @@ const AdminDashboard: React.FC = () => {
                                 {confirmModal.message}
                             </p>
                             <div className="flex w-full space-x-3">
-                                <button 
+                                <button
                                     onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
                                     className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"
                                 >
                                     Batal
                                 </button>
-                                <button 
+                                <button
                                     onClick={confirmModal.onConfirm}
                                     className={`flex-1 px-4 py-2.5 text-white font-bold rounded-xl shadow-lg transition-all transform active:scale-95 ${confirmModal.type === 'delete' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-200' : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'}`}
                                 >
@@ -386,8 +382,8 @@ const AdminDashboard: React.FC = () => {
                     </div>
                 </div>
             )}
-            {isFaqModalOpen && (<div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white rounded-2xl w-full max-w-lg p-6"><form onSubmit={handleSaveFaq} className="space-y-4"><input type="text" aria-label="Pertanyaan FAQ" className="w-full p-3 border rounded-lg" value={faqForm.question} onChange={e => setFaqForm({...faqForm, question: e.target.value})} /><textarea aria-label="Jawaban FAQ" className="w-full p-3 border rounded-lg" value={faqForm.answer} onChange={e => setFaqForm({...faqForm, answer: e.target.value})} /><div className="flex justify-end gap-2"><button type="button" onClick={() => setIsFaqModalOpen(false)} className="px-4 py-2 text-slate-500">Batal</button><button type="submit" className="px-4 py-2 bg-[#0D5C35] text-white rounded-lg font-bold">Simpan</button></div></form></div></div>)}
-            {isGuideModalOpen && (<div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white rounded-2xl w-full max-w-2xl p-6"><form onSubmit={handleSaveGuide} className="space-y-4"><textarea id="guide-editor" aria-label="Isi Panduan" rows={8} className="w-full p-4 border rounded-lg" value={guideForm.content} onChange={e => setGuideForm({...guideForm, content: e.target.value})} /><div className="flex justify-end gap-2"><button type="button" onClick={() => setIsGuideModalOpen(false)} className="px-4 py-2 text-slate-500">Batal</button><button type="submit" className="px-4 py-2 bg-[#0D5C35] text-white rounded-lg font-bold">Simpan</button></div></form></div></div>)}
+            {isFaqModalOpen && (<div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white rounded-2xl w-full max-w-lg p-6"><form onSubmit={handleSaveFaq} className="space-y-4"><input type="text" aria-label="Pertanyaan FAQ" className="w-full p-3 border rounded-lg" value={faqForm.question} onChange={e => setFaqForm({ ...faqForm, question: e.target.value })} /><textarea aria-label="Jawaban FAQ" className="w-full p-3 border rounded-lg" value={faqForm.answer} onChange={e => setFaqForm({ ...faqForm, answer: e.target.value })} /><div className="flex justify-end gap-2"><button type="button" onClick={() => setIsFaqModalOpen(false)} className="px-4 py-2 text-slate-500">Batal</button><button type="submit" className="px-4 py-2 bg-[#0D5C35] text-white rounded-lg font-bold">Simpan</button></div></form></div></div>)}
+            {isGuideModalOpen && (<div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white rounded-2xl w-full max-w-2xl p-6"><form onSubmit={handleSaveGuide} className="space-y-4"><textarea id="guide-editor" aria-label="Isi Panduan" rows={8} className="w-full p-4 border rounded-lg" value={guideForm.content} onChange={e => setGuideForm({ ...guideForm, content: e.target.value })} /><div className="flex justify-end gap-2"><button type="button" onClick={() => setIsGuideModalOpen(false)} className="px-4 py-2 text-slate-500">Batal</button><button type="submit" className="px-4 py-2 bg-[#0D5C35] text-white rounded-lg font-bold">Simpan</button></div></form></div></div>)}
         </div>
     );
 };
