@@ -55,33 +55,38 @@ Buka terminal dan jalankan perintah:
 ```bash
 git clone [https://github.com/username-anda/kpknl-knowledge-base.git](https://github.com/username-anda/kpknl-knowledge-base.git)
 cd kpknl-knowledge-base
+```
 
 ### 3. Install Dependencies
 Install semua library yang dibutuhkan:
 ```bash
 npm install
+```
 
 ### 4. Konfigurasi Environment (PENTING!)
 Buat file .env di folder utama, lalu isi dengan konfigurasi Firebase Anda:
+```bash
 VITE_API_KEY=api_key_firebase_anda
 VITE_AUTH_DOMAIN=project_id.firebaseapp.com
 VITE_PROJECT_ID=project_id_anda
 VITE_STORAGE_BUCKET=project_id.appspot.com
 VITE_MESSAGING_SENDER_ID=sender_id
 VITE_APP_ID=app_id
+```
 
 ### 5. Jalankan Aplikasi 
 Untuk mode pengembangan (Development):
 ```bash
 npm run dev
 Buka browser dan akses: http://localhost:3000
+```
 
 ### 6. Build untuk Produksi 
 Untuk membuat versi siap tayang (Production):
 ```bash
 npm run build
 npm run preview
-
+```
 ---
 
 ## 📂 Struktur Folder Proyek
@@ -98,7 +103,7 @@ kpknl-knowledge-base/
 ├── index.html           # File HTML utama
 ├── vite.config.ts       # Konfigurasi Vite & PWA Plugin
 └── package.json         # Daftar library & script
-
+```
 ---
 
 ## 🔒 Catatan Keamanan (Security Rules)
@@ -121,10 +126,13 @@ service cloud.firestore {
     }
   }
 }
-
+```
+---
 
 ## 👨‍💻 Kredit Pengembang
 Dikembangkan dengan ❤️ dan ☕ oleh:
 Muhammad Ridwan Mahasiswa Teknik Informatika - Universitas Halu Oleo Internship at KPKNL Kendari (2026)
+
+> "Koding itu seni, bukan sekadar logika."
 
 © 2026 KPKNL Kendari - Kementerian Keuangan Republik Indonesia
