@@ -9,7 +9,7 @@ import { db } from '../firebase';
 import {
   ArrowLeft, Calendar, FileText, Image as ImageIcon, Download,
   Eye, ThumbsUp, ThumbsDown, Share2, Check, Home, ChevronRight,
-  Maximize2, X
+  Maximize2, X, PlayCircle // <-- Import Icon Tambahan
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import toast, { Toaster } from 'react-hot-toast';
@@ -24,6 +24,7 @@ interface ContentData {
   updatedAt: any;
   imageBase64?: string;
   pdfUrl?: string;
+  videoUrl?: string; // <-- FITUR VIDEO DITAMBAHKAN
   views?: number;
   likes?: number;
   dislikes?: number;
@@ -39,11 +40,9 @@ const DetailPage: React.FC = () => {
   const [hasVoted, setHasVoted] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
-  // STATE BARU: Progress Bar & Lightbox
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
-  // 1. Logic Scroll Progress Bar
   useEffect(() => {
     const handleScroll = () => {
       const totalScroll = document.documentElement.scrollTop;
@@ -121,7 +120,6 @@ const DetailPage: React.FC = () => {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  // --- REVISI: Penambahan warna Oranye untuk kategori Hibah ---
   const getCategoryStyle = (cat: string) => {
     switch (cat) {
       case 'psp': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
@@ -136,6 +134,27 @@ const DetailPage: React.FC = () => {
     }
   };
 
+  // FUNGSI PENGOLAH LINK VIDEO (Auto Embed)
+  const getEmbedUrl = (url: string) => {
+    if (!url) return null;
+    try {
+      // Jika Link YouTube
+      if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+        const match = url.match(regExp);
+        const videoId = (match && match[2].length === 11) ? match[2] : null;
+        if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+      }
+      // Jika Link Google Drive
+      if (url.includes('drive.google.com/file/d/')) {
+        const match = url.match(/\/d\/(.+?)\//);
+        const fileId = match ? match[1] : null;
+        if (fileId) return `https://drive.google.com/file/d/${fileId}/preview`;
+      }
+    } catch (e) { console.error(e) }
+    return url; 
+  };
+
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0D5C35]"></div></div>;
   if (!data) return <div className="p-10 text-center">Data tidak ditemukan.</div>;
 
@@ -146,10 +165,8 @@ const DetailPage: React.FC = () => {
     <div className="min-h-screen bg-[#F8FAF9] pb-20 font-sans relative">
       <Toaster position="top-center" reverseOrder={false} />
 
-      {/* FITUR 1: READING PROGRESS BAR */}
       <div className="fixed top-0 left-0 h-1.5 bg-[#D4AF37] z-[60] transition-all duration-150 ease-out shadow-[0_0_10px_#D4AF37]" style={{ width: `${scrollProgress * 100}%` }} />
 
-      {/* FITUR 2: IMAGE LIGHTBOX (MODAL ZOOM) */}
       {isLightboxOpen && data.imageBase64 && (
         <div
           className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300"
@@ -162,7 +179,7 @@ const DetailPage: React.FC = () => {
             src={data.imageBase64}
             alt="Full Preview"
             className="max-w-full max-h-full object-contain rounded-lg shadow-2xl scale-100 transition-transform duration-300"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()} 
           />
           <p className="absolute bottom-6 text-white/60 text-sm font-medium">Klik di luar gambar untuk menutup</p>
         </div>
@@ -280,6 +297,29 @@ const DetailPage: React.FC = () => {
                   <img src={data.imageBase64} alt="Lampiran" className="w-full h-auto object-contain max-h-[600px] rounded-xl bg-white shadow-sm" />
                   <p className="text-center text-xs text-slate-400 mt-2 py-1 flex justify-center items-center"><ImageIcon className="w-3 h-3 mr-1" /> Klik gambar untuk memperbesar</p>
                 </div>
+              </div>
+            )}
+
+            {/* FITUR BARU: VIDEO PLAYER RESPONSIVE */}
+            {data.videoUrl && (
+              <div className="mb-10 mt-8">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                  <span className="w-1 h-6 bg-blue-500 rounded-full mr-3"></span>
+                  Video Tutorial
+                </h3>
+                <div className="w-full aspect-video rounded-2xl overflow-hidden shadow-lg border border-slate-200 bg-slate-900 relative group">
+                  {/* Aspect-video otomatis membuat 16:9 yang cocok untuk HP dan Desktop */}
+                  <iframe
+                    src={getEmbedUrl(data.videoUrl) || ''}
+                    title="Video Tutorial"
+                    className="w-full h-full absolute inset-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
+                </div>
+                <p className="text-center text-xs text-slate-400 mt-3 flex justify-center items-center">
+                  <PlayCircle className="w-3 h-3 mr-1" /> Putar video langsung dari sistem
+                </p>
               </div>
             )}
 

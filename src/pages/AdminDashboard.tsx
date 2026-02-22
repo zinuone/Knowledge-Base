@@ -9,7 +9,7 @@ import { auth, db } from '../firebase';
 import {
     LogOut, Plus, Trash2, FileText, HelpCircle, LayoutList, Edit, BookOpen, Quote,
     Eye, ThumbsUp, BarChart3, PieChart as PieChartIcon, TrendingUp, FileSpreadsheet,
-    AlertTriangle, X, List as ListIcon, Type, Hash, Search, Filter
+    AlertTriangle, X, List as ListIcon, Type, Hash, Search, Filter, RefreshCw
 } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend
@@ -26,6 +26,7 @@ interface ContentData {
     content: string;
     imageBase64?: string;
     pdfUrl?: string;
+    videoUrl?: string;
     views?: number;
     likes?: number;
     updatedAt?: any;
@@ -43,7 +44,6 @@ interface GuideData {
     updatedAt?: any;
 }
 
-// --- PERBAIKAN: Menambahkan warna untuk HIBAH ---
 const getCategoryColor = (cat: string) => {
     switch (cat) {
         case 'psp': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
@@ -60,6 +60,25 @@ const getCategoryColor = (cat: string) => {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#f97316'];
 
+// ✅ FIX UTAMA: FormatToolbar dipindahkan ke LUAR komponen AdminDashboard
+// Sebelumnya didefinisikan di dalam, menyebabkan React unmount/remount setiap re-render → blank screen
+const FormatToolbar = ({
+    target,
+    onInsert
+}: {
+    target: 'sop' | 'faq' | 'guide';
+    onInsert: (target: 'sop' | 'faq' | 'guide', tag: string) => void;
+}) => (
+    <div className="flex flex-wrap gap-2 p-2 bg-slate-100 border rounded-t-lg">
+        <button type="button" onClick={() => onInsert(target, 'bold')} className="p-1.5 hover:bg-white rounded text-slate-600 transition" title="Tebal"><Type className="w-4 h-4" /></button>
+        <button type="button" onClick={() => onInsert(target, 'list')} className="p-1.5 hover:bg-white rounded text-slate-600 transition" title="List"><ListIcon className="w-4 h-4" /></button>
+        <button type="button" onClick={() => onInsert(target, 'number')} className="p-1.5 hover:bg-white rounded text-slate-600 transition" title="Nomor"><Hash className="w-4 h-4" /></button>
+        <button type="button" onClick={() => onInsert(target, 'h2')} className="px-2 py-1 bg-white border rounded text-xs font-bold uppercase hover:bg-slate-50">H2</button>
+        <button type="button" onClick={() => onInsert(target, 'h3')} className="px-2 py-1 bg-white border rounded text-xs font-bold uppercase hover:bg-slate-50">H3</button>
+        <button type="button" onClick={() => onInsert(target, 'quote')} className="p-1.5 hover:bg-white rounded text-slate-600 transition" title="Kutipan"><Quote className="w-4 h-4" /></button>
+    </div>
+);
+
 const AdminDashboard: React.FC = () => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'overview' | 'sop' | 'faq' | 'guide'>('overview');
@@ -68,16 +87,13 @@ const AdminDashboard: React.FC = () => {
     const [faqs, setFaqs] = useState<FAQData[]>([]);
     const [guides, setGuides] = useState<GuideData[]>([]);
 
-    // --- STATE BARU UNTUK FITUR FILTER & SEARCH ---
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('all');
 
-    // Modal States
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
     const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
 
-    // Konfirmasi Modal
     const [confirmModal, setConfirmModal] = useState<{
         isOpen: boolean;
         type: 'delete' | 'logout';
@@ -89,9 +105,16 @@ const AdminDashboard: React.FC = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
-    const [formData, setFormData] = useState({ title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '' });
+    const [formData, setFormData] = useState({ title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '', videoUrl: '' });
     const [faqForm, setFaqForm] = useState({ question: '', answer: '' });
     const [guideForm, setGuideForm] = useState({ content: '' });
+
+    const formatTime = (timestamp: any) => {
+        if (timestamp && timestamp.seconds) {
+            return new Date(timestamp.seconds * 1000).toLocaleDateString('id-ID');
+        }
+        return '-';
+    };
 
     useEffect(() => {
         const qSop = query(collection(db, "knowledge-base"), orderBy("updatedAt", "desc"));
@@ -106,17 +129,24 @@ const AdminDashboard: React.FC = () => {
     const stats = useMemo(() => {
         const totalViews = contents.reduce((acc, curr) => acc + (curr.views || 0), 0);
         const totalLikes = contents.reduce((acc, curr) => acc + (curr.likes || 0), 0);
-        const topViewed = [...contents].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 5).map(item => ({ name: item.title.length > 20 ? item.title.substring(0, 20) + '...' : item.title, views: item.views || 0 }));
+        const topViewed = [...contents].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 5).map(item => {
+            const titleStr = item.title || 'Tanpa Judul';
+            return { name: titleStr.length > 20 ? titleStr.substring(0, 20) + '...' : titleStr, views: item.views || 0 }
+        });
         const categoryDist: Record<string, number> = {};
-        contents.forEach(item => { const catName = item.category.toUpperCase().replace('-', ' '); categoryDist[catName] = (categoryDist[catName] || 0) + 1; });
+        contents.forEach(item => {
+            const catName = (item.category || 'psp').toUpperCase().replace('-', ' ');
+            categoryDist[catName] = (categoryDist[catName] || 0) + 1;
+        });
         const pieData = Object.keys(categoryDist).map(key => ({ name: key, value: categoryDist[key] }));
         return { totalViews, totalLikes, topViewed, pieData };
     }, [contents]);
 
-    // --- LOGIC FILTER DATA SOP ---
     const filteredContents = useMemo(() => {
         return contents.filter(item => {
-            const matchSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) || item.description.toLowerCase().includes(searchTerm.toLowerCase());
+            const titleSafe = item.title || '';
+            const descSafe = item.description || '';
+            const matchSearch = titleSafe.toLowerCase().includes(searchTerm.toLowerCase()) || descSafe.toLowerCase().includes(searchTerm.toLowerCase());
             const matchCategory = filterCategory === 'all' || item.category === filterCategory;
             return matchSearch && matchCategory;
         });
@@ -124,7 +154,13 @@ const AdminDashboard: React.FC = () => {
 
     const handleExportExcel = () => {
         const dataToExport = contents.map((item, index) => ({
-            No: index + 1, Judul: item.title, Kategori: item.category.toUpperCase().replace('-', ' '), 'Dilihat (Views)': item.views || 0, 'Disukai (Likes)': item.likes || 0, 'Terakhir Update': item.updatedAt ? new Date(item.updatedAt.seconds * 1000).toLocaleDateString('id-ID') : '-', Deskripsi: item.description
+            No: index + 1,
+            Judul: item.title,
+            Kategori: (item.category || '').toUpperCase().replace('-', ' '),
+            'Dilihat (Views)': item.views || 0,
+            'Disukai (Likes)': item.likes || 0,
+            'Terakhir Update': formatTime(item.updatedAt),
+            Deskripsi: item.description
         }));
         const ws = XLSX.utils.json_to_sheet(dataToExport);
         const wb = XLSX.utils.book_new();
@@ -166,43 +202,77 @@ const AdminDashboard: React.FC = () => {
         });
     };
 
-    const handleEditSop = (item: ContentData) => { setEditingId(item.id); setFormData({ ...item, imageBase64: item.imageBase64 || '', pdfUrl: item.pdfUrl || '' }); setIsModalOpen(true); };
+    const handleEditSop = (item: ContentData) => { setEditingId(item.id); setFormData({ ...item, imageBase64: item.imageBase64 || '', pdfUrl: item.pdfUrl || '', videoUrl: item.videoUrl || '' }); setIsModalOpen(true); };
     const handleEditFaq = (item: FAQData) => { setEditingId(item.id); setFaqForm({ ...item }); setIsFaqModalOpen(true); };
     const handleEditGuide = (item: GuideData) => { setEditingId(item.id); setGuideForm({ content: item.content }); setIsGuideModalOpen(true); };
 
-    const handleAddSop = () => { setEditingId(null); setFormData({ title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '' }); setIsModalOpen(true); };
+    const handleAddSop = () => { setEditingId(null); setFormData({ title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '', videoUrl: '' }); setIsModalOpen(true); };
     const handleAddFaq = () => { setEditingId(null); setFaqForm({ question: '', answer: '' }); setIsFaqModalOpen(true); };
     const handleAddGuide = () => { setEditingId(null); setGuideForm({ content: '' }); setIsGuideModalOpen(true); };
 
+    // ✅ FIX: Gunakan try/finally agar isSaving selalu di-reset meski terjadi error
     const handleSaveSop = async (e: React.FormEvent) => {
-        e.preventDefault(); setIsSaving(true);
-        const savePromise = editingId
-            ? updateDoc(doc(db, "knowledge-base", editingId), { ...formData, updatedAt: serverTimestamp() })
-            : addDoc(collection(db, "knowledge-base"), { ...formData, updatedAt: serverTimestamp(), views: 0, likes: 0, dislikes: 0 });
-        await toast.promise(savePromise, { loading: 'Menyimpan SOP...', success: 'SOP berhasil disimpan!', error: 'Gagal menyimpan SOP.' });
-        setIsSaving(false); setIsModalOpen(false);
+        e.preventDefault();
+        setIsSaving(true);
+        try {
+            const savePromise = editingId
+                ? updateDoc(doc(db, "knowledge-base", editingId), { ...formData, updatedAt: serverTimestamp() })
+                : addDoc(collection(db, "knowledge-base"), { ...formData, updatedAt: serverTimestamp(), views: 0, likes: 0, dislikes: 0 });
+            await toast.promise(savePromise, { loading: 'Menyimpan SOP...', success: 'SOP berhasil disimpan!', error: 'Gagal menyimpan SOP.' });
+            setIsModalOpen(false);
+        } catch (_) {
+            // error sudah ditangani oleh toast.promise
+        } finally {
+            setIsSaving(false);
+        }
     };
 
+    // ✅ FIX: try/finally untuk FAQ
     const handleSaveFaq = async (e: React.FormEvent) => {
-        e.preventDefault(); setIsSaving(true);
-        const savePromise = editingId
-            ? updateDoc(doc(db, "faqs", editingId), { ...faqForm, createdAt: serverTimestamp() })
-            : addDoc(collection(db, "faqs"), { ...faqForm, createdAt: serverTimestamp() });
-        await toast.promise(savePromise, { loading: 'Menyimpan FAQ...', success: 'FAQ berhasil disimpan!', error: 'Gagal menyimpan FAQ.' });
-        setIsSaving(false); setIsFaqModalOpen(false);
+        e.preventDefault();
+        setIsSaving(true);
+        try {
+            const savePromise = editingId
+                ? updateDoc(doc(db, "faqs", editingId), { ...faqForm, createdAt: serverTimestamp() })
+                : addDoc(collection(db, "faqs"), { ...faqForm, createdAt: serverTimestamp() });
+            await toast.promise(savePromise, { loading: 'Menyimpan FAQ...', success: 'FAQ berhasil disimpan!', error: 'Gagal menyimpan FAQ.' });
+            setIsFaqModalOpen(false);
+        } catch (_) {
+            // error sudah ditangani oleh toast.promise
+        } finally {
+            setIsSaving(false);
+        }
     };
 
+    // ✅ FIX: try/finally untuk Panduan
     const handleSaveGuide = async (e: React.FormEvent) => {
-        e.preventDefault(); setIsSaving(true);
-        const savePromise = editingId
-            ? updateDoc(doc(db, "guides", editingId), { ...guideForm, updatedAt: serverTimestamp() })
-            : addDoc(collection(db, "guides"), { ...guideForm, updatedAt: serverTimestamp() });
-        await toast.promise(savePromise, { loading: 'Menyimpan Panduan...', success: 'Panduan berhasil disimpan!', error: 'Gagal menyimpan Panduan.' });
-        setIsSaving(false); setIsGuideModalOpen(false);
+        e.preventDefault();
+        setIsSaving(true);
+        try {
+            const savePromise = editingId
+                ? updateDoc(doc(db, "guides", editingId), { ...guideForm, updatedAt: serverTimestamp() })
+                : addDoc(collection(db, "guides"), { ...guideForm, updatedAt: serverTimestamp() });
+            await toast.promise(savePromise, { loading: 'Menyimpan Panduan...', success: 'Panduan berhasil disimpan!', error: 'Gagal menyimpan Panduan.' });
+            setIsGuideModalOpen(false);
+        } catch (_) {
+            // error sudah ditangani oleh toast.promise
+        } finally {
+            setIsSaving(false);
+        }
     };
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { if (file.size > 800000) { toast.error("Maksimal ukuran gambar 800KB"); return; } const reader = new FileReader(); reader.onloadend = () => setFormData({ ...formData, imageBase64: reader.result as string }); reader.readAsDataURL(file); } };
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 800000) { toast.error("Maksimal ukuran gambar 800KB"); return; }
+            const reader = new FileReader();
+            reader.onloadend = () => setFormData({ ...formData, imageBase64: reader.result as string });
+            reader.readAsDataURL(file);
+        }
+    };
 
+    // ✅ FIX: insertFormat tetap di dalam komponen (karena butuh akses ke state),
+    // tapi sekarang dioper sebagai prop ke FormatToolbar yang sudah ada di luar
     const insertFormat = (target: 'sop' | 'faq' | 'guide', tag: string) => {
         let elementId = '';
         if (target === 'sop') elementId = 'content-editor';
@@ -238,22 +308,10 @@ const AdminDashboard: React.FC = () => {
         setTimeout(() => textarea.focus(), 100);
     };
 
-    const FormatToolbar = ({ target }: { target: 'sop' | 'faq' | 'guide' }) => (
-        <div className="flex flex-wrap gap-2 p-2 bg-slate-100 border rounded-t-lg">
-            <button type="button" onClick={() => insertFormat(target, 'bold')} className="p-1.5 hover:bg-white rounded text-slate-600 transition" title="Tebal"><Type className="w-4 h-4" /></button>
-            <button type="button" onClick={() => insertFormat(target, 'list')} className="p-1.5 hover:bg-white rounded text-slate-600 transition" title="List"><ListIcon className="w-4 h-4" /></button>
-            <button type="button" onClick={() => insertFormat(target, 'number')} className="p-1.5 hover:bg-white rounded text-slate-600 transition" title="Nomor"><Hash className="w-4 h-4" /></button>
-            <button type="button" onClick={() => insertFormat(target, 'h2')} className="px-2 py-1 bg-white border rounded text-xs font-bold uppercase hover:bg-slate-50">H2</button>
-            <button type="button" onClick={() => insertFormat(target, 'h3')} className="px-2 py-1 bg-white border rounded text-xs font-bold uppercase hover:bg-slate-50">H3</button>
-            <button type="button" onClick={() => insertFormat(target, 'quote')} className="p-1.5 hover:bg-white rounded text-slate-600 transition" title="Kutipan"><Quote className="w-4 h-4" /></button>
-        </div>
-    );
-
     return (
         <div className="min-h-screen bg-[#F8FAF9] font-sans">
             <Toaster position="top-right" />
 
-            {/* NAVBAR ADMIN DIPERCANTIK */}
             <nav className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center sticky top-0 z-40 shadow-sm">
                 <div className="flex items-center space-x-3">
                     <div className="bg-gradient-to-br from-[#0D5C35] to-[#0A492A] p-2.5 rounded-xl shadow-md">
@@ -270,7 +328,6 @@ const AdminDashboard: React.FC = () => {
             </nav>
 
             <main className="max-w-7xl mx-auto p-6 md:p-10">
-                {/* MENU TAB MODERN (PILL STYLE) */}
                 <div className="flex space-x-2 mb-10 overflow-x-auto pb-2 scrollbar-hide bg-white p-2 rounded-2xl shadow-sm border border-slate-100 w-fit">
                     <button onClick={() => setActiveTab('overview')} className={`px-5 py-3 font-bold flex items-center rounded-xl transition-all whitespace-nowrap ${activeTab === 'overview' ? 'bg-[#0D5C35] text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}><BarChart3 className="w-5 h-5 mr-2" /> Dashboard</button>
                     <button onClick={() => setActiveTab('sop')} className={`px-5 py-3 font-bold flex items-center rounded-xl transition-all whitespace-nowrap ${activeTab === 'sop' ? 'bg-[#0D5C35] text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}><LayoutList className="w-5 h-5 mr-2" /> Data SOP</button>
@@ -333,7 +390,6 @@ const AdminDashboard: React.FC = () => {
 
                 {activeTab === 'sop' && (
                     <div className="animate-in fade-in zoom-in duration-300">
-                        {/* FITUR BARU: FILTER & PENCARIAN */}
                         <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
                             <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-grow">
                                 <div className="relative w-full md:max-w-xs">
@@ -394,12 +450,12 @@ const AdminDashboard: React.FC = () => {
                                                     <td className="p-6">
                                                         <p className="font-bold text-slate-800 text-base mb-1">{item.title}</p>
                                                         <p className="text-xs text-slate-400 flex items-center">
-                                                            Update: {item.updatedAt ? new Date(item.updatedAt.seconds * 1000).toLocaleDateString('id-ID') : '-'}
+                                                            Update: {formatTime(item.updatedAt)}
                                                         </p>
                                                     </td>
                                                     <td className="p-6">
-                                                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm ${getCategoryColor(item.category)}`}>
-                                                            {item.category.replace('-', ' ')}
+                                                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm ${getCategoryColor(item.category || 'psp')}`}>
+                                                            {(item.category || 'psp').replace('-', ' ')}
                                                         </span>
                                                     </td>
                                                     <td className="p-6 text-center">
@@ -452,6 +508,12 @@ const AdminDashboard: React.FC = () => {
                                 </div>
                             </div>
                         ))}
+                        {faqs.length === 0 && (
+                            <div className="bg-white p-16 rounded-3xl border border-slate-200 text-center">
+                                <HelpCircle className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+                                <p className="text-slate-500 font-bold text-lg">Belum ada FAQ yang dibuat.</p>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -478,7 +540,7 @@ const AdminDashboard: React.FC = () => {
                                                 <p className="text-slate-600 text-sm line-clamp-2 font-medium bg-slate-50 p-3 rounded-xl border border-slate-100">{item.content}</p>
                                             </td>
                                             <td className="p-6 text-center text-xs font-bold text-slate-400">
-                                                {item.updatedAt ? new Date(item.updatedAt.seconds * 1000).toLocaleDateString() : '-'}
+                                                {formatTime(item.updatedAt)}
                                             </td>
                                             <td className="p-6 text-center flex justify-center space-x-3">
                                                 <button onClick={() => handleEditGuide(item)} aria-label="Edit Panduan" className="p-2.5 text-amber-600 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-xl transition-all border border-amber-100"><Edit className="w-4 h-4" /></button>
@@ -513,7 +575,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
             )}
 
-            {/* MODALS INPUT (SOP) */}
+            {/* MODAL INPUT (SOP) */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
                     <div className="bg-white rounded-3xl w-full max-w-3xl p-8 overflow-y-auto max-h-[90vh] shadow-2xl border border-white/20">
@@ -522,7 +584,7 @@ const AdminDashboard: React.FC = () => {
                                 <FileText className="w-6 h-6 mr-3 text-[#0D5C35]" />
                                 {editingId ? 'Edit SOP / Layanan' : 'Tambah SOP Baru'}
                             </h3>
-                            <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+                            <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><X className="w-6 h-6" /></button>
                         </div>
                         <form onSubmit={handleSaveSop} className="space-y-5">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -533,8 +595,14 @@ const AdminDashboard: React.FC = () => {
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Kategori</label>
                                     <select className="w-full p-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-bold text-slate-700 bg-slate-50 focus:bg-white transition-colors cursor-pointer" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
-                                        <option value="psp">PSP</option><option value="sewa">SEWA</option><option value="penjualan">PENJUALAN</option><option value="penghapusan">PENGHAPUSAN</option><option value="pinjam-pakai">PINJAM PAKAI</option><option value="penggunaan-sementara">PENGGUNAAN SEMENTARA</option><option value="alih-status">ALIH STATUS</option>
-                                        <option value="hibah">HIBAH</option> {/* FITUR HIBAH DITAMBAHKAN */}
+                                        <option value="psp">PSP</option>
+                                        <option value="sewa">SEWA</option>
+                                        <option value="penjualan">PENJUALAN</option>
+                                        <option value="penghapusan">PENGHAPUSAN</option>
+                                        <option value="pinjam-pakai">PINJAM PAKAI</option>
+                                        <option value="penggunaan-sementara">PENGGUNAAN SEMENTARA</option>
+                                        <option value="alih-status">ALIH STATUS</option>
+                                        <option value="hibah">HIBAH</option>
                                     </select>
                                 </div>
                             </div>
@@ -550,18 +618,27 @@ const AdminDashboard: React.FC = () => {
                                     <input type="file" accept="image/*" onChange={handleImageUpload} className="block w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer border border-slate-200 rounded-xl bg-slate-50" />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Link File Excel/PDF (Opsional)</label>
-                                    <input type="url" placeholder="https://drive.google.com/..." className="w-full p-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-medium bg-slate-50 focus:bg-white transition-colors" value={formData.pdfUrl} onChange={e => setFormData({ ...formData, pdfUrl: e.target.value })} />
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex justify-between">
+                                        <span>Link Video Tutorial</span><span className="text-slate-400 lowercase normal-case font-normal">(Opsional)</span>
+                                    </label>
+                                    <input type="url" placeholder="Link YouTube / Google Drive..." className="w-full p-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-medium bg-slate-50 focus:bg-white transition-colors" value={formData.videoUrl} onChange={e => setFormData({ ...formData, videoUrl: e.target.value })} />
                                 </div>
                             </div>
 
-                            {/* Rich Text Editor */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex justify-between">
+                                    <span>Link File Excel / PDF Dokumen</span><span className="text-slate-400 lowercase normal-case font-normal">(Opsional)</span>
+                                </label>
+                                <input type="url" placeholder="https://drive.google.com/..." className="w-full p-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-medium bg-slate-50 focus:bg-white transition-colors" value={formData.pdfUrl} onChange={e => setFormData({ ...formData, pdfUrl: e.target.value })} />
+                            </div>
+
                             <div className="space-y-1.5 pt-2">
                                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center justify-between">
                                     <span>Isi Dokumen (Mendukung Markdown)</span>
                                 </label>
                                 <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#0D5C35] focus-within:border-transparent transition-all shadow-sm">
-                                    <FormatToolbar target="sop" />
+                                    {/* ✅ FormatToolbar sekarang menerima onInsert sebagai prop */}
+                                    <FormatToolbar target="sop" onInsert={insertFormat} />
                                     <textarea id="content-editor" placeholder="Ketik isi SOP di sini..." rows={12} className="w-full p-5 font-mono text-sm outline-none bg-slate-50 focus:bg-white resize-y" required value={formData.content} onChange={e => setFormData({ ...formData, content: e.target.value })}></textarea>
                                 </div>
                             </div>
@@ -583,7 +660,7 @@ const AdminDashboard: React.FC = () => {
                     <div className="bg-white rounded-3xl w-full max-w-2xl p-8 shadow-2xl border border-white/20">
                         <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
                             <h3 className="font-black text-2xl text-slate-800 flex items-center"><HelpCircle className="w-6 h-6 mr-3 text-amber-500" />{editingId ? 'Edit FAQ' : 'Tambah FAQ Baru'}</h3>
-                            <button onClick={() => setIsFaqModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+                            <button type="button" onClick={() => setIsFaqModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><X className="w-6 h-6" /></button>
                         </div>
                         <form onSubmit={handleSaveFaq} className="space-y-5">
                             <div className="space-y-1.5">
@@ -594,14 +671,16 @@ const AdminDashboard: React.FC = () => {
                             <div className="space-y-1.5 pt-2">
                                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Jawaban (A)</label>
                                 <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#0D5C35] focus-within:border-transparent transition-all shadow-sm">
-                                    <FormatToolbar target="faq" />
+                                    <FormatToolbar target="faq" onInsert={insertFormat} />
                                     <textarea id="faq-editor" placeholder="Ketik jawaban di sini..." rows={8} className="w-full p-5 font-mono text-sm outline-none bg-slate-50 focus:bg-white resize-y" value={faqForm.answer} onChange={e => setFaqForm({ ...faqForm, answer: e.target.value })} required />
                                 </div>
                             </div>
 
                             <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
                                 <button type="button" onClick={() => setIsFaqModalOpen(false)} className="px-6 py-3 font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">Batal</button>
-                                <button type="submit" disabled={isSaving} className="px-8 py-3 bg-[#0D5C35] hover:bg-[#0A492A] text-white rounded-xl font-bold shadow-lg shadow-emerald-200 transition-all">{isSaving ? 'Menyimpan...' : 'Simpan FAQ'}</button>
+                                <button type="submit" disabled={isSaving} className="px-8 py-3 bg-[#0D5C35] hover:bg-[#0A492A] text-white rounded-xl font-bold shadow-lg shadow-emerald-200 transition-all flex items-center">
+                                    {isSaving ? <><RefreshCw className="w-5 h-5 mr-2 animate-spin" /> Menyimpan...</> : 'Simpan FAQ'}
+                                </button>
                             </div>
                         </form>
                     </div>
@@ -614,19 +693,21 @@ const AdminDashboard: React.FC = () => {
                     <div className="bg-white rounded-3xl w-full max-w-3xl p-8 shadow-2xl border border-white/20">
                         <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
                             <h3 className="font-black text-2xl text-slate-800 flex items-center"><BookOpen className="w-6 h-6 mr-3 text-blue-500" />{editingId ? 'Edit Panduan Pengguna' : 'Buat Panduan Pengguna'}</h3>
-                            <button onClick={() => setIsGuideModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+                            <button type="button" onClick={() => setIsGuideModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><X className="w-6 h-6" /></button>
                         </div>
                         <form onSubmit={handleSaveGuide} className="space-y-5">
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Isi Panduan Utama</label>
                                 <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#0D5C35] focus-within:border-transparent transition-all shadow-sm">
-                                    <FormatToolbar target="guide" />
+                                    <FormatToolbar target="guide" onInsert={insertFormat} />
                                     <textarea id="guide-editor" placeholder="Ketik panduan lengkap di sini..." rows={15} className="w-full p-5 font-mono text-sm outline-none bg-slate-50 focus:bg-white resize-y" value={guideForm.content} onChange={e => setGuideForm({ ...guideForm, content: e.target.value })} required />
                                 </div>
                             </div>
                             <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
                                 <button type="button" onClick={() => setIsGuideModalOpen(false)} className="px-6 py-3 font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">Batal</button>
-                                <button type="submit" disabled={isSaving} className="px-8 py-3 bg-[#0D5C35] hover:bg-[#0A492A] text-white rounded-xl font-bold shadow-lg shadow-emerald-200 transition-all">{isSaving ? 'Menyimpan...' : 'Simpan Panduan'}</button>
+                                <button type="submit" disabled={isSaving} className="px-8 py-3 bg-[#0D5C35] hover:bg-[#0A492A] text-white rounded-xl font-bold shadow-lg shadow-emerald-200 transition-all flex items-center">
+                                    {isSaving ? <><RefreshCw className="w-5 h-5 mr-2 animate-spin" /> Menyimpan...</> : 'Simpan Panduan'}
+                                </button>
                             </div>
                         </form>
                     </div>
