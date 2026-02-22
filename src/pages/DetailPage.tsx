@@ -9,7 +9,7 @@ import { db } from '../firebase';
 import {
   ArrowLeft, Calendar, FileText, Image as ImageIcon, Download,
   Eye, ThumbsUp, ThumbsDown, Share2, Check, Home, ChevronRight,
-  Maximize2, X // Import Icon Tambahan
+  Maximize2, X
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import toast, { Toaster } from 'react-hot-toast';
@@ -121,6 +121,7 @@ const DetailPage: React.FC = () => {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  // --- REVISI: Penambahan warna Oranye untuk kategori Hibah ---
   const getCategoryStyle = (cat: string) => {
     switch (cat) {
       case 'psp': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
@@ -130,6 +131,7 @@ const DetailPage: React.FC = () => {
       case 'pinjam-pakai': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
       case 'penggunaan-sementara': return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'alih-status': return 'bg-teal-100 text-teal-800 border-teal-200';
+      case 'hibah': return 'bg-orange-100 text-orange-800 border-orange-200';
       default: return 'bg-slate-100 text-slate-800 border-slate-200';
     }
   };
@@ -160,7 +162,7 @@ const DetailPage: React.FC = () => {
             src={data.imageBase64}
             alt="Full Preview"
             className="max-w-full max-h-full object-contain rounded-lg shadow-2xl scale-100 transition-transform duration-300"
-            onClick={(e) => e.stopPropagation()} // Biar klik gambar gak nutup modal
+            onClick={(e) => e.stopPropagation()}
           />
           <p className="absolute bottom-6 text-white/60 text-sm font-medium">Klik di luar gambar untuk menutup</p>
         </div>
@@ -265,7 +267,6 @@ const DetailPage: React.FC = () => {
               <div className="mb-10 mt-8">
                 <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><span className="w-1 h-6 bg-[#0D5C35] rounded-full mr-3"></span>Lampiran Visual</h3>
 
-                {/* TRIGGER LIGHTBOX */}
                 <div
                   className="p-2 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl cursor-zoom-in group relative overflow-hidden"
                   onClick={() => setIsLightboxOpen(true)}

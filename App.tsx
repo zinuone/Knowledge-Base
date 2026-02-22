@@ -10,6 +10,7 @@ import {
   Instagram, Globe, Facebook, Filter,
   Youtube,
   Scale,
+  Gift,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import KnowledgeCard from './src/components/KnowledgeCard';
@@ -26,7 +27,7 @@ const FadeInSection: React.FC<{ children: React.ReactNode, delay?: string }> = (
       entries.forEach(entry => {
         if (entry.isIntersecting) setIsVisible(true);
       });
-    }, { threshold: 0.1 }); 
+    }, { threshold: 0.1 });
 
     const currentRef = domRef.current;
     if (currentRef) observer.observe(currentRef);
@@ -90,7 +91,8 @@ const App: React.FC = () => {
     { id: 'penghapusan', title: 'PENGHAPUSAN', description: 'Proses Penghapusan Barang Milik Negara', icon: <Trash2 className="w-8 h-8" />, color: 'bg-rose-50 text-rose-700' },
     { id: 'pinjam-pakai', title: 'PINJAM PAKAI', description: 'Aturan Pinjam Pakai Antar Instansi', icon: <Clock className="w-8 h-8" />, color: 'bg-indigo-50 text-indigo-700' },
     { id: 'penggunaan-sementara', title: 'PENGGUNAAN SEMENTARA', description: 'Penggunaan BMN dalam jangka waktu tertentu', icon: <Timer className="w-8 h-8" />, color: 'bg-purple-50 text-purple-700' },
-    { id: 'alih-status', title: 'ALIH STATUS', description: 'Alih Status Penggunaan Barang Milik Negara', icon: <RefreshCw className="w-8 h-8" />, color: 'bg-teal-50 text-teal-700' }
+    { id: 'alih-status', title: 'ALIH STATUS', description: 'Alih Status Penggunaan Barang Milik Negara', icon: <RefreshCw className="w-8 h-8" />, color: 'bg-teal-50 text-teal-700' },
+    { id: 'hibah', title: 'HIBAH', description: 'Prosedur Hibah Barang Milik Negara', icon: <Gift className="w-8 h-8" />, color: 'bg-orange-50 text-orange-700' }
   ];
 
   // FETCH DATA
@@ -110,17 +112,16 @@ const App: React.FC = () => {
     const qGuide = query(collection(db, "guides"), orderBy("updatedAt", "desc"));
     const unsubGuide = onSnapshot(qGuide, (snap) => setGuides(snap.docs.map(d => ({ id: d.id, ...d.data() })) as GuideData[]));
 
-    // PERBAIKAN 1: Tambahkan logika auto-close menu saat scroll
     const handleScroll = () => {
-        setIsScrolled(window.scrollY > 50);
-        if (window.scrollY > 50 && isMenuOpen) {
-            setIsMenuOpen(false); // Tutup menu jika user scroll
-        }
+      setIsScrolled(window.scrollY > 50);
+      if (window.scrollY > 50 && isMenuOpen) {
+        setIsMenuOpen(false);
+      }
     };
     window.addEventListener('scroll', handleScroll);
 
     return () => { unsubSop(); unsubFaq(); unsubGuide(); window.removeEventListener('scroll', handleScroll); };
-  }, [isMenuOpen]); // Tambahkan isMenuOpen ke dependency
+  }, [isMenuOpen]);
 
   // LOGIC FILTER
   const searchResults = useMemo(() => {
@@ -312,26 +313,22 @@ const App: React.FC = () => {
       <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out ${isScrolled ? 'bg-[#0A492A]/90 backdrop-blur-md shadow-lg py-3' : 'bg-transparent py-6'}`}>
         <nav className="max-w-7xl mx-auto px-6">
           <div className="flex justify-between items-center">
-            
-            {/* PERBAIKAN 2: Logo KPKNL Muncul di Mobile (Dihapus class hidden) */}
+
             <div className="flex items-center cursor-pointer" onClick={() => scrollToSection('top')}>
-              {/* 1. Logo Kemenkeu (Kiri) */}
               <div className="bg-white p-1.5 rounded-lg shadow-md hover:scale-105 transition-transform flex-shrink-0">
                 <img src="/logo_kemenkeu.png" alt="Logo Kemenkeu" className="w-8 h-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none' }} />
               </div>
 
-              {/* Garis Pemisah (Divider - Tetap Hidden di Mobile agar rapi) */}
               <div className="h-8 w-px bg-white/20 mx-3 hidden sm:block"></div>
 
-              {/* 2. Logo KPKNL (Kanan - SEKARANG MUNCUL DI MOBILE) */}
-              <div className="bg-white p-1.5 rounded-lg shadow-md hover:scale-105 transition-transform flex-shrink-0 ml-2 sm:ml-0">
-                <img src="/logo.png" alt="Logo KPKNL" className="w-8 h-8 object-contain" />
+              {/* REVISI 5 FIX: Memangkas jarak atas-bawah agar tulisan KPKNL mepet dan membesar */}
+              <div className="bg-white px-3 py-0 rounded-lg shadow-md hover:scale-105 transition-transform flex-shrink-0 ml-2 sm:ml-0 flex items-center justify-center h-[44px] md:h-[50px] overflow-hidden">
+                <img src="/logo.png" alt="Logo KPKNL" className="h-full w-auto object-contain scale-[1.35] md:scale-[1.45]" />
               </div>
 
-              {/* 3. Teks Identitas */}
-              <div className="flex flex-col text-white ml-3">
-                <span className="font-bold text-base sm:text-lg leading-none tracking-tight">KPKNL KENDARI</span>
-                <span className="text-[9px] sm:text-[10px] uppercase opacity-80 tracking-widest text-[#D4AF37]">
+              <div className="flex flex-col text-white ml-4 justify-center">
+                <span className="font-black text-lg md:text-xl leading-none tracking-tight">KPKNL KENDARI</span>
+                <span className="text-[10px] md:text-xs uppercase opacity-90 tracking-widest text-[#D4AF37] mt-0.5">
                   Kementerian Keuangan RI
                 </span>
               </div>
@@ -352,20 +349,46 @@ const App: React.FC = () => {
 
       <div className="relative bg-gradient-to-br from-[#0D5C35] via-[#0A492A] to-[#083D23] pt-40 pb-32 px-4">
         <div className={`max-w-4xl mx-auto text-center transition-all duration-1000 transform ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-          <h1 className="text-white text-4xl md:text-5xl font-extrabold mb-6 tracking-tight">KNOWLEDGE BASE <br className="sm:hidden" /> <span className="text-[#D4AF37]">KPKNL KENDARI</span></h1>
+
+          {/* REVISI 2 FIX: Judul diberi separator | agar tidak menyatu */}
+          <h1 className="text-white text-4xl md:text-5xl font-extrabold mb-5 tracking-tight leading-tight">
+            KNOWLEDGE BASE <br className="hidden sm:block" />
+            <span className="text-2xl md:text-3xl font-medium text-emerald-100 mt-4 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
+              <span className="tracking-wide">DIVISI PKN</span>
+              <span className="hidden sm:inline-block text-[#ffffff] opacity-60">|</span>
+              <span className="font-bold text-[#D4AF37] tracking-widest">KPKNL KENDARI</span>
+            </span>
+          </h1>
           <p className="text-slate-200 mb-10 text-lg max-w-2xl mx-auto opacity-90">Sistem informasi terintegrasi pengelolaan kekayaan negara.</p>
+
           <div className="relative max-w-2xl mx-auto">
             <div className="relative group">
               <input type="text" className="w-full py-4 px-6 pl-14 pr-16 rounded-full bg-white text-slate-900 shadow-2xl outline-none focus:ring-4 focus:ring-[#D4AF37]/30 transition-all text-lg placeholder:text-slate-400" placeholder="Cari SOP atau Layanan..." aria-label="Kotak Pencarian" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearchAction()} />
               <button onClick={handleSearchAction} aria-label="Tombol Cari" className="absolute left-5 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-[#0D5C35] transition-colors"><Search className="w-6 h-6" /></button>
               {searchQuery && (<button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-rose-500 bg-slate-100 hover:bg-rose-50 p-1.5 rounded-full transition-all" aria-label="Hapus Pencarian"><X className="w-4 h-4" /></button>)}
             </div>
+
             <div className="mt-4 flex flex-wrap justify-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-200">
               <span className="text-white/70 text-xs sm:text-sm font-medium mr-1 py-1">Pencarian Populer:</span>
-              {['Sewa BMN', 'Lelang', 'Penghapusan', 'Status Penggunaan'].map(tag => (
+              {['Sewa BMN', 'Lelang', 'Penghapusan', 'Hibah'].map(tag => (
                 <button key={tag} onClick={() => setSearchQuery(tag)} className="bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1 rounded-full transition-colors border border-white/10">{tag}</button>
               ))}
             </div>
+
+            {/* Tombol Konsul Online */}
+            <div className="mt-10 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
+              <a
+                href="#"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center px-8 py-4 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 font-black rounded-full shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:shadow-[0_0_25px_rgba(212,175,55,0.6)] hover:-translate-y-1 transition-all duration-300"
+              >
+                <Phone className="w-5 h-5 mr-3 animate-pulse" />
+                DAFTAR KONSUL ONLINE
+              </a>
+              <p className="text-emerald-100/70 text-sm mt-3 font-medium">Hubungi petugas kami secara virtual untuk panduan lebih lanjut.</p>
+            </div>
+
           </div>
         </div>
       </div>
