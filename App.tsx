@@ -8,14 +8,9 @@ import {
   Info, Phone, BookOpen, Mail, ArrowUp, Timer, HelpCircle, LogIn,
   Menu, X, ChevronLeft, ChevronRight, Eye, List, Grid,
   Instagram, Globe, Filter,
-  Youtube,
-  Scale,
-  Gift,
-  MapPin,
-  ExternalLink,
-  ChevronDown,
-  Sparkles,
-  Building2,
+  Youtube, Scale, Gift,
+  MapPin, ExternalLink, ChevronDown,
+  Sparkles, Building2,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import KnowledgeCard from './src/components/KnowledgeCard';
@@ -26,18 +21,14 @@ import { SkeletonCard, SkeletonRow } from './src/components/SkeletonLoader';
 const FadeInSection: React.FC<{ children: React.ReactNode, delay?: string }> = ({ children, delay }) => {
   const [isVisible, setIsVisible] = useState(false);
   const domRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     const observer = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) setIsVisible(true);
-      });
+      entries.forEach(entry => { if (entry.isIntersecting) setIsVisible(true); });
     }, { threshold: 0.1 });
     const currentRef = domRef.current;
     if (currentRef) observer.observe(currentRef);
     return () => { if (currentRef) observer.unobserve(currentRef); };
   }, []);
-
   return (
     <div ref={domRef} className={`transition-all duration-1000 ease-out transform ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-24'} ${delay || ''}`}>
       {children}
@@ -46,22 +37,9 @@ const FadeInSection: React.FC<{ children: React.ReactNode, delay?: string }> = (
 };
 
 // Tipe Data
-interface ContentData {
-  id: string;
-  title: string;
-  category: string;
-  description: string;
-  updatedAt?: any;
-}
-interface FAQData {
-  id: string;
-  question: string;
-  answer: string;
-}
-interface GuideData {
-  id: string;
-  content: string;
-}
+interface ContentData { id: string; title: string; category: string; description: string; updatedAt?: any; }
+interface FAQData { id: string; question: string; answer: string; }
+interface GuideData { id: string; content: string; }
 
 // Komponen FAQ Accordion (di luar App agar tidak unmount saat re-render)
 const FAQAccordionItem: React.FC<{ faq: FAQData; index: number }> = ({ faq, index }) => {
@@ -150,37 +128,15 @@ const App: React.FC = () => {
   const handleDocClick = (id: string) => navigate(`/detail/${id}`);
   const scrollToSection = (id: string) => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth' }); setIsMenuOpen(false); };
   const handleScrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
-
-  // Helper scroll ke tabel
-  const scrollToTable = () => {
-    setTimeout(() => {
-      const el = document.getElementById('document-table-section');
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 300);
-  };
-
-  // Klik tombol Cari / Enter
-  const handleSearchAction = () => {
-    setActiveSearch(searchQuery);
-    setCurrentPage(1);
-    scrollToTable();
-  };
-
-  // ✅ FIX 3: Tag populer langsung search + scroll otomatis
-  const handlePopularTag = (tag: string) => {
-    setSearchQuery(tag);
-    setActiveSearch(tag);
-    setCurrentPage(1);
-    scrollToTable();
-  };
-
+  const scrollToTable = () => { setTimeout(() => { const el = document.getElementById('document-table-section'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 300); };
+  const handleSearchAction = () => { setActiveSearch(searchQuery); setCurrentPage(1); scrollToTable(); };
+  const handlePopularTag = (tag: string) => { setSearchQuery(tag); setActiveSearch(tag); setCurrentPage(1); scrollToTable(); };
   const handleClearSearch = () => { setSearchQuery(''); setActiveSearch(''); setCurrentPage(1); };
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return '-';
     return new Date(timestamp.seconds * 1000).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
-
   const isNewDocument = (timestamp: any) => {
     if (!timestamp) return false;
     return Math.ceil(Math.abs(new Date().getTime() - new Date(timestamp.seconds * 1000).getTime()) / (1000 * 60 * 60 * 24)) <= 30;
@@ -338,76 +294,92 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col font-sans relative bg-[#F8FAF9]" id="top">
 
-      {/* NAVBAR */}
-      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out ${isScrolled ? 'bg-[#0A492A]/90 backdrop-blur-md shadow-lg py-3' : 'bg-transparent py-6'}`}>
+      {/* ============================================================
+          NAVBAR — Hanya logo KPKNL (swap warna/putih berdasarkan scroll)
+          Logo Kemenkeu dipindahkan ke footer
+      ============================================================ */}
+      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out ${isScrolled ? 'bg-[#0A492A]/95 backdrop-blur-md shadow-lg py-3' : 'bg-transparent py-5'}`}>
         <nav className="max-w-7xl mx-auto px-6">
           <div className="flex justify-between items-center">
+
+            {/* Logo KPKNL — satu-satunya logo di navbar */}
             <div className="flex items-center cursor-pointer" onClick={() => scrollToSection('top')}>
-              <div className="bg-white p-1.5 rounded-lg shadow-md hover:scale-105 transition-transform flex-shrink-0">
-                <img src="/logo_kemenkeu.png" alt="Logo Kemenkeu" className="w-8 h-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-              </div>
-              <div className="h-8 w-px bg-white/20 mx-3 hidden sm:block"></div>
-              <div className="bg-white px-3 py-0 rounded-lg shadow-md hover:scale-105 transition-transform flex-shrink-0 ml-2 sm:ml-0 flex items-center justify-center h-[44px] md:h-[50px] overflow-hidden">
-                <img src="/logo.png" alt="Logo KPKNL" className="h-full w-auto object-contain scale-[1.35] md:scale-[1.45]" />
-              </div>
-              <div className="flex flex-col text-white ml-4 justify-center">
-                <span className="font-black text-lg md:text-xl leading-none tracking-tight">KPKNL KENDARI</span>
-                <span className="text-[10px] md:text-xs uppercase opacity-90 tracking-widest text-[#D4AF37] mt-0.5">Kementerian Keuangan RI</span>
-              </div>
+              <img
+                src={isScrolled ? '/logo-color.png' : '/logo-white.png'}
+                alt="Logo KPKNL Kendari"
+                className="h-9 md:h-11 w-auto object-contain transition-all duration-500 drop-shadow-md hover:scale-105"
+              />
             </div>
+
+            {/* Menu Desktop */}
             <div className="hidden md:flex items-center space-x-6">
               <div className="flex space-x-6 text-sm font-semibold uppercase tracking-wider">
                 {['Beranda', 'FAQ', 'Panduan', 'Kontak'].map(item => (
-                  <button key={item} onClick={() => scrollToSection(item.toLowerCase())} aria-label={`Ke Bagian ${item}`} className="text-white hover:text-[#D4AF37] transition-colors">{item}</button>
+                  <button key={item} onClick={() => scrollToSection(item.toLowerCase())} aria-label={`Ke Bagian ${item}`}
+                    className={`transition-colors ${isScrolled ? 'text-white hover:text-[#D4AF37]' : 'text-white/90 hover:text-[#D4AF37]'}`}>
+                    {item}
+                  </button>
                 ))}
               </div>
-              <button onClick={() => navigate('/login')} aria-label="Login Admin" className="flex items-center px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold text-white border border-white/20 transition-all"><LogIn className="w-3 h-3 mr-1.5" /> Admin</button>
+              <button onClick={() => navigate('/login')} aria-label="Login Admin"
+                className="flex items-center px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold text-white border border-white/20 transition-all">
+                <LogIn className="w-3 h-3 mr-1.5" /> Admin
+              </button>
             </div>
+
+            {/* Hamburger Mobile */}
             <div className="md:hidden flex items-center gap-3">
-              <button onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Buka Menu" className="text-white p-2 hover:bg-white/10 rounded-lg">{isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}</button>
+              <button onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Buka Menu" className="text-white p-2 hover:bg-white/10 rounded-lg">
+                {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
             </div>
           </div>
+
+          {/* Mobile Dropdown */}
           {isMenuOpen && (
             <div className="md:hidden absolute top-full left-0 right-0 mt-4 mx-4 bg-[#0A492A] rounded-2xl shadow-2xl border border-white/10 p-4 flex flex-col space-y-2 animate-in slide-in-from-top-5 duration-200">
               {['Beranda', 'FAQ', 'Panduan', 'Kontak'].map(item => (
-                <button key={item} onClick={() => scrollToSection(item.toLowerCase())} className="text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white font-semibold flex items-center"><FileText className="w-4 h-4 mr-3 opacity-70" /> {item}</button>
+                <button key={item} onClick={() => scrollToSection(item.toLowerCase())} className="text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white font-semibold flex items-center">
+                  <FileText className="w-4 h-4 mr-3 opacity-70" /> {item}
+                </button>
               ))}
               <div className="mt-4 pt-4 border-t border-white/10">
-                <button onClick={() => navigate('/login')} className="w-full text-left px-4 py-3 rounded-xl bg-white/10 text-[#D4AF37] font-bold flex items-center hover:bg-white/20 transition-all"><LogIn className="w-4 h-4 mr-3" /> Login Admin</button>
+                <button onClick={() => navigate('/login')} className="w-full text-left px-4 py-3 rounded-xl bg-white/10 text-[#D4AF37] font-bold flex items-center hover:bg-white/20 transition-all">
+                  <LogIn className="w-4 h-4 mr-3" /> Login Admin
+                </button>
               </div>
             </div>
           )}
         </nav>
       </header>
 
-      {/* HERO */}
+      {/* ============================================================
+          HERO SECTION
+      ============================================================ */}
       <div className="relative bg-gradient-to-br from-[#0D5C35] via-[#0A492A] to-[#083D23] pt-40 pb-32 px-4">
-        <div className={`max-w-4xl mx-auto text-center transition-all duration-1000 transform ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+        {/* Dekorasi lingkaran blur di hero */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-10 right-10 w-72 h-72 rounded-full bg-white/5 blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-96 h-48 rounded-full bg-[#D4AF37]/5 blur-3xl"></div>
+        </div>
+
+        <div className={`max-w-4xl mx-auto text-center transition-all duration-1000 transform relative z-10 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
           <h1 className="text-white text-4xl md:text-5xl font-extrabold mb-5 tracking-tight leading-tight">
             KNOWLEDGE BASE <br className="hidden sm:block" />
             <span className="text-2xl md:text-3xl font-medium text-emerald-100 mt-4 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
               <span className="tracking-wide">DIVISI PKN</span>
-              <span className="hidden sm:inline-block text-[#ffffff] opacity-60">|</span>
+              <span className="hidden sm:inline-block text-white opacity-60">|</span>
               <span className="font-bold text-[#D4AF37] tracking-widest">KPKNL KENDARI</span>
             </span>
           </h1>
           <p className="text-slate-200 mb-10 text-lg max-w-2xl mx-auto opacity-90">Sistem informasi terintegrasi pengelolaan kekayaan negara.</p>
 
-          {/* ✅ FIX 1 & 2: Search bar menyatu dalam satu container, X di dalam */}
+          {/* Search Bar */}
           <div className="max-w-2xl mx-auto">
-            {/*
-              Satu div rounded-full overflow-hidden = visual pill menyatu.
-              Di dalamnya: ikon cari | input | tombol X (opsional) | garis | tombol Cari.
-              Tidak ada gap, tidak ada shadow terpisah.
-            */}
             <div className="flex items-stretch bg-white rounded-full shadow-2xl overflow-hidden ring-0 focus-within:ring-4 focus-within:ring-[#D4AF37]/40 transition-all">
-
-              {/* Ikon kaca pembesar kiri */}
               <div className="flex items-center pl-5 pr-2 flex-shrink-0">
                 <Search className="w-5 h-5 text-slate-400 pointer-events-none" />
               </div>
-
-              {/* Input teks */}
               <input
                 type="text"
                 className="flex-1 py-4 pr-1 bg-transparent text-slate-900 outline-none text-base md:text-lg placeholder:text-slate-400 min-w-0"
@@ -417,47 +389,30 @@ const App: React.FC = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearchAction()}
               />
-
-              {/* ✅ FIX 2: Tombol X di DALAM bar, tampil hanya saat ada teks */}
               {searchQuery && (
-                <button
-                  onClick={handleClearSearch}
-                  aria-label="Hapus Pencarian"
-                  className="flex items-center flex-shrink-0 mx-2 p-1.5 text-slate-400 hover:text-rose-500 bg-slate-100 hover:bg-rose-50 rounded-full transition-all self-center"
-                >
+                <button onClick={handleClearSearch} aria-label="Hapus Pencarian"
+                  className="flex items-center flex-shrink-0 mx-2 p-1.5 text-slate-400 hover:text-rose-500 bg-slate-100 hover:bg-rose-50 rounded-full transition-all self-center">
                   <X className="w-4 h-4" />
                 </button>
               )}
-
-              {/* Garis pemisah vertikal tipis */}
               <div className="flex-shrink-0 self-center w-px h-7 bg-slate-200 mx-1"></div>
-
-              {/* ✅ FIX 1: Tombol Cari langsung menempel tanpa gap/border */}
-              <button
-                onClick={handleSearchAction}
-                aria-label="Tombol Cari"
-                className="flex-shrink-0 flex items-center gap-2 px-7 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 font-black transition-all active:brightness-90 whitespace-nowrap text-sm md:text-base"
-              >
+              <button onClick={handleSearchAction} aria-label="Tombol Cari"
+                className="flex-shrink-0 flex items-center gap-2 px-7 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 font-black transition-all active:brightness-90 whitespace-nowrap text-sm md:text-base">
                 <Search className="w-4 h-4 md:w-5 md:h-5" />
                 <span className="hidden sm:inline">Cari</span>
               </button>
             </div>
 
-            {/* ✅ FIX 3: Tag populer — klik langsung scroll ke hasil */}
             <div className="mt-4 flex flex-wrap justify-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-200">
               <span className="text-white/70 text-xs sm:text-sm font-medium mr-1 py-1">Pencarian Populer:</span>
               {['Sewa BMN', 'Lelang', 'Penghapusan', 'Hibah'].map(tag => (
-                <button
-                  key={tag}
-                  onClick={() => handlePopularTag(tag)}
-                  className="bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1 rounded-full transition-colors border border-white/10"
-                >
+                <button key={tag} onClick={() => handlePopularTag(tag)}
+                  className="bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1 rounded-full transition-colors border border-white/10">
                   {tag}
                 </button>
               ))}
             </div>
 
-            {/* Tombol Konsul Online */}
             <div className="mt-10 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
               <a href="#" target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center px-8 py-4 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 font-black rounded-full shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:shadow-[0_0_25px_rgba(212,175,55,0.6)] hover:-translate-y-1 transition-all duration-300">
@@ -478,28 +433,64 @@ const App: React.FC = () => {
         <FadeInSection delay="delay-200"><div id="kontak" className="pt-10 scroll-mt-20"><SectionKontak /></div></FadeInSection>
       </main>
 
-      {/* FOOTER PREMIUM */}
+      {/* ============================================================
+          FOOTER PREMIUM
+          — Logo KPKNL (logo-color.png) + Logo Kemenkeu berdampingan
+      ============================================================ */}
       <footer className="relative bg-gradient-to-b from-[#0A492A] to-[#062B18] text-white overflow-hidden">
+        {/* Dekorasi blur */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-white/5 blur-3xl"></div>
           <div className="absolute -bottom-16 -right-16 w-96 h-96 rounded-full bg-[#D4AF37]/10 blur-3xl"></div>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[200px] rounded-full bg-white/[0.02] blur-2xl"></div>
         </div>
+
+        {/* Garis emas atas */}
         <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-60"></div>
+
         <div className="relative max-w-7xl mx-auto px-6 pt-16 pb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-14">
+
+            {/* ── Kolom 1: Identitas dengan KEDUA LOGO ── */}
             <div className="lg:col-span-1">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="bg-white/10 backdrop-blur-sm p-2.5 rounded-xl border border-white/10 shadow-lg">
-                  <img src="/logo.png" alt="Logo KPKNL" className="w-10 h-10 object-contain" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-                </div>
-                <div><p className="font-black text-white text-lg leading-none">KPKNL</p><p className="text-[#D4AF37] text-xs font-bold tracking-widest uppercase">Kendari</p></div>
+
+              {/* Logo KPKNL berwarna (besar, tanpa kotak) */}
+              <div className="mb-5">
+                <img
+                  src="/logo-color.png"
+                  alt="Logo KPKNL Kendari"
+                  className="h-12 w-auto object-contain drop-shadow-md"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
               </div>
-              <p className="text-emerald-100/70 text-sm leading-relaxed mb-5">Kantor Pelayanan Kekayaan Negara dan Lelang Kendari — bagian dari Direktorat Jenderal Kekayaan Negara, Kementerian Keuangan RI.</p>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-full border border-white/10 text-xs text-emerald-100/80 font-medium">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>Layanan Aktif
+
+              <p className="text-emerald-100/70 text-sm leading-relaxed mb-5">
+                Kantor Pelayanan Kekayaan Negara dan Lelang Kendari — bagian dari Direktorat Jenderal Kekayaan Negara, Kementerian Keuangan RI.
+              </p>
+
+              {/* Badge Layanan Aktif */}
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-full border border-white/10 text-xs text-emerald-100/80 font-medium mb-6">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                Layanan Aktif
+              </div>
+
+              {/* ── Logo Kemenkeu di footer — dalam card kecil elegan ── */}
+              <div className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-sm">
+                <div className="bg-white/90 rounded-xl p-1.5 flex-shrink-0 shadow-md">
+                  <img
+                    src="/logo_kemenkeu.png"
+                    alt="Logo Kementerian Keuangan RI"
+                    className="w-9 h-9 object-contain"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                </div>
+                <div>
+                  <p className="text-white/90 font-bold text-xs leading-tight">Kementerian Keuangan</p>
+                  <p className="text-[#D4AF37]/80 text-[10px] tracking-wider uppercase font-medium">Republik Indonesia</p>
+                </div>
               </div>
             </div>
+
+            {/* ── Kolom 2: Navigasi ── */}
             <div>
               <h4 className="font-black text-white uppercase tracking-widest text-xs mb-5 flex items-center gap-2">
                 <span className="h-px flex-1 bg-white/10"></span><span>Navigasi</span><span className="h-px flex-1 bg-white/10"></span>
@@ -514,12 +505,19 @@ const App: React.FC = () => {
                 ))}
               </ul>
             </div>
+
+            {/* ── Kolom 3: Tautan Resmi ── */}
             <div>
               <h4 className="font-black text-white uppercase tracking-widest text-xs mb-5 flex items-center gap-2">
                 <span className="h-px flex-1 bg-white/10"></span><span>Tautan Resmi</span><span className="h-px flex-1 bg-white/10"></span>
               </h4>
               <ul className="space-y-3">
-                {[{ label: 'Website DJKN', href: 'https://www.djkn.kemenkeu.go.id/kpknl-kendari' }, { label: 'Portal Lelang', href: 'https://lelang.go.id/' }, { label: 'SIMAK BMN', href: '#' }, { label: 'Kemenkeu RI', href: 'https://www.kemenkeu.go.id' }].map(link => (
+                {[
+                  { label: 'Website DJKN', href: 'https://www.djkn.kemenkeu.go.id/kpknl-kendari' },
+                  { label: 'Portal Lelang', href: 'https://lelang.go.id/' },
+                  { label: 'SIMAK BMN', href: '#' },
+                  { label: 'Kemenkeu RI', href: 'https://www.kemenkeu.go.id' },
+                ].map(link => (
                   <li key={link.label}>
                     <a href={link.href} target="_blank" rel="noopener noreferrer" className="text-emerald-100/70 hover:text-[#D4AF37] text-sm transition-colors flex items-center gap-2 group">
                       <ExternalLink className="w-3.5 h-3.5 flex-shrink-0 opacity-60 group-hover:opacity-100" />{link.label}
@@ -528,27 +526,49 @@ const App: React.FC = () => {
                 ))}
               </ul>
             </div>
+
+            {/* ── Kolom 4: Kontak & Sosmed ── */}
             <div>
               <h4 className="font-black text-white uppercase tracking-widest text-xs mb-5 flex items-center gap-2">
                 <span className="h-px flex-1 bg-white/10"></span><span>Kontak</span><span className="h-px flex-1 bg-white/10"></span>
               </h4>
               <ul className="space-y-3 mb-6">
-                <li className="flex items-start gap-3 text-emerald-100/70 text-sm"><MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-[#D4AF37]" /><span>Jl. Made Sabara No.6, Korumba, Kendari, Sulawesi Tenggara 93111</span></li>
-                <li className="flex items-center gap-3 text-emerald-100/70 text-sm"><Mail className="w-4 h-4 flex-shrink-0 text-[#D4AF37]" /><a href="mailto:kpknl.kendari@kemenkeu.go.id" className="hover:text-[#D4AF37] transition-colors truncate">kpknl.kendari@kemenkeu.go.id</a></li>
+                <li className="flex items-start gap-3 text-emerald-100/70 text-sm">
+                  <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-[#D4AF37]" />
+                  <span>Jl. Made Sabara No.6, Korumba, Kendari, Sulawesi Tenggara 93111</span>
+                </li>
+                <li className="flex items-center gap-3 text-emerald-100/70 text-sm">
+                  <Mail className="w-4 h-4 flex-shrink-0 text-[#D4AF37]" />
+                  <a href="mailto:kpknl.kendari@kemenkeu.go.id" className="hover:text-[#D4AF37] transition-colors truncate">kpknl.kendari@kemenkeu.go.id</a>
+                </li>
               </ul>
               <div className="flex gap-2 flex-wrap">
-                {[{ href: 'https://www.instagram.com/kpknlkendari', icon: <Instagram className="w-4 h-4" />, label: 'Instagram', color: 'hover:bg-pink-500' }, { href: 'https://www.youtube.com/@kpknlkendarimelulo9245', icon: <Youtube className="w-4 h-4" />, label: 'YouTube', color: 'hover:bg-red-500' }, { href: 'https://www.djkn.kemenkeu.go.id/kpknl-kendari', icon: <Globe className="w-4 h-4" />, label: 'Website', color: 'hover:bg-blue-500' }, { href: 'https://lelang.go.id/', icon: <Scale className="w-4 h-4" />, label: 'Lelang', color: 'hover:bg-amber-500' }].map(sm => (
-                  <a key={sm.label} href={sm.href} target="_blank" rel="noopener noreferrer" aria-label={sm.label} title={sm.label} className={`p-2.5 bg-white/10 ${sm.color} rounded-xl transition-all duration-300 hover:scale-110 hover:shadow-lg border border-white/10`}>{sm.icon}</a>
+                {[
+                  { href: 'https://www.instagram.com/kpknlkendari', icon: <Instagram className="w-4 h-4" />, label: 'Instagram', color: 'hover:bg-pink-500' },
+                  { href: 'https://www.youtube.com/@kpknlkendarimelulo9245', icon: <Youtube className="w-4 h-4" />, label: 'YouTube', color: 'hover:bg-red-500' },
+                  { href: 'https://www.djkn.kemenkeu.go.id/kpknl-kendari', icon: <Globe className="w-4 h-4" />, label: 'Website', color: 'hover:bg-blue-500' },
+                  { href: 'https://lelang.go.id/', icon: <Scale className="w-4 h-4" />, label: 'Lelang', color: 'hover:bg-amber-500' },
+                ].map(sm => (
+                  <a key={sm.label} href={sm.href} target="_blank" rel="noopener noreferrer" aria-label={sm.label} title={sm.label}
+                    className={`p-2.5 bg-white/10 ${sm.color} rounded-xl transition-all duration-300 hover:scale-110 hover:shadow-lg border border-white/10`}>
+                    {sm.icon}
+                  </a>
                 ))}
               </div>
             </div>
           </div>
+
+          {/* Banner Moto */}
           <div className="mb-10 p-5 rounded-2xl bg-gradient-to-r from-[#D4AF37]/10 via-white/5 to-[#D4AF37]/10 border border-[#D4AF37]/20 flex flex-col sm:flex-row items-center justify-center gap-3 text-center">
             <Sparkles className="w-5 h-5 text-[#D4AF37] flex-shrink-0 animate-pulse" />
             <p className="text-[#D4AF37] font-black tracking-widest uppercase text-sm">"Melayani dengan Hati, Mengelola dengan Integritas"</p>
             <Sparkles className="w-5 h-5 text-[#D4AF37] flex-shrink-0 animate-pulse" />
           </div>
+
+          {/* Garis pemisah */}
           <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent mb-8"></div>
+
+          {/* Baris bawah */}
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-emerald-100/50">
             <div className="flex items-center gap-2">
               <Building2 className="w-3.5 h-3.5" />
@@ -556,12 +576,17 @@ const App: React.FC = () => {
               <span className="hidden sm:inline">•</span>
               <span className="hidden sm:inline">Kementerian Keuangan Republik Indonesia</span>
             </div>
-            <div className="flex items-center gap-2"><span>Copyright © 2026 KPKNL Kendari.</span><span>Hak Cipta Dilindungi.</span></div>
+            <div className="flex items-center gap-2">
+              <span>Copyright © 2026 KPKNL Kendari.</span>
+              <span>Hak Cipta Dilindungi.</span>
+            </div>
           </div>
         </div>
       </footer>
 
-      <button onClick={handleScrollTop} aria-label="Kembali ke atas" className={`fixed bottom-8 right-8 p-4 bg-[#D4AF37] text-white rounded-full shadow-2xl hover:bg-[#B5952F] hover:scale-110 active:scale-95 transition-all duration-500 z-50 group ${isScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
+      {/* Tombol scroll ke atas */}
+      <button onClick={handleScrollTop} aria-label="Kembali ke atas"
+        className={`fixed bottom-8 right-8 p-4 bg-[#D4AF37] text-white rounded-full shadow-2xl hover:bg-[#B5952F] hover:scale-110 active:scale-95 transition-all duration-500 z-50 group ${isScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
         <ArrowUp className="w-6 h-6 group-hover:-translate-y-1 transition-transform" />
       </button>
     </div>

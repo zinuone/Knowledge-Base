@@ -68,7 +68,7 @@ const LoginPage: React.FC = () => {
 
                 <div className="relative z-10 max-w-lg text-center">
                     <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl inline-block mb-8 shadow-2xl border border-white/10 animate-in zoom-in duration-500">
-                        <img src="/logo.png" alt="KPKNL Logo" className="w-28 h-28 object-contain drop-shadow-lg" onError={(e) => { e.currentTarget.src = 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Coat_of_arms_of_Indonesia.svg/1200px-Coat_of_arms_of_Indonesia.svg.png' }} />
+                        <img src="/logo-color.png" alt="KPKNL Logo" className="w-40 h-20 object-contain drop-shadow-lg" onError={(e) => { e.currentTarget.src = 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Coat_of_arms_of_Indonesia.svg/1200px-Coat_of_arms_of_Indonesia.svg.png' }} />
                     </div>
                     <h1 className="text-5xl font-extrabold mb-6 tracking-tight leading-tight">
                         Knowledge Base <br /><span className="text-[#D4AF37]">KPKNL KENDARI</span>
