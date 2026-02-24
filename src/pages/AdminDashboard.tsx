@@ -1,4 +1,8 @@
 // File: src/pages/AdminDashboard.tsx
+// ─── CATATAN ──────────────────────────────────────────────────────────────────
+// Requires: npm install react-markdown  (likely already installed)
+// tailwind.config.js: darkMode: 'class'
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
@@ -7,11 +11,13 @@ import {
     serverTimestamp, query, orderBy
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import ReactMarkdown from 'react-markdown';
 import {
     LogOut, Plus, Trash2, FileText, HelpCircle, LayoutList, Edit, BookOpen, Quote,
     Eye, ThumbsUp, BarChart3, PieChart as PieChartIcon, TrendingUp, FileSpreadsheet,
     AlertTriangle, X, List as ListIcon, Type, Hash, Search, Filter, RefreshCw,
-    Menu, ChevronRight, Home,
+    Menu, ChevronRight, Home, ChevronDown, ChevronUp, Calendar, BookMarked,
+    Moon, Sun, ChevronLeft, User, Clock as ClockIcon, AlertCircle,
 } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -45,30 +51,108 @@ const getCategoryColor = (cat: string) => {
 };
 const CHART_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#f97316'];
 
-/* ─── FORMAT TOOLBAR (di luar komponen agar tidak unmount) ─────── */
+/* ─── FORMAT TOOLBAR ──────────────────────────────────────────── */
 const FormatToolbar = ({
     target, onInsert
 }: {
     target: 'sop' | 'faq' | 'guide';
     onInsert: (t: 'sop' | 'faq' | 'guide', tag: string) => void;
 }) => (
-    <div className="flex flex-wrap gap-2 p-2 bg-slate-100 border-b rounded-t-lg">
-        <button type="button" onClick={() => onInsert(target, 'bold')} className="p-1.5 hover:bg-white rounded text-slate-600 transition" title="Tebal"><Type className="w-4 h-4" /></button>
-        <button type="button" onClick={() => onInsert(target, 'list')} className="p-1.5 hover:bg-white rounded text-slate-600 transition" title="List"><ListIcon className="w-4 h-4" /></button>
-        <button type="button" onClick={() => onInsert(target, 'number')} className="p-1.5 hover:bg-white rounded text-slate-600 transition" title="Nomor"><Hash className="w-4 h-4" /></button>
-        <button type="button" onClick={() => onInsert(target, 'h2')} className="px-2 py-1 bg-white border rounded text-xs font-bold hover:bg-slate-50">H2</button>
-        <button type="button" onClick={() => onInsert(target, 'h3')} className="px-2 py-1 bg-white border rounded text-xs font-bold hover:bg-slate-50">H3</button>
-        <button type="button" onClick={() => onInsert(target, 'quote')} className="p-1.5 hover:bg-white rounded text-slate-600 transition" title="Kutipan"><Quote className="w-4 h-4" /></button>
+    <div className="flex flex-wrap gap-1.5 p-2.5 bg-slate-100 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
+        {[
+            { tag: 'bold', title: 'Tebal', icon: <Type className="w-4 h-4" /> },
+            { tag: 'list', title: 'List', icon: <ListIcon className="w-4 h-4" /> },
+            { tag: 'number', title: 'Nomor', icon: <Hash className="w-4 h-4" /> },
+            { tag: 'quote', title: 'Kutipan', icon: <Quote className="w-4 h-4" /> },
+        ].map(b => (
+            <button key={b.tag} type="button" onClick={() => onInsert(target, b.tag)}
+                className="p-1.5 hover:bg-white dark:hover:bg-slate-600 rounded-lg text-slate-600 dark:text-slate-300 transition-colors" title={b.title}>
+                {b.icon}
+            </button>
+        ))}
+        {['H2', 'H3'].map(h => (
+            <button key={h} type="button" onClick={() => onInsert(target, h.toLowerCase())}
+                className="px-2 py-1 bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded-lg text-xs font-black hover:bg-slate-50 dark:hover:bg-slate-500 transition-colors text-slate-600 dark:text-slate-200">
+                {h}
+            </button>
+        ))}
     </div>
 );
 
-/* ═══════════════════════════════════════════════════════════════
+/* ─── GUIDE CARD ──────────────────────────────────────────────── */
+const GuideCard = ({
+    item, index, onEdit, onDelete, formatTime,
+}: {
+    item: GuideData; index: number;
+    onEdit: () => void; onDelete: () => void;
+    formatTime: (ts: any) => string;
+}) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const lineCount = (item.content || '').split('\n').length;
+    const charCount = (item.content || '').length;
+    const isLong = lineCount > 8 || charCount > 400;
+    const firstLine = (item.content || '').split('\n')[0].replace(/^#+\s*/, '').trim();
+
+    return (
+        <div className="bg-white dark:bg-[#162918] rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
+            <div className="flex items-start justify-between p-5 md:p-6 border-b border-slate-100 dark:border-slate-700 bg-gradient-to-r from-white dark:from-[#1a3021] to-slate-50/60 dark:to-transparent">
+                <div className="flex items-center gap-3 min-w-0">
+                    <span className="flex-shrink-0 w-9 h-9 rounded-xl bg-[#0D5C35]/10 dark:bg-[#0D5C35]/20 border border-[#0D5C35]/15 dark:border-[#0D5C35]/30 flex items-center justify-center font-black text-[#0D5C35] dark:text-emerald-400 text-sm">
+                        {index + 1}
+                    </span>
+                    <div className="min-w-0">
+                        <p className="font-black text-slate-800 dark:text-slate-100 text-sm leading-snug truncate max-w-[220px] sm:max-w-xs md:max-w-sm">
+                            {firstLine || 'Panduan Pengguna'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                            <Calendar className="w-3 h-3 text-slate-400" />
+                            <span className="text-xs text-slate-400 font-medium">{formatTime(item.updatedAt)}</span>
+                            <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+                            <span className="text-xs text-slate-400 dark:text-slate-500">{charCount} karakter</span>
+                        </div>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                    <button onClick={onEdit} className="p-2.5 text-amber-600 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-500 hover:text-white rounded-xl border border-amber-100 dark:border-amber-700/30 transition-all" title="Edit"><Edit className="w-4 h-4" /></button>
+                    <button onClick={onDelete} className="p-2.5 text-rose-600 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-500 hover:text-white rounded-xl border border-rose-100 dark:border-rose-700/30 transition-all" title="Hapus"><Trash2 className="w-4 h-4" /></button>
+                </div>
+            </div>
+            <div className="p-5 md:p-6">
+                <div className={`relative overflow-hidden transition-all duration-500 ${isExpanded ? '' : 'max-h-48'}`}>
+                    <pre className="whitespace-pre-wrap font-sans text-slate-700 dark:text-slate-300 text-sm leading-relaxed bg-slate-50 dark:bg-[#0f1f16] border border-slate-200 dark:border-slate-700 rounded-2xl p-4 md:p-5">
+                        {item.content}
+                    </pre>
+                    {!isExpanded && isLong && (
+                        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white dark:from-[#162918] to-transparent pointer-events-none" />
+                    )}
+                </div>
+                {isLong && (
+                    <button onClick={() => setIsExpanded(p => !p)}
+                        className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 text-[#0D5C35] dark:text-emerald-400 text-xs font-bold rounded-xl bg-[#0D5C35]/5 dark:bg-[#0D5C35]/10 hover:bg-[#0D5C35]/10 dark:hover:bg-[#0D5C35]/20 border border-[#0D5C35]/10 dark:border-[#0D5C35]/20 transition-all">
+                        {isExpanded ? <><ChevronUp className="w-4 h-4" /> Sembunyikan</> : <><ChevronDown className="w-4 h-4" /> Tampilkan Selengkapnya</>}
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+};
+
+/* ══════════════════════════════════════════════════════════════
    ADMIN DASHBOARD
-═══════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════════════ */
 const AdminDashboard: React.FC = () => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'overview' | 'sop' | 'faq' | 'guide'>('overview');
-    const [sidebarOpen, setSidebarOpen] = useState(false); // mobile sidebar
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    /* ── Dark Mode ── */
+    const [isDark, setIsDark] = useState(() => {
+        try { return localStorage.getItem('pkn-theme') === 'dark'; } catch { return false; }
+    });
+    useEffect(() => {
+        document.documentElement.classList.toggle('dark', isDark);
+        try { localStorage.setItem('pkn-theme', isDark ? 'dark' : 'light'); } catch { }
+    }, [isDark]);
 
     const [contents, setContents] = useState<ContentData[]>([]);
     const [faqs, setFaqs] = useState<FAQData[]>([]);
@@ -77,24 +161,45 @@ const AdminDashboard: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('all');
 
+    /* ── Pagination SOP ── */
+    const [sopPage, setSopPage] = useState(1);
+    const [sopPerPage, setSopPerPage] = useState(10);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
     const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
 
+    /* ── Preview tab di modal SOP ── */
+    const [sopModalTab, setSopModalTab] = useState<'editor' | 'preview'>('editor');
+
+    /* ── Unsaved changes tracking ── */
+    const [isDirty, setIsDirty] = useState(false);
+    const [pendingCloseModal, setPendingCloseModal] = useState<'sop' | 'faq' | 'guide' | null>(null);
+
     const [confirmModal, setConfirmModal] = useState<{
-        isOpen: boolean; type: 'delete' | 'logout';
+        isOpen: boolean; type: 'delete' | 'logout' | 'unsaved';
         title: string; message: string; onConfirm: () => void;
     }>({ isOpen: false, type: 'delete', title: '', message: '', onConfirm: () => { } });
 
     const [isSaving, setIsSaving] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
-    const [formData, setFormData] = useState({ title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '', videoUrl: '' });
+    const emptyForm = { title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '', videoUrl: '' };
+    const [formData, setFormData] = useState(emptyForm);
     const [faqForm, setFaqForm] = useState({ question: '', answer: '' });
     const [guideForm, setGuideForm] = useState({ content: '' });
 
+    /* ── Current admin user info ── */
+    const adminEmail = auth.currentUser?.email ?? 'Admin';
+    const adminDisplay = adminEmail.split('@')[0];
+
     /* ── Firebase ── */
-    const formatTime = (ts: any) => ts?.seconds ? new Date(ts.seconds * 1000).toLocaleDateString('id-ID') : '-';
+    const formatTime = (ts: any) => ts?.seconds
+        ? new Date(ts.seconds * 1000).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+        : '-';
+    const formatTimeDetailed = (ts: any) => ts?.seconds
+        ? new Date(ts.seconds * 1000).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : '-';
 
     useEffect(() => {
         const qSop = query(collection(db, 'knowledge-base'), orderBy('updatedAt', 'desc'));
@@ -110,34 +215,67 @@ const AdminDashboard: React.FC = () => {
     const stats = useMemo(() => {
         const totalViews = contents.reduce((a, c) => a + (c.views || 0), 0);
         const totalLikes = contents.reduce((a, c) => a + (c.likes || 0), 0);
-        const topViewed = [...contents].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 5).map(i => {
-            const t = i.title || 'Tanpa Judul';
-            return { name: t.length > 20 ? t.substring(0, 20) + '...' : t, views: i.views || 0 };
-        });
+        const topViewed = [...contents]
+            .sort((a, b) => (b.views || 0) - (a.views || 0))
+            .slice(0, 5)
+            .map(i => {
+                const t = i.title || 'Tanpa Judul';
+                return { name: t.length > 22 ? t.substring(0, 22) + '…' : t, views: i.views || 0 };
+            });
         const catDist: Record<string, number> = {};
         contents.forEach(i => {
-            const k = (i.category || 'psp').toUpperCase().replace('-', ' ');
+            const k = (i.category || 'psp').toUpperCase().replace(/-/g, ' ');
             catDist[k] = (catDist[k] || 0) + 1;
         });
         const pieData = Object.entries(catDist).map(([name, value]) => ({ name, value }));
         return { totalViews, totalLikes, topViewed, pieData };
     }, [contents]);
 
-    const filteredContents = useMemo(() => {
-        return contents.filter(i => {
-            const ms = (i.title || '').toLowerCase().includes(searchTerm.toLowerCase()) || (i.description || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const filteredContents = useMemo(() =>
+        contents.filter(i => {
+            const ms = (i.title || '').toLowerCase().includes(searchTerm.toLowerCase())
+                || (i.description || '').toLowerCase().includes(searchTerm.toLowerCase());
             const mc = filterCategory === 'all' || i.category === filterCategory;
             return ms && mc;
-        });
-    }, [contents, searchTerm, filterCategory]);
+        }), [contents, searchTerm, filterCategory]);
+
+    /* ── Pagination logic ── */
+    const sopTotalPages = Math.ceil(filteredContents.length / sopPerPage);
+    const sopIndexFirst = (sopPage - 1) * sopPerPage;
+    const sopIndexLast = sopIndexFirst + sopPerPage;
+    const currentSopPage = filteredContents.slice(sopIndexFirst, sopIndexLast);
+
+    /* ── Unsaved changes helper ── */
+    const requestClose = (modal: 'sop' | 'faq' | 'guide') => {
+        if (isDirty) {
+            setConfirmModal({
+                isOpen: true, type: 'unsaved',
+                title: 'Perubahan Belum Disimpan',
+                message: 'Anda memiliki perubahan yang belum disimpan. Menutup form akan menghapus semua perubahan tersebut.',
+                onConfirm: () => {
+                    setIsDirty(false);
+                    if (modal === 'sop') setIsModalOpen(false);
+                    if (modal === 'faq') setIsFaqModalOpen(false);
+                    if (modal === 'guide') setIsGuideModalOpen(false);
+                    setConfirmModal(p => ({ ...p, isOpen: false }));
+                },
+            });
+        } else {
+            if (modal === 'sop') setIsModalOpen(false);
+            if (modal === 'faq') setIsFaqModalOpen(false);
+            if (modal === 'guide') setIsGuideModalOpen(false);
+        }
+    };
 
     /* ── Handlers ── */
     const handleExportExcel = () => {
         const data = contents.map((i, idx) => ({
             No: idx + 1, Judul: i.title,
-            Kategori: (i.category || '').toUpperCase().replace('-', ' '),
-            'Dilihat (Views)': i.views || 0, 'Disukai (Likes)': i.likes || 0,
-            'Terakhir Update': formatTime(i.updatedAt), Deskripsi: i.description,
+            Kategori: (i.category || '').toUpperCase().replace(/-/g, ' '),
+            'Dilihat (Views)': i.views || 0,
+            'Disukai (Likes)': i.likes || 0,
+            'Terakhir Update': formatTimeDetailed(i.updatedAt),
+            Deskripsi: i.description,
         }));
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
@@ -148,10 +286,11 @@ const AdminDashboard: React.FC = () => {
 
     const confirmDelete = (col: string, id: string) => {
         setConfirmModal({
-            isOpen: true, type: 'delete', title: 'Hapus Data?',
+            isOpen: true, type: 'delete',
+            title: 'Hapus Data?',
             message: 'Tindakan ini tidak dapat dibatalkan. Data akan hilang permanen.',
             onConfirm: async () => {
-                toast.promise(deleteDoc(doc(db, col, id)), { loading: 'Menghapus...', success: 'Data dihapus!', error: 'Gagal menghapus.' });
+                toast.promise(deleteDoc(doc(db, col, id)), { loading: 'Menghapus…', success: 'Data dihapus!', error: 'Gagal menghapus.' });
                 setConfirmModal(p => ({ ...p, isOpen: false }));
             },
         });
@@ -159,7 +298,8 @@ const AdminDashboard: React.FC = () => {
 
     const confirmLogout = () => {
         setConfirmModal({
-            isOpen: true, type: 'logout', title: 'Konfirmasi Keluar',
+            isOpen: true, type: 'logout',
+            title: 'Konfirmasi Keluar',
             message: 'Apakah Anda yakin ingin keluar dari sesi Admin?',
             onConfirm: async () => {
                 await signOut(auth);
@@ -170,12 +310,12 @@ const AdminDashboard: React.FC = () => {
         });
     };
 
-    const handleEditSop = (i: ContentData) => { setEditingId(i.id); setFormData({ ...i, imageBase64: i.imageBase64 || '', pdfUrl: i.pdfUrl || '', videoUrl: i.videoUrl || '' }); setIsModalOpen(true); };
-    const handleEditFaq = (i: FAQData) => { setEditingId(i.id); setFaqForm({ ...i }); setIsFaqModalOpen(true); };
-    const handleEditGuide = (i: GuideData) => { setEditingId(i.id); setGuideForm({ content: i.content }); setIsGuideModalOpen(true); };
-    const handleAddSop = () => { setEditingId(null); setFormData({ title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '', videoUrl: '' }); setIsModalOpen(true); };
-    const handleAddFaq = () => { setEditingId(null); setFaqForm({ question: '', answer: '' }); setIsFaqModalOpen(true); };
-    const handleAddGuide = () => { setEditingId(null); setGuideForm({ content: '' }); setIsGuideModalOpen(true); };
+    const handleEditSop = (i: ContentData) => { setEditingId(i.id); setFormData({ ...i, imageBase64: i.imageBase64 || '', pdfUrl: i.pdfUrl || '', videoUrl: i.videoUrl || '' }); setSopModalTab('editor'); setIsDirty(false); setIsModalOpen(true); };
+    const handleEditFaq = (i: FAQData) => { setEditingId(i.id); setFaqForm({ ...i }); setIsDirty(false); setIsFaqModalOpen(true); };
+    const handleEditGuide = (i: GuideData) => { setEditingId(i.id); setGuideForm({ content: i.content }); setIsDirty(false); setIsGuideModalOpen(true); };
+    const handleAddSop = () => { setEditingId(null); setFormData(emptyForm); setSopModalTab('editor'); setIsDirty(false); setIsModalOpen(true); };
+    const handleAddFaq = () => { setEditingId(null); setFaqForm({ question: '', answer: '' }); setIsDirty(false); setIsFaqModalOpen(true); };
+    const handleAddGuide = () => { setEditingId(null); setGuideForm({ content: '' }); setIsDirty(false); setIsGuideModalOpen(true); };
 
     const handleSaveSop = async (e: React.FormEvent) => {
         e.preventDefault(); setIsSaving(true);
@@ -183,7 +323,8 @@ const AdminDashboard: React.FC = () => {
             const p = editingId
                 ? updateDoc(doc(db, 'knowledge-base', editingId), { ...formData, updatedAt: serverTimestamp() })
                 : addDoc(collection(db, 'knowledge-base'), { ...formData, updatedAt: serverTimestamp(), views: 0, likes: 0, dislikes: 0 });
-            await toast.promise(p, { loading: 'Menyimpan SOP...', success: 'SOP berhasil disimpan!', error: 'Gagal menyimpan SOP.' });
+            await toast.promise(p, { loading: 'Menyimpan SOP…', success: 'SOP berhasil disimpan!', error: 'Gagal menyimpan SOP.' });
+            setIsDirty(false);
             setIsModalOpen(false);
         } catch (_) { } finally { setIsSaving(false); }
     };
@@ -194,7 +335,8 @@ const AdminDashboard: React.FC = () => {
             const p = editingId
                 ? updateDoc(doc(db, 'faqs', editingId), { ...faqForm, createdAt: serverTimestamp() })
                 : addDoc(collection(db, 'faqs'), { ...faqForm, createdAt: serverTimestamp() });
-            await toast.promise(p, { loading: 'Menyimpan FAQ...', success: 'FAQ berhasil disimpan!', error: 'Gagal menyimpan FAQ.' });
+            await toast.promise(p, { loading: 'Menyimpan FAQ…', success: 'FAQ berhasil disimpan!', error: 'Gagal menyimpan FAQ.' });
+            setIsDirty(false);
             setIsFaqModalOpen(false);
         } catch (_) { } finally { setIsSaving(false); }
     };
@@ -205,7 +347,8 @@ const AdminDashboard: React.FC = () => {
             const p = editingId
                 ? updateDoc(doc(db, 'guides', editingId), { ...guideForm, updatedAt: serverTimestamp() })
                 : addDoc(collection(db, 'guides'), { ...guideForm, updatedAt: serverTimestamp() });
-            await toast.promise(p, { loading: 'Menyimpan Panduan...', success: 'Panduan berhasil disimpan!', error: 'Gagal menyimpan Panduan.' });
+            await toast.promise(p, { loading: 'Menyimpan Panduan…', success: 'Panduan berhasil disimpan!', error: 'Gagal menyimpan Panduan.' });
+            setIsDirty(false);
             setIsGuideModalOpen(false);
         } catch (_) { } finally { setIsSaving(false); }
     };
@@ -215,7 +358,7 @@ const AdminDashboard: React.FC = () => {
         if (!file) return;
         if (file.size > 800000) { toast.error('Maksimal ukuran gambar 800KB'); return; }
         const reader = new FileReader();
-        reader.onloadend = () => setFormData({ ...formData, imageBase64: reader.result as string });
+        reader.onloadend = () => { setFormData(p => ({ ...p, imageBase64: reader.result as string })); setIsDirty(true); };
         reader.readAsDataURL(file);
     };
 
@@ -235,13 +378,13 @@ const AdminDashboard: React.FC = () => {
             quote: `${before}\n> "Catatan"${after}`,
         };
         const newText = inserts[tag] ?? cur;
-        if (target === 'sop') setFormData({ ...formData, content: newText });
-        else if (target === 'faq') setFaqForm({ ...faqForm, answer: newText });
-        else setGuideForm({ ...guideForm, content: newText });
+        if (target === 'sop') { setFormData(p => ({ ...p, content: newText })); setIsDirty(true); }
+        else if (target === 'faq') { setFaqForm(p => ({ ...p, answer: newText })); setIsDirty(true); }
+        else { setGuideForm({ content: newText }); setIsDirty(true); }
         setTimeout(() => textarea.focus(), 100);
     };
 
-    /* ─── Navigasi sidebar ─────────────────────────────────────── */
+    /* ── Nav items ── */
     const navItems = [
         { id: 'overview' as const, label: 'Dashboard', icon: <BarChart3 className="w-5 h-5" />, badge: null },
         { id: 'sop' as const, label: 'Data SOP', icon: <LayoutList className="w-5 h-5" />, badge: contents.length },
@@ -249,75 +392,80 @@ const AdminDashboard: React.FC = () => {
         { id: 'guide' as const, label: 'Data Panduan', icon: <BookOpen className="w-5 h-5" />, badge: guides.length },
     ];
 
-    const handleTabChange = (id: typeof activeTab) => {
-        setActiveTab(id);
-        setSidebarOpen(false); // tutup drawer di mobile
-    };
+    const handleTabChange = (id: typeof activeTab) => { setActiveTab(id); setSidebarOpen(false); };
 
     /* ══════════════════════════════════════════════════════════════
-       RENDER — layout sidebar kiri + konten kanan
+       RENDER
     ══════════════════════════════════════════════════════════════ */
     return (
-        <div className="min-h-screen bg-[#F0F4F2] font-sans flex flex-col">
-            <Toaster position="top-right" />
+        <div className="min-h-screen bg-[#F0F4F2] dark:bg-[#0d1a12] font-sans flex flex-col transition-colors duration-300">
+            <Toaster position="top-right" toastOptions={{ style: { borderRadius: '12px', fontWeight: 600 } }} />
 
-            {/* ── TOP BAR (narrow, only for mobile hamburger + brand) ── */}
-            <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm lg:pl-[272px]">
-                {/* Mobile: hamburger */}
-                <button
-                    className="lg:hidden p-2 rounded-xl hover:bg-slate-100 text-slate-600 transition"
-                    onClick={() => setSidebarOpen(!sidebarOpen)}
-                >
+            {/* ── TOP BAR ── */}
+            <header className="bg-white dark:bg-[#162918] border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm lg:pl-[272px]">
+                <button className="lg:hidden p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Buka sidebar">
                     <Menu className="w-5 h-5" />
                 </button>
 
-                {/* Brand — hanya tampil di desktop (sidebar handle di mobile) */}
-                <div className="hidden lg:flex items-center gap-2 text-slate-500 text-sm">
-                    <Home className="w-4 h-4" />
-                    <ChevronRight className="w-3 h-3" />
-                    <span className="font-bold text-slate-800 capitalize">{navItems.find(n => n.id === activeTab)?.label}</span>
+                {/* Breadcrumb — desktop */}
+                <div className="hidden lg:flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-sm">
+                    <Home className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                    <ChevronRight className="w-3 h-3 text-slate-300 dark:text-slate-600" />
+                    <span className="font-bold text-slate-800 dark:text-slate-100 capitalize">
+                        {navItems.find(n => n.id === activeTab)?.label}
+                    </span>
                 </div>
 
-                {/* Mobile brand */}
+                {/* Brand — mobile */}
                 <div className="lg:hidden flex items-center gap-2">
                     <div className="bg-gradient-to-br from-[#0D5C35] to-[#0A492A] p-2 rounded-xl shadow-md">
                         <FileText className="text-white w-4 h-4" />
                     </div>
                     <div>
-                        <p className="font-black text-slate-800 text-sm leading-none">Admin Panel</p>
+                        <p className="font-black text-slate-800 dark:text-slate-100 text-sm leading-tight">Admin Panel</p>
                         <span className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest">KPKNL Kendari</span>
                     </div>
                 </div>
 
-                <button
-                    onClick={confirmLogout}
-                    className="flex items-center gap-1.5 text-rose-600 hover:text-white font-bold text-xs transition-all hover:bg-rose-500 hover:shadow-lg hover:shadow-rose-200 px-3 py-2 rounded-xl border border-rose-100"
-                >
-                    <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Keluar</span>
-                </button>
+                {/* Kanan: admin info + dark toggle + logout */}
+                <div className="flex items-center gap-2">
+                    {/* Admin badge - desktop only */}
+                    <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 mr-1">
+                        <User className="w-3.5 h-3.5 text-slate-400 dark:text-slate-400" />
+                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300 max-w-[120px] truncate">{adminDisplay}</span>
+                    </div>
+
+                    {/* Dark mode toggle */}
+                    <button
+                        onClick={() => setIsDark(p => !p)}
+                        className="p-2 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 transition-all"
+                        aria-label={isDark ? 'Mode Terang' : 'Mode Gelap'}
+                        title={isDark ? 'Mode Terang' : 'Mode Gelap'}
+                    >
+                        {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4" />}
+                    </button>
+
+                    {/* Logout */}
+                    <button onClick={confirmLogout}
+                        className="flex items-center gap-1.5 text-rose-600 hover:text-white font-bold text-xs transition-all hover:bg-rose-500 hover:shadow-lg hover:shadow-rose-200 px-3 py-2 rounded-xl border border-rose-100 dark:border-rose-800/40">
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Keluar</span>
+                    </button>
+                </div>
             </header>
 
             <div className="flex flex-1 relative">
 
-                {/* ── SIDEBAR KIRI ── */}
-                {/* Mobile: fixed overlay drawer; Desktop: fixed sidebar */}
+                {/* ── SIDEBAR ── */}
                 <>
-                    {/* Overlay gelap saat mobile sidebar terbuka */}
-                    {sidebarOpen && (
-                        <div
-                            className="fixed inset-0 bg-slate-900/50 z-30 lg:hidden"
-                            onClick={() => setSidebarOpen(false)}
-                        />
-                    )}
-
+                    {sidebarOpen && <div className="fixed inset-0 bg-slate-900/50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
                     <aside className={`
                         fixed top-0 left-0 h-full w-64 bg-gradient-to-b from-[#0D5C35] to-[#0A492A]
                         flex flex-col z-40 transition-transform duration-300 ease-in-out
                         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
                         lg:translate-x-0 lg:top-0 lg:h-screen
                     `}>
-                        {/* Logo area */}
-                        <div className="px-6 py-6 border-b border-white/10 flex-shrink-0">
+                        <div className="px-5 py-6 border-b border-white/10 flex-shrink-0 relative">
                             <div className="flex items-center gap-3">
                                 <div className="bg-white/10 backdrop-blur-sm p-2.5 rounded-xl border border-white/10 shadow-md">
                                     <FileText className="text-white w-5 h-5" />
@@ -327,36 +475,21 @@ const AdminDashboard: React.FC = () => {
                                     <span className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest">KPKNL Kendari</span>
                                 </div>
                             </div>
-                            {/* Tombol tutup di mobile */}
-                            <button
-                                className="lg:hidden absolute top-5 right-4 p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition"
-                                onClick={() => setSidebarOpen(false)}
-                            >
+                            <button className="lg:hidden absolute top-5 right-4 p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition" onClick={() => setSidebarOpen(false)}>
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        {/* Nav items */}
                         <nav className="flex-1 px-4 py-5 space-y-1.5 overflow-y-auto">
                             <p className="text-white/30 text-[10px] font-bold uppercase tracking-widest px-3 mb-3">Menu Utama</p>
                             {navItems.map(item => {
                                 const isActive = activeTab === item.id;
                                 return (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => handleTabChange(item.id)}
-                                        className={`
-                                            w-full flex items-center gap-3 px-3 py-3 rounded-xl font-bold text-sm
-                                            transition-all duration-200 group relative
-                                            ${isActive
-                                                ? 'bg-white text-[#0D5C35] shadow-lg shadow-black/20'
-                                                : 'text-white/70 hover:text-white hover:bg-white/10'
-                                            }
-                                        `}
-                                    >
-                                        <span className={`transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
-                                            {item.icon}
-                                        </span>
+                                    <button key={item.id} onClick={() => handleTabChange(item.id)}
+                                        className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl font-bold text-sm transition-all duration-200 group relative
+                                            ${isActive ? 'bg-white text-[#0D5C35] shadow-lg shadow-black/20' : 'text-white/70 hover:text-white hover:bg-white/10'}`}>
+                                        {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#D4AF37] rounded-r-full" />}
+                                        <span className={`transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>{item.icon}</span>
                                         <span className="flex-1 text-left">{item.label}</span>
                                         {item.badge !== null && (
                                             <span className={`text-[10px] font-black px-2 py-0.5 rounded-full min-w-[1.4rem] text-center
@@ -364,17 +497,14 @@ const AdminDashboard: React.FC = () => {
                                                 {item.badge}
                                             </span>
                                         )}
-                                        {isActive && (
-                                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#D4AF37] rounded-r-full" />
-                                        )}
                                     </button>
                                 );
                             })}
                         </nav>
 
-                        {/* Statistik ringkas di bawah nav */}
+                        {/* Statistik ringkas + last login */}
                         <div className="px-4 py-4 border-t border-white/10 flex-shrink-0">
-                            <div className="bg-white/5 rounded-2xl border border-white/10 p-4 space-y-2">
+                            <div className="bg-white/5 rounded-2xl border border-white/10 p-4 space-y-2 mb-3">
                                 <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-3">Ringkasan</p>
                                 {[
                                     { label: 'Dokumen', val: contents.length, color: 'text-emerald-300' },
@@ -389,11 +519,17 @@ const AdminDashboard: React.FC = () => {
                                 ))}
                             </div>
 
-                            {/* Tombol ke halaman utama */}
-                            <button
-                                onClick={() => navigate('/')}
-                                className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white text-xs font-bold rounded-xl transition-all"
-                            >
+                            {/* Last login info */}
+                            <div className="bg-white/5 rounded-xl border border-white/10 px-3 py-2 mb-3 flex items-center gap-2">
+                                <ClockIcon className="w-3 h-3 text-white/30 flex-shrink-0" />
+                                <div className="min-w-0">
+                                    <p className="text-white/30 text-[9px] uppercase tracking-widest">Login sebagai</p>
+                                    <p className="text-white/60 text-[10px] font-bold truncate">{adminEmail}</p>
+                                </div>
+                            </div>
+
+                            <button onClick={() => navigate('/')}
+                                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white text-xs font-bold rounded-xl transition-all">
                                 <Home className="w-3.5 h-3.5" /> Lihat Website
                             </button>
                         </div>
@@ -402,60 +538,61 @@ const AdminDashboard: React.FC = () => {
 
                 {/* ── KONTEN KANAN ── */}
                 <main className="flex-1 lg:pl-64 min-h-screen">
-                    <div className="max-w-6xl mx-auto p-6 md:p-8">
+                    <div className="max-w-6xl mx-auto p-4 md:p-6 lg:p-8">
 
-                        {/* ── TAB: OVERVIEW / DASHBOARD ── */}
+                        {/* ── TAB: OVERVIEW ── */}
                         {activeTab === 'overview' && (
                             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                {/* Header */}
                                 <div>
-                                    <h2 className="text-2xl font-black text-slate-800 tracking-tight">Dashboard</h2>
-                                    <p className="text-slate-500 text-sm mt-1">Ringkasan data dan statistik knowledge base KPKNL Kendari</p>
+                                    <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Dashboard</h2>
+                                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Ringkasan data dan statistik knowledge base KPKNL Kendari</p>
                                 </div>
 
-                                {/* Stat cards */}
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
                                     {[
-                                        { label: 'Total Dokumen', val: contents.length, icon: <FileText className="w-8 h-8" />, bg: 'bg-blue-50   text-blue-600', border: 'border-blue-100' },
-                                        { label: 'Total Dilihat', val: stats.totalViews, icon: <Eye className="w-8 h-8" />, bg: 'bg-emerald-50 text-emerald-600', border: 'border-emerald-100' },
-                                        { label: 'Total Apresiasi', val: stats.totalLikes, icon: <ThumbsUp className="w-8 h-8" />, bg: 'bg-amber-50  text-amber-600', border: 'border-amber-100' },
+                                        { label: 'Total Dokumen', val: contents.length, icon: <FileText className="w-7 h-7" />, bg: 'bg-blue-50    text-blue-600', border: 'border-blue-100    dark:border-blue-900/30' },
+                                        { label: 'Total Dilihat', val: stats.totalViews, icon: <Eye className="w-7 h-7" />, bg: 'bg-emerald-50 text-emerald-600', border: 'border-emerald-100 dark:border-emerald-900/30' },
+                                        { label: 'Total Apresiasi', val: stats.totalLikes, icon: <ThumbsUp className="w-7 h-7" />, bg: 'bg-amber-50   text-amber-600', border: 'border-amber-100   dark:border-amber-900/30' },
                                     ].map(s => (
-                                        <div key={s.label} className={`bg-white p-7 rounded-3xl shadow-sm border ${s.border} flex items-center gap-5 hover:-translate-y-1 hover:shadow-lg transition-all`}>
-                                            <div className={`p-3.5 rounded-2xl ${s.bg}`}>{s.icon}</div>
-                                            <div>
-                                                <p className="text-slate-400 text-sm font-bold uppercase tracking-wider">{s.label}</p>
-                                                <h3 className="text-4xl font-black text-slate-800">{s.val}</h3>
+                                        <div key={s.label} className={`bg-white dark:bg-[#162918] p-6 rounded-3xl shadow-sm border ${s.border} flex items-center gap-5 hover:-translate-y-1 hover:shadow-lg transition-all`}>
+                                            <div className={`p-3.5 rounded-2xl flex-shrink-0 ${s.bg}`}>{s.icon}</div>
+                                            <div className="min-w-0">
+                                                <p className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider truncate">{s.label}</p>
+                                                <h3 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100">{s.val}</h3>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
 
-                                {/* Charts */}
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    <div className="bg-white p-7 rounded-3xl shadow-sm border border-slate-100">
-                                        <h3 className="font-bold text-slate-800 mb-6 flex items-center text-base"><TrendingUp className="w-5 h-5 mr-2.5 text-[#0D5C35]" /> Dokumen Terpopuler (Top 5)</h3>
-                                        <div className="h-72 w-full">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
+                                    <div className="bg-white dark:bg-[#162918] p-5 md:p-7 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                        <h3 className="font-bold text-slate-800 dark:text-slate-100 mb-5 flex items-center text-sm md:text-base">
+                                            <TrendingUp className="w-5 h-5 mr-2.5 text-[#0D5C35] flex-shrink-0" /> Dokumen Terpopuler (Top 5)
+                                        </h3>
+                                        <div className="h-64 md:h-72 w-full">
                                             <ResponsiveContainer width="100%" height="100%">
-                                                <BarChart data={stats.topViewed} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                                    <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} stroke="#f1f5f9" />
+                                                <BarChart data={stats.topViewed} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={isDark ? '#2d4a35' : '#f1f5f9'} />
                                                     <XAxis type="number" hide />
-                                                    <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11, fontWeight: 600, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                                                    <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
-                                                    <Bar dataKey="views" fill="#0D5C35" radius={[0, 8, 8, 0]} barSize={22} />
+                                                    <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 10, fontWeight: 600, fill: isDark ? '#94a3b8' : '#64748b' }} axisLine={false} tickLine={false} />
+                                                    <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.2)', background: isDark ? '#162918' : '#fff', color: isDark ? '#f1f5f9' : '#1e293b', fontSize: '12px' }} />
+                                                    <Bar dataKey="views" fill="#0D5C35" radius={[0, 8, 8, 0]} barSize={20} />
                                                 </BarChart>
                                             </ResponsiveContainer>
                                         </div>
                                     </div>
-                                    <div className="bg-white p-7 rounded-3xl shadow-sm border border-slate-100">
-                                        <h3 className="font-bold text-slate-800 mb-6 flex items-center text-base"><PieChartIcon className="w-5 h-5 mr-2.5 text-[#0D5C35]" /> Distribusi Kategori</h3>
-                                        <div className="h-72 w-full">
+                                    <div className="bg-white dark:bg-[#162918] p-5 md:p-7 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                        <h3 className="font-bold text-slate-800 dark:text-slate-100 mb-5 flex items-center text-sm md:text-base">
+                                            <PieChartIcon className="w-5 h-5 mr-2.5 text-[#0D5C35] flex-shrink-0" /> Distribusi Kategori
+                                        </h3>
+                                        <div className="h-64 md:h-72 w-full">
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <PieChart>
-                                                    <Pie data={stats.pieData} cx="50%" cy="50%" innerRadius={65} outerRadius={85} paddingAngle={5} dataKey="value">
+                                                    <Pie data={stats.pieData} cx="50%" cy="45%" innerRadius={55} outerRadius={80} paddingAngle={4} dataKey="value">
                                                         {stats.pieData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                                                     </Pie>
-                                                    <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
-                                                    <Legend verticalAlign="bottom" height={60} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 600, color: '#64748b' }} />
+                                                    <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.2)', background: isDark ? '#162918' : '#fff', color: isDark ? '#f1f5f9' : '#1e293b', fontSize: '12px' }} />
+                                                    <Legend verticalAlign="bottom" height={56} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 600, color: isDark ? '#94a3b8' : '#64748b' }} />
                                                 </PieChart>
                                             </ResponsiveContainer>
                                         </div>
@@ -467,88 +604,127 @@ const AdminDashboard: React.FC = () => {
                         {/* ── TAB: DATA SOP ── */}
                         {activeTab === 'sop' && (
                             <div className="animate-in fade-in zoom-in duration-300">
-                                {/* Header */}
-                                <div className="flex items-center justify-between mb-6">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                                     <div>
-                                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Data SOP</h2>
-                                        <p className="text-slate-500 text-sm mt-1">{contents.length} dokumen tersimpan</p>
+                                        <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Data SOP</h2>
+                                        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{contents.length} dokumen tersimpan</p>
                                     </div>
                                 </div>
 
                                 {/* Toolbar */}
-                                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-5 flex flex-col md:flex-row justify-between items-center gap-4">
-                                    <div className="flex flex-col sm:flex-row gap-3 w-full md:flex-grow">
-                                        <div className="relative w-full sm:max-w-xs">
-                                            <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-                                            <input type="text" placeholder="Cari judul SOP..."
-                                                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0D5C35] outline-none text-sm font-medium"
-                                                value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                                <div className="bg-white dark:bg-[#162918] p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 mb-5">
+                                    <div className="flex flex-col gap-3">
+                                        <div className="flex flex-col sm:flex-row gap-3">
+                                            <div className="relative flex-1">
+                                                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                                <input type="text" placeholder="Cari judul atau deskripsi SOP…"
+                                                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 dark:bg-[#0f1f16] dark:text-slate-200 focus:ring-2 focus:ring-[#0D5C35] outline-none text-sm font-medium"
+                                                    value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setSopPage(1); }} />
+                                            </div>
+                                            <div className="relative sm:w-44">
+                                                <Filter className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                                <select className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 dark:bg-[#0f1f16] dark:text-slate-200 focus:ring-2 focus:ring-[#0D5C35] outline-none text-sm font-medium appearance-none cursor-pointer"
+                                                    value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setSopPage(1); }}>
+                                                    <option value="all">Semua Kategori</option>
+                                                    {['psp', 'sewa', 'penjualan', 'penghapusan', 'pinjam-pakai', 'penggunaan-sementara', 'alih-status', 'hibah'].map(c => (
+                                                        <option key={c} value={c}>{c.toUpperCase().replace(/-/g, ' ')}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
                                         </div>
-                                        <div className="relative w-full sm:w-48">
-                                            <Filter className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-                                            <select className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0D5C35] outline-none text-sm font-medium appearance-none cursor-pointer"
-                                                value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-                                                <option value="all">Semua Kategori</option>
-                                                {['psp', 'sewa', 'penjualan', 'penghapusan', 'pinjam-pakai', 'penggunaan-sementara', 'alih-status', 'hibah'].map(c => (
-                                                    <option key={c} value={c}>{c.toUpperCase().replace('-', ' ')}</option>
-                                                ))}
-                                            </select>
+                                        <div className="flex gap-3">
+                                            <button onClick={handleExportExcel} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-white dark:bg-[#0f1f16] border-2 border-[#00A3C8] text-[#00A3C8] px-4 py-2.5 rounded-xl font-bold hover:bg-[#00A3C8] hover:text-white transition-colors text-sm">
+                                                <FileSpreadsheet className="w-4 h-4" /> Export
+                                            </button>
+                                            <button onClick={handleAddSop} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#0D5C35] text-white px-4 py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-[#0A492A] hover:-translate-y-0.5 transition-all text-sm">
+                                                <Plus className="w-4 h-4" /> Tambah SOP
+                                            </button>
                                         </div>
-                                    </div>
-                                    <div className="flex gap-3 w-full md:w-auto flex-shrink-0">
-                                        <button onClick={handleExportExcel} className="flex-1 md:flex-none flex items-center justify-center bg-white border-2 border-[#00A3C8] text-[#00A3C8] px-4 py-2.5 rounded-xl font-bold hover:bg-[#00A3C8] hover:text-white transition-colors text-sm">
-                                            <FileSpreadsheet className="w-4 h-4 mr-1.5" /> Export
-                                        </button>
-                                        <button onClick={handleAddSop} className="flex-1 md:flex-none flex items-center justify-center bg-[#0D5C35] text-white px-4 py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-[#0A492A] hover:-translate-y-0.5 transition-all text-sm">
-                                            <Plus className="w-4 h-4 mr-1.5" /> Tambah
-                                        </button>
                                     </div>
                                 </div>
 
-                                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden overflow-x-auto">
-                                    <div className="max-h-[600px] overflow-y-auto">
-                                        <table className="w-full text-left border-collapse min-w-[700px]">
-                                            <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-black tracking-wider sticky top-0 z-10 shadow-sm border-b border-slate-200">
+                                {/* Tabel */}
+                                <div className="bg-white dark:bg-[#162918] rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse" style={{ minWidth: '680px' }}>
+                                            <thead className="bg-slate-50 dark:bg-[#1a3021] text-slate-500 dark:text-slate-400 text-xs uppercase font-black tracking-wider border-b border-slate-200 dark:border-slate-700">
                                                 <tr>
-                                                    <th className="p-5">Judul & Info</th>
-                                                    <th className="p-5">Kategori</th>
-                                                    <th className="p-5 text-center">Statistik</th>
-                                                    <th className="p-5 text-center w-32">Aksi</th>
+                                                    <th className="px-5 py-4">Judul & Info</th>
+                                                    <th className="px-5 py-4 w-36">Kategori</th>
+                                                    <th className="px-5 py-4 text-center w-32">Statistik</th>
+                                                    <th className="px-5 py-4 text-center w-28">Aksi</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-slate-100">
-                                                {filteredContents.length > 0 ? filteredContents.map(item => (
-                                                    <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
-                                                        <td className="p-5">
-                                                            <p className="font-bold text-slate-800 mb-1">{item.title}</p>
-                                                            <p className="text-xs text-slate-400">Update: {formatTime(item.updatedAt)}</p>
-                                                        </td>
-                                                        <td className="p-5">
-                                                            <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm ${getCategoryColor(item.category || 'psp')}`}>
-                                                                {(item.category || 'psp').replace('-', ' ')}
-                                                            </span>
-                                                        </td>
-                                                        <td className="p-5 text-center">
-                                                            <div className="flex items-center justify-center gap-2 text-xs font-bold">
-                                                                <span className="flex items-center bg-blue-50 px-2.5 py-1.5 rounded-lg text-blue-600 border border-blue-100"><Eye className="w-3.5 h-3.5 mr-1" />{item.views || 0}</span>
-                                                                <span className="flex items-center bg-emerald-50 px-2.5 py-1.5 rounded-lg text-emerald-600 border border-emerald-100"><ThumbsUp className="w-3.5 h-3.5 mr-1" />{item.likes || 0}</span>
+                                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                                                {currentSopPage.length > 0 ? currentSopPage.map(item => (
+                                                    <tr key={item.id} className="hover:bg-slate-50/70 dark:hover:bg-[#1a3021]/50 transition-colors">
+                                                        <td className="px-5 py-4">
+                                                            <p className="font-bold text-slate-800 dark:text-slate-100 mb-1 leading-snug">{item.title}</p>
+                                                            <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+                                                                <ClockIcon className="w-3 h-3" />
+                                                                <span>{formatTime(item.updatedAt)}</span>
                                                             </div>
                                                         </td>
-                                                        <td className="p-5 text-center">
+                                                        <td className="px-5 py-4">
+                                                            <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm ${getCategoryColor(item.category || 'psp')}`}>
+                                                                {(item.category || 'psp').replace(/-/g, ' ')}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-5 py-4 text-center">
+                                                            <div className="flex items-center justify-center gap-1.5 text-xs font-bold flex-wrap">
+                                                                <span className="flex items-center bg-blue-50 dark:bg-blue-900/20 px-2 py-1.5 rounded-lg text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/30 gap-1"><Eye className="w-3.5 h-3.5" />{item.views || 0}</span>
+                                                                <span className="flex items-center bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/30 gap-1"><ThumbsUp className="w-3.5 h-3.5" />{item.likes || 0}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-5 py-4 text-center">
                                                             <div className="flex justify-center gap-2">
-                                                                <button onClick={() => handleEditSop(item)} className="p-2.5 text-amber-600 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-xl border border-amber-100 transition-all"><Edit className="w-4 h-4" /></button>
-                                                                <button onClick={() => confirmDelete('knowledge-base', item.id)} className="p-2.5 text-rose-600 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-xl border border-rose-100 transition-all"><Trash2 className="w-4 h-4" /></button>
+                                                                <button onClick={() => handleEditSop(item)} className="p-2.5 text-amber-600 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-500 hover:text-white rounded-xl border border-amber-100 dark:border-amber-700/30 transition-all" title="Edit"><Edit className="w-4 h-4" /></button>
+                                                                <button onClick={() => confirmDelete('knowledge-base', item.id)} className="p-2.5 text-rose-600 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-500 hover:text-white rounded-xl border border-rose-100 dark:border-rose-700/30 transition-all" title="Hapus"><Trash2 className="w-4 h-4" /></button>
                                                             </div>
                                                         </td>
                                                     </tr>
                                                 )) : (
-                                                    <tr><td colSpan={4} className="p-16 text-center">
-                                                        <FileText className="w-14 h-14 text-slate-200 mx-auto mb-3" />
-                                                        <p className="text-slate-400 font-bold">Tidak ada data yang cocok.</p>
-                                                    </td></tr>
+                                                    <tr>
+                                                        <td colSpan={4} className="py-16 text-center">
+                                                            <FileText className="w-12 h-12 text-slate-200 dark:text-slate-600 mx-auto mb-3" />
+                                                            <p className="text-slate-400 dark:text-slate-500 font-bold">Tidak ada data yang cocok.</p>
+                                                        </td>
+                                                    </tr>
                                                 )}
                                             </tbody>
                                         </table>
+                                    </div>
+
+                                    {/* Pagination SOP */}
+                                    <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-50/30 dark:bg-[#1a3021]/30">
+                                        <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+                                            <span>Tampil</span>
+                                            <select value={sopPerPage} onChange={e => { setSopPerPage(Number(e.target.value)); setSopPage(1); }}
+                                                className="border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-white dark:bg-[#0f1f16] dark:text-slate-200 text-sm outline-none cursor-pointer">
+                                                {[5, 10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                                            </select>
+                                            <span>dari <strong className="text-slate-700 dark:text-slate-200">{filteredContents.length}</strong> data</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button onClick={() => setSopPage(p => Math.max(p - 1, 1))} disabled={sopPage === 1}
+                                                className="p-2 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                                                <ChevronLeft className="w-4 h-4" />
+                                            </button>
+                                            {/* Page buttons */}
+                                            {Array.from({ length: Math.min(sopTotalPages, 5) }, (_, i) => {
+                                                const page = sopTotalPages <= 5 ? i + 1 : sopPage <= 3 ? i + 1 : sopPage >= sopTotalPages - 2 ? sopTotalPages - 4 + i : sopPage - 2 + i;
+                                                return (
+                                                    <button key={page} onClick={() => setSopPage(page)}
+                                                        className={`w-8 h-8 rounded-lg text-sm font-bold transition-all ${sopPage === page ? 'bg-[#0D5C35] text-white shadow-md' : 'border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                                                        {page}
+                                                    </button>
+                                                );
+                                            })}
+                                            <button onClick={() => setSopPage(p => Math.min(p + 1, sopTotalPages))} disabled={sopPage === sopTotalPages || sopTotalPages === 0}
+                                                className="p-2 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                                                <ChevronRight className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -557,38 +733,40 @@ const AdminDashboard: React.FC = () => {
                         {/* ── TAB: DATA FAQ ── */}
                         {activeTab === 'faq' && (
                             <div className="animate-in fade-in zoom-in duration-300">
-                                <div className="flex items-center justify-between mb-6">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                                     <div>
-                                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Data FAQ</h2>
-                                        <p className="text-slate-500 text-sm mt-1">{faqs.length} pertanyaan tersimpan</p>
+                                        <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Data FAQ</h2>
+                                        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{faqs.length} pertanyaan tersimpan</p>
                                     </div>
-                                    <button onClick={handleAddFaq} className="flex items-center bg-[#0D5C35] text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-[#0A492A] hover:-translate-y-0.5 transition-all text-sm">
-                                        <Plus className="w-4 h-4 mr-1.5" /> Tambah FAQ
+                                    <button onClick={handleAddFaq} className="self-start sm:self-auto flex items-center gap-1.5 bg-[#0D5C35] text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-[#0A492A] hover:-translate-y-0.5 transition-all text-sm">
+                                        <Plus className="w-4 h-4" /> Tambah FAQ
                                     </button>
                                 </div>
-
                                 <div className="space-y-4">
                                     {faqs.length > 0 ? faqs.map(item => (
-                                        <div key={item.id} className="bg-white p-7 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex justify-between items-start group">
-                                            <div className="flex-grow pr-6 min-w-0">
-                                                <div className="flex items-start gap-3 mb-3">
-                                                    <span className="flex-shrink-0 bg-amber-100 text-amber-700 font-black px-2.5 py-1 rounded-lg text-xs">Q</span>
-                                                    <h3 className="font-bold text-slate-800">{item.question}</h3>
+                                        <div key={item.id} className="bg-white dark:bg-[#162918] p-5 md:p-7 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div className="flex-grow min-w-0 space-y-3">
+                                                    <div className="flex items-start gap-3">
+                                                        <span className="flex-shrink-0 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-black px-2.5 py-1 rounded-lg text-xs mt-0.5">Q</span>
+                                                        <h3 className="font-bold text-slate-800 dark:text-slate-100 leading-snug">{item.question}</h3>
+                                                    </div>
+                                                    <div className="flex items-start gap-3">
+                                                        <span className="flex-shrink-0 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-black px-2.5 py-1 rounded-lg text-xs mt-0.5">A</span>
+                                                        <p className="text-slate-600 dark:text-slate-300 text-sm whitespace-pre-line leading-relaxed">{item.answer}</p>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-start gap-3">
-                                                    <span className="flex-shrink-0 bg-emerald-100 text-emerald-700 font-black px-2.5 py-1 rounded-lg text-xs mt-0.5">A</span>
-                                                    <p className="text-slate-600 text-sm whitespace-pre-line leading-relaxed">{item.answer}</p>
+                                                <div className="flex flex-col gap-2 flex-shrink-0">
+                                                    <button onClick={() => handleEditFaq(item)} className="p-2.5 text-amber-600 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-500 hover:text-white rounded-xl border border-amber-100 dark:border-amber-700/30 transition-all" title="Edit"><Edit className="w-4 h-4" /></button>
+                                                    <button onClick={() => confirmDelete('faqs', item.id)} className="p-2.5 text-rose-600 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-500 hover:text-white rounded-xl border border-rose-100 dark:border-rose-700/30 transition-all" title="Hapus"><Trash2 className="w-4 h-4" /></button>
                                                 </div>
-                                            </div>
-                                            <div className="flex flex-col gap-2 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => handleEditFaq(item)} className="p-2.5 text-amber-600 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-xl border border-amber-100 transition-all"><Edit className="w-4 h-4" /></button>
-                                                <button onClick={() => confirmDelete('faqs', item.id)} className="p-2.5 text-rose-600 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-xl border border-rose-100 transition-all"><Trash2 className="w-4 h-4" /></button>
                                             </div>
                                         </div>
                                     )) : (
-                                        <div className="bg-white p-16 rounded-3xl border border-slate-200 text-center">
-                                            <HelpCircle className="w-14 h-14 text-slate-200 mx-auto mb-4" />
-                                            <p className="text-slate-500 font-bold text-lg">Belum ada FAQ yang dibuat.</p>
+                                        <div className="bg-white dark:bg-[#162918] py-20 rounded-3xl border border-slate-200 dark:border-slate-700 text-center">
+                                            <HelpCircle className="w-14 h-14 text-slate-200 dark:text-slate-600 mx-auto mb-4" />
+                                            <p className="text-slate-500 dark:text-slate-400 font-bold text-lg mb-1">Belum ada FAQ</p>
+                                            <p className="text-slate-400 dark:text-slate-500 text-sm">Klik tombol "Tambah FAQ" untuk mulai.</p>
                                         </div>
                                     )}
                                 </div>
@@ -598,75 +776,70 @@ const AdminDashboard: React.FC = () => {
                         {/* ── TAB: DATA PANDUAN ── */}
                         {activeTab === 'guide' && (
                             <div className="animate-in fade-in zoom-in duration-300">
-                                <div className="flex items-center justify-between mb-6">
+                                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
                                     <div>
-                                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Data Panduan</h2>
-                                        <p className="text-slate-500 text-sm mt-1">{guides.length} panduan tersimpan</p>
+                                        <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Data Panduan</h2>
+                                        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{guides.length} panduan tersimpan</p>
                                     </div>
-                                    {guides.length === 0 && (
-                                        <button onClick={handleAddGuide} className="flex items-center bg-[#0D5C35] text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-[#0A492A] hover:-translate-y-0.5 transition-all text-sm">
-                                            <Plus className="w-4 h-4 mr-1.5" /> Buat Panduan
+                                    <button onClick={handleAddGuide} className="self-start sm:self-auto flex items-center gap-1.5 bg-[#0D5C35] text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-[#0A492A] hover:-translate-y-0.5 transition-all text-sm">
+                                        <Plus className="w-4 h-4" /> Buat Panduan
+                                    </button>
+                                </div>
+                                {guides.length > 0 ? (
+                                    <div className="space-y-5">
+                                        {guides.map((item, i) => (
+                                            <GuideCard key={item.id} item={item} index={i}
+                                                onEdit={() => handleEditGuide(item)}
+                                                onDelete={() => confirmDelete('guides', item.id)}
+                                                formatTime={formatTime} />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="bg-white dark:bg-[#162918] py-20 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-center">
+                                        <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
+                                            <BookMarked className="w-10 h-10 text-blue-300 dark:text-blue-500" />
+                                        </div>
+                                        <p className="text-slate-600 dark:text-slate-300 font-bold text-lg mb-1">Belum ada panduan</p>
+                                        <p className="text-slate-400 dark:text-slate-500 text-sm mb-8 px-6">Buat panduan pengguna untuk membantu pengunjung memahami cara menggunakan knowledge base.</p>
+                                        <button onClick={handleAddGuide} className="inline-flex items-center gap-2 bg-[#0D5C35] text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-[#0A492A] hover:-translate-y-0.5 transition-all">
+                                            <Plus className="w-4 h-4" /> Buat Panduan Pertama
                                         </button>
-                                    )}
-                                </div>
-
-                                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden overflow-x-auto">
-                                    <table className="w-full text-left border-collapse min-w-[700px]">
-                                        <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-black tracking-wider border-b border-slate-200">
-                                            <tr>
-                                                <th className="p-5 w-16">#</th>
-                                                <th className="p-5">Isi Panduan (Preview)</th>
-                                                <th className="p-5 w-36 text-center">Update</th>
-                                                <th className="p-5 text-center w-36">Aksi</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100">
-                                            {guides.map((item, i) => (
-                                                <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                                                    <td className="p-5 font-black text-slate-400">{i + 1}</td>
-                                                    <td className="p-5">
-                                                        <p className="text-slate-600 text-sm line-clamp-2 font-medium bg-slate-50 p-3 rounded-xl border border-slate-100">{item.content}</p>
-                                                    </td>
-                                                    <td className="p-5 text-center text-xs font-bold text-slate-400">{formatTime(item.updatedAt)}</td>
-                                                    <td className="p-5 text-center">
-                                                        <div className="flex justify-center gap-2">
-                                                            <button onClick={() => handleEditGuide(item)} className="p-2.5 text-amber-600 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-xl border border-amber-100 transition-all"><Edit className="w-4 h-4" /></button>
-                                                            <button onClick={() => confirmDelete('guides', item.id)} className="p-2.5 text-rose-600 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-xl border border-rose-100 transition-all"><Trash2 className="w-4 h-4" /></button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                            {guides.length === 0 && (
-                                                <tr><td colSpan={4} className="p-16 text-center text-slate-400 font-bold italic">Belum ada panduan yang dibuat.</td></tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                    </div>
+                                )}
                             </div>
                         )}
-
                     </div>
                 </main>
             </div>
 
             {/* ══════════════════════════════════════════════════════════
-                MODALS (tidak berubah dari versi sebelumnya)
+                MODALS
             ══════════════════════════════════════════════════════════ */}
 
-            {/* Konfirmasi */}
+            {/* Konfirmasi (delete / logout / unsaved) */}
             {confirmModal.isOpen && (
                 <div className="fixed inset-0 bg-slate-900/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-3xl w-full max-w-sm p-8 shadow-2xl border border-white/20">
+                    <div className="bg-white dark:bg-[#162918] rounded-3xl w-full max-w-sm p-7 md:p-8 shadow-2xl dark:border dark:border-slate-700">
                         <div className="flex flex-col items-center text-center">
-                            <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 shadow-inner ${confirmModal.type === 'delete' ? 'bg-rose-50 text-rose-500 border-4 border-rose-100' : 'bg-amber-50 text-amber-500 border-4 border-amber-100'}`}>
-                                <AlertTriangle className="w-10 h-10" />
+                            <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mb-5 shadow-inner
+                                ${confirmModal.type === 'delete' ? 'bg-rose-50 text-rose-500 border-4 border-rose-100'
+                                    : confirmModal.type === 'unsaved' ? 'bg-amber-50 text-amber-500 border-4 border-amber-100'
+                                        : 'bg-amber-50 text-amber-500 border-4 border-amber-100'}`}>
+                                {confirmModal.type === 'unsaved' ? <AlertCircle className="w-8 h-8 md:w-10 md:h-10" /> : <AlertTriangle className="w-8 h-8 md:w-10 md:h-10" />}
                             </div>
-                            <h3 className="text-2xl font-black text-slate-800 mb-3">{confirmModal.title}</h3>
-                            <p className="text-slate-500 mb-8 leading-relaxed font-medium">{confirmModal.message}</p>
+                            <h3 className="text-xl md:text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">{confirmModal.title}</h3>
+                            <p className="text-slate-500 dark:text-slate-400 mb-7 leading-relaxed font-medium text-sm md:text-base">{confirmModal.message}</p>
                             <div className="flex w-full gap-3">
-                                <button onClick={() => setConfirmModal(p => ({ ...p, isOpen: false }))} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors">Batal</button>
-                                <button onClick={confirmModal.onConfirm} className={`flex-1 py-3 text-white font-bold rounded-xl shadow-lg transition-all ${confirmModal.type === 'delete' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-200' : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'}`}>
-                                    {confirmModal.type === 'delete' ? 'Ya, Hapus' : 'Ya, Keluar'}
+                                <button onClick={() => setConfirmModal(p => ({ ...p, isOpen: false }))}
+                                    className="flex-1 py-3 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-colors">
+                                    {confirmModal.type === 'unsaved' ? 'Tetap Edit' : 'Batal'}
+                                </button>
+                                <button onClick={confirmModal.onConfirm}
+                                    className={`flex-1 py-3 text-white font-bold rounded-xl shadow-lg transition-all
+                                    ${confirmModal.type === 'delete' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
+                                            : confirmModal.type === 'unsaved' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'
+                                                : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'}`}>
+                                    {confirmModal.type === 'delete' ? 'Ya, Hapus' : confirmModal.type === 'unsaved' ? 'Buang Perubahan' : 'Ya, Keluar'}
                                 </button>
                             </div>
                         </div>
@@ -674,121 +847,222 @@ const AdminDashboard: React.FC = () => {
                 </div>
             )}
 
-            {/* Modal SOP */}
+            {/* ── Modal SOP — dengan tab Editor / Preview ── */}
             {isModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
-                    <div className="bg-white rounded-3xl w-full max-w-3xl p-8 overflow-y-auto max-h-[90vh] shadow-2xl border border-white/20">
-                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
-                            <h3 className="font-black text-2xl text-slate-800 flex items-center">
-                                <FileText className="w-6 h-6 mr-3 text-[#0D5C35]" />{editingId ? 'Edit SOP / Layanan' : 'Tambah SOP Baru'}
+                <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-3 md:p-4 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-white dark:bg-[#162918] rounded-3xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[95vh] md:max-h-[90vh] dark:border dark:border-slate-700">
+                        {/* Header */}
+                        <div className="flex justify-between items-center p-6 md:p-8 pb-4 border-b border-slate-100 dark:border-slate-700 flex-shrink-0">
+                            <h3 className="font-black text-xl md:text-2xl text-slate-800 dark:text-slate-100 flex items-center gap-3">
+                                <FileText className="w-6 h-6 text-[#0D5C35] flex-shrink-0" />
+                                {editingId ? 'Edit SOP / Layanan' : 'Tambah SOP Baru'}
                             </h3>
-                            <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+                            <div className="flex items-center gap-2">
+                                {isDirty && (
+                                    <span className="hidden sm:flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs font-bold bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1.5 rounded-lg border border-amber-200 dark:border-amber-700/30 animate-pulse">
+                                        <AlertCircle className="w-3 h-3" /> Belum disimpan
+                                    </span>
+                                )}
+                                <button onClick={() => requestClose('sop')} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+                            </div>
                         </div>
-                        <form onSubmit={handleSaveSop} className="space-y-5">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                        {/* Body */}
+                        <div className="overflow-y-auto flex-1 p-6 md:p-8 pt-5">
+                            <form id="sop-form" onSubmit={handleSaveSop} className="space-y-5">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Judul Dokumen</label>
+                                        <input type="text" placeholder="Masukkan judul…"
+                                            className="w-full p-3.5 border border-slate-200 dark:border-slate-600 dark:bg-[#0f1f16] dark:text-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-medium bg-slate-50 focus:bg-white dark:focus:bg-[#0f1f16]"
+                                            required value={formData.title} onChange={e => { setFormData(p => ({ ...p, title: e.target.value })); setIsDirty(true); }} />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kategori</label>
+                                        <select className="w-full p-3.5 border border-slate-200 dark:border-slate-600 dark:bg-[#0f1f16] dark:text-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-bold text-slate-700 bg-slate-50 focus:bg-white cursor-pointer"
+                                            value={formData.category} onChange={e => { setFormData(p => ({ ...p, category: e.target.value })); setIsDirty(true); }}>
+                                            {['psp', 'sewa', 'penjualan', 'penghapusan', 'pinjam-pakai', 'penggunaan-sementara', 'alih-status', 'hibah'].map(c => (
+                                                <option key={c} value={c}>{c.toUpperCase().replace(/-/g, ' ')}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Judul Dokumen</label>
-                                    <input type="text" placeholder="Masukkan judul..." className="w-full p-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-medium bg-slate-50 focus:bg-white" required value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Deskripsi Singkat (Preview)</label>
+                                    <input type="text" placeholder="Kalimat pendek untuk halaman awal…"
+                                        className="w-full p-3.5 border border-slate-200 dark:border-slate-600 dark:bg-[#0f1f16] dark:text-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-medium bg-slate-50 focus:bg-white dark:focus:bg-[#0f1f16]"
+                                        required value={formData.description} onChange={e => { setFormData(p => ({ ...p, description: e.target.value })); setIsDirty(true); }} />
                                 </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Gambar / Diagram <span className="text-slate-400 normal-case font-normal">(Opsional)</span></label>
+                                        <input type="file" accept="image/*" onChange={handleImageUpload}
+                                            className="block w-full text-sm text-slate-500 file:mr-3 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer border border-slate-200 dark:border-slate-600 rounded-xl bg-slate-50 dark:bg-[#0f1f16]" />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Link Video Tutorial <span className="text-slate-400 normal-case font-normal">(Opsional)</span></label>
+                                        <input type="url" placeholder="YouTube / Google Drive…"
+                                            className="w-full p-3.5 border border-slate-200 dark:border-slate-600 dark:bg-[#0f1f16] dark:text-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-medium bg-slate-50 focus:bg-white dark:focus:bg-[#0f1f16]"
+                                            value={formData.videoUrl} onChange={e => { setFormData(p => ({ ...p, videoUrl: e.target.value })); setIsDirty(true); }} />
+                                    </div>
+                                </div>
+
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Kategori</label>
-                                    <select className="w-full p-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-bold text-slate-700 bg-slate-50 focus:bg-white cursor-pointer" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
-                                        {['psp', 'sewa', 'penjualan', 'penghapusan', 'pinjam-pakai', 'penggunaan-sementara', 'alih-status', 'hibah'].map(c => (
-                                            <option key={c} value={c}>{c.toUpperCase().replace('-', ' ')}</option>
-                                        ))}
-                                    </select>
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Link File PDF / Excel <span className="text-slate-400 normal-case font-normal">(Opsional)</span></label>
+                                    <input type="url" placeholder="https://drive.google.com/…"
+                                        className="w-full p-3.5 border border-slate-200 dark:border-slate-600 dark:bg-[#0f1f16] dark:text-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-medium bg-slate-50 focus:bg-white dark:focus:bg-[#0f1f16]"
+                                        value={formData.pdfUrl} onChange={e => { setFormData(p => ({ ...p, pdfUrl: e.target.value })); setIsDirty(true); }} />
                                 </div>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Deskripsi Singkat (Preview)</label>
-                                <input type="text" placeholder="Kalimat pendek untuk halaman awal..." className="w-full p-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-medium bg-slate-50 focus:bg-white" required value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                                {/* ── Editor / Preview Tab ── */}
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Gambar / Diagram (Opsional)</label>
-                                    <input type="file" accept="image/*" onChange={handleImageUpload} className="block w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer border border-slate-200 rounded-xl bg-slate-50" />
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Isi Dokumen (Markdown)</label>
+                                        <div className="flex bg-slate-100 dark:bg-slate-700 rounded-lg p-0.5 gap-0.5">
+                                            <button type="button" onClick={() => setSopModalTab('editor')}
+                                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${sopModalTab === 'editor' ? 'bg-white dark:bg-slate-600 text-slate-800 dark:text-slate-100 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
+                                                ✏️ Editor
+                                            </button>
+                                            <button type="button" onClick={() => setSopModalTab('preview')}
+                                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${sopModalTab === 'preview' ? 'bg-white dark:bg-slate-600 text-slate-800 dark:text-slate-100 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
+                                                👁 Preview
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {sopModalTab === 'editor' ? (
+                                        <div className="border border-slate-200 dark:border-slate-600 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#0D5C35] shadow-sm">
+                                            <FormatToolbar target="sop" onInsert={insertFormat} />
+                                            <textarea id="content-editor" placeholder="Ketik isi SOP di sini…" rows={14}
+                                                className="w-full p-5 font-mono text-sm outline-none bg-slate-50 dark:bg-[#0f1f16] dark:text-slate-200 focus:bg-white dark:focus:bg-[#0f1f16] resize-y"
+                                                required value={formData.content} onChange={e => { setFormData(p => ({ ...p, content: e.target.value })); setIsDirty(true); }} />
+                                        </div>
+                                    ) : (
+                                        <div className="border border-slate-200 dark:border-slate-600 rounded-xl overflow-hidden min-h-[280px]">
+                                            <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600 flex items-center gap-2">
+                                                <Eye className="w-3.5 h-3.5 text-slate-400" />
+                                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Preview Markdown</span>
+                                            </div>
+                                            <div className="p-5 bg-white dark:bg-[#0f1f16]">
+                                                {formData.content ? (
+                                                    <div className="prose prose-sm prose-slate dark:prose-invert max-w-none prose-p:text-slate-600 dark:prose-p:text-slate-300 prose-headings:text-slate-800 dark:prose-headings:text-slate-100 prose-li:marker:text-[#0D5C35] prose-strong:text-slate-800 dark:prose-strong:text-slate-100">
+                                                        <ReactMarkdown>{formData.content}</ReactMarkdown>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-slate-400 dark:text-slate-500 italic text-sm text-center py-8">Ketik sesuatu di Editor untuk melihat preview…</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500 px-1">
+                                        <span><strong className="text-slate-600 dark:text-slate-300">{formData.content.length}</strong> karakter · <strong className="text-slate-600 dark:text-slate-300">{formData.content.split('\n').length}</strong> baris</span>
+                                        <span className="flex items-center gap-1"><ClockIcon className="w-3 h-3" /> Dikelola oleh: <strong className="text-slate-600 dark:text-slate-300">{adminDisplay}</strong></span>
+                                    </div>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex justify-between"><span>Link Video Tutorial</span><span className="text-slate-400 normal-case font-normal">(Opsional)</span></label>
-                                    <input type="url" placeholder="Link YouTube / Google Drive..." className="w-full p-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-medium bg-slate-50 focus:bg-white" value={formData.videoUrl} onChange={e => setFormData({ ...formData, videoUrl: e.target.value })} />
-                                </div>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex justify-between"><span>Link File Excel / PDF</span><span className="text-slate-400 normal-case font-normal">(Opsional)</span></label>
-                                <input type="url" placeholder="https://drive.google.com/..." className="w-full p-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-medium bg-slate-50 focus:bg-white" value={formData.pdfUrl} onChange={e => setFormData({ ...formData, pdfUrl: e.target.value })} />
-                            </div>
-                            <div className="space-y-1.5 pt-1">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Isi Dokumen (Mendukung Markdown)</label>
-                                <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#0D5C35] shadow-sm">
-                                    <FormatToolbar target="sop" onInsert={insertFormat} />
-                                    <textarea id="content-editor" placeholder="Ketik isi SOP di sini..." rows={12} className="w-full p-5 font-mono text-sm outline-none bg-slate-50 focus:bg-white resize-y" required value={formData.content} onChange={e => setFormData({ ...formData, content: e.target.value })} />
-                                </div>
-                            </div>
-                            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">Batal</button>
-                                <button type="submit" disabled={isSaving} className="px-8 py-3 bg-[#0D5C35] hover:bg-[#0A492A] text-white rounded-xl font-bold shadow-lg shadow-emerald-200 transition-all flex items-center gap-2">
-                                    {isSaving ? <><RefreshCw className="w-4 h-4 animate-spin" /> Menyimpan...</> : 'Simpan Data'}
-                                </button>
-                            </div>
-                        </form>
+                            </form>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex justify-end gap-3 p-6 md:p-8 pt-4 border-t border-slate-100 dark:border-slate-700 flex-shrink-0">
+                            <button type="button" onClick={() => requestClose('sop')}
+                                className="px-6 py-3 font-bold text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors">
+                                Batal
+                            </button>
+                            <button type="submit" form="sop-form" disabled={isSaving}
+                                className="px-8 py-3 bg-[#0D5C35] hover:bg-[#0A492A] text-white rounded-xl font-bold shadow-lg shadow-emerald-200 transition-all flex items-center gap-2 disabled:opacity-60">
+                                {isSaving ? <><RefreshCw className="w-4 h-4 animate-spin" /> Menyimpan…</> : 'Simpan Data'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
 
-            {/* Modal FAQ */}
+            {/* ── Modal FAQ ── */}
             {isFaqModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
-                    <div className="bg-white rounded-3xl w-full max-w-2xl p-8 shadow-2xl border border-white/20">
-                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
-                            <h3 className="font-black text-2xl text-slate-800 flex items-center"><HelpCircle className="w-6 h-6 mr-3 text-amber-500" />{editingId ? 'Edit FAQ' : 'Tambah FAQ Baru'}</h3>
-                            <button onClick={() => setIsFaqModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+                <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-3 md:p-4 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-white dark:bg-[#162918] rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[95vh] md:max-h-[90vh] dark:border dark:border-slate-700">
+                        <div className="flex justify-between items-center p-6 md:p-8 pb-4 border-b border-slate-100 dark:border-slate-700 flex-shrink-0">
+                            <h3 className="font-black text-xl md:text-2xl text-slate-800 dark:text-slate-100 flex items-center gap-3">
+                                <HelpCircle className="w-6 h-6 text-amber-500 flex-shrink-0" />
+                                {editingId ? 'Edit FAQ' : 'Tambah FAQ Baru'}
+                            </h3>
+                            <div className="flex items-center gap-2">
+                                {isDirty && <span className="hidden sm:flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs font-bold bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1.5 rounded-lg border border-amber-200 dark:border-amber-700/30 animate-pulse"><AlertCircle className="w-3 h-3" /> Belum disimpan</span>}
+                                <button onClick={() => requestClose('faq')} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+                            </div>
                         </div>
-                        <form onSubmit={handleSaveFaq} className="space-y-5">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Pertanyaan (Q)</label>
-                                <input type="text" placeholder="Masukkan pertanyaan..." className="w-full p-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-bold text-slate-800 bg-slate-50 focus:bg-white" value={faqForm.question} onChange={e => setFaqForm({ ...faqForm, question: e.target.value })} required />
-                            </div>
-                            <div className="space-y-1.5 pt-1">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Jawaban (A)</label>
-                                <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#0D5C35] shadow-sm">
-                                    <FormatToolbar target="faq" onInsert={insertFormat} />
-                                    <textarea id="faq-editor" placeholder="Ketik jawaban di sini..." rows={8} className="w-full p-5 font-mono text-sm outline-none bg-slate-50 focus:bg-white resize-y" value={faqForm.answer} onChange={e => setFaqForm({ ...faqForm, answer: e.target.value })} required />
+                        <div className="overflow-y-auto flex-1 p-6 md:p-8 pt-5">
+                            <form id="faq-form" onSubmit={handleSaveFaq} className="space-y-5">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pertanyaan (Q)</label>
+                                    <input type="text" placeholder="Masukkan pertanyaan…"
+                                        className="w-full p-3.5 border border-slate-200 dark:border-slate-600 dark:bg-[#0f1f16] dark:text-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-bold text-slate-800 bg-slate-50 focus:bg-white dark:focus:bg-[#0f1f16]"
+                                        value={faqForm.question} onChange={e => { setFaqForm(p => ({ ...p, question: e.target.value })); setIsDirty(true); }} required />
                                 </div>
-                            </div>
-                            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                                <button type="button" onClick={() => setIsFaqModalOpen(false)} className="px-6 py-3 font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">Batal</button>
-                                <button type="submit" disabled={isSaving} className="px-8 py-3 bg-[#0D5C35] hover:bg-[#0A492A] text-white rounded-xl font-bold shadow-lg shadow-emerald-200 transition-all flex items-center gap-2">
-                                    {isSaving ? <><RefreshCw className="w-4 h-4 animate-spin" /> Menyimpan...</> : 'Simpan FAQ'}
-                                </button>
-                            </div>
-                        </form>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Jawaban (A)</label>
+                                    <div className="border border-slate-200 dark:border-slate-600 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#0D5C35] shadow-sm">
+                                        <FormatToolbar target="faq" onInsert={insertFormat} />
+                                        <textarea id="faq-editor" placeholder="Ketik jawaban di sini…" rows={9}
+                                            className="w-full p-5 font-mono text-sm outline-none bg-slate-50 dark:bg-[#0f1f16] dark:text-slate-200 focus:bg-white dark:focus:bg-[#0f1f16] resize-y"
+                                            value={faqForm.answer} onChange={e => { setFaqForm(p => ({ ...p, answer: e.target.value })); setIsDirty(true); }} required />
+                                    </div>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 px-1">
+                                        <strong className="text-slate-600 dark:text-slate-300">{faqForm.answer.length}</strong> karakter · <strong className="text-slate-600 dark:text-slate-300">{faqForm.answer.split('\n').length}</strong> baris
+                                    </p>
+                                </div>
+                            </form>
+                        </div>
+                        <div className="flex justify-end gap-3 p-6 md:p-8 pt-4 border-t border-slate-100 dark:border-slate-700 flex-shrink-0">
+                            <button type="button" onClick={() => requestClose('faq')} className="px-6 py-3 font-bold text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors">Batal</button>
+                            <button type="submit" form="faq-form" disabled={isSaving} className="px-8 py-3 bg-[#0D5C35] hover:bg-[#0A492A] text-white rounded-xl font-bold shadow-lg shadow-emerald-200 transition-all flex items-center gap-2 disabled:opacity-60">
+                                {isSaving ? <><RefreshCw className="w-4 h-4 animate-spin" /> Menyimpan…</> : 'Simpan FAQ'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
 
-            {/* Modal Panduan */}
+            {/* ── Modal Panduan ── */}
             {isGuideModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
-                    <div className="bg-white rounded-3xl w-full max-w-3xl p-8 shadow-2xl border border-white/20">
-                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
-                            <h3 className="font-black text-2xl text-slate-800 flex items-center"><BookOpen className="w-6 h-6 mr-3 text-blue-500" />{editingId ? 'Edit Panduan' : 'Buat Panduan Pengguna'}</h3>
-                            <button onClick={() => setIsGuideModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+                <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-3 md:p-4 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-white dark:bg-[#162918] rounded-3xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[95vh] md:max-h-[90vh] dark:border dark:border-slate-700">
+                        <div className="flex justify-between items-center p-6 md:p-8 pb-4 border-b border-slate-100 dark:border-slate-700 flex-shrink-0">
+                            <h3 className="font-black text-xl md:text-2xl text-slate-800 dark:text-slate-100 flex items-center gap-3">
+                                <BookOpen className="w-6 h-6 text-blue-500 flex-shrink-0" />
+                                {editingId ? 'Edit Panduan' : 'Buat Panduan Pengguna'}
+                            </h3>
+                            <div className="flex items-center gap-2">
+                                {isDirty && <span className="hidden sm:flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs font-bold bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1.5 rounded-lg border border-amber-200 dark:border-amber-700/30 animate-pulse"><AlertCircle className="w-3 h-3" /> Belum disimpan</span>}
+                                <button onClick={() => requestClose('guide')} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+                            </div>
                         </div>
-                        <form onSubmit={handleSaveGuide} className="space-y-5">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Isi Panduan Utama</label>
-                                <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#0D5C35] shadow-sm">
-                                    <FormatToolbar target="guide" onInsert={insertFormat} />
-                                    <textarea id="guide-editor" placeholder="Ketik panduan lengkap di sini..." rows={15} className="w-full p-5 font-mono text-sm outline-none bg-slate-50 focus:bg-white resize-y" value={guideForm.content} onChange={e => setGuideForm({ ...guideForm, content: e.target.value })} required />
+                        <div className="overflow-y-auto flex-1 p-6 md:p-8 pt-5">
+                            <form id="guide-form" onSubmit={handleSaveGuide} className="space-y-5">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Isi Panduan Utama</label>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed">Tulis panduan lengkap di sini. Gunakan toolbar untuk heading, list, dan kutipan. Mendukung Markdown.</p>
+                                    <div className="border border-slate-200 dark:border-slate-600 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#0D5C35] shadow-sm">
+                                        <FormatToolbar target="guide" onInsert={insertFormat} />
+                                        <textarea id="guide-editor" placeholder="Contoh:&#10;## Cara Menggunakan Knowledge Base&#10;&#10;### 1. Pencarian Dokumen&#10;- Ketik kata kunci di kolom pencarian&#10;..." rows={18}
+                                            className="w-full p-5 font-mono text-sm outline-none bg-slate-50 dark:bg-[#0f1f16] dark:text-slate-200 focus:bg-white dark:focus:bg-[#0f1f16] resize-y"
+                                            value={guideForm.content} onChange={e => { setGuideForm({ content: e.target.value }); setIsDirty(true); }} required />
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500 px-1">
+                                        <span><strong className="text-slate-600 dark:text-slate-300">{guideForm.content.length}</strong> karakter · <strong className="text-slate-600 dark:text-slate-300">{guideForm.content.split('\n').length}</strong> baris</span>
+                                        <span className="flex items-center gap-1"><ClockIcon className="w-3 h-3" /> Dikelola oleh: <strong className="text-slate-600 dark:text-slate-300">{adminDisplay}</strong></span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                                <button type="button" onClick={() => setIsGuideModalOpen(false)} className="px-6 py-3 font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">Batal</button>
-                                <button type="submit" disabled={isSaving} className="px-8 py-3 bg-[#0D5C35] hover:bg-[#0A492A] text-white rounded-xl font-bold shadow-lg shadow-emerald-200 transition-all flex items-center gap-2">
-                                    {isSaving ? <><RefreshCw className="w-4 h-4 animate-spin" /> Menyimpan...</> : 'Simpan Panduan'}
-                                </button>
-                            </div>
-                        </form>
+                            </form>
+                        </div>
+                        <div className="flex justify-end gap-3 p-6 md:p-8 pt-4 border-t border-slate-100 dark:border-slate-700 flex-shrink-0">
+                            <button type="button" onClick={() => requestClose('guide')} className="px-6 py-3 font-bold text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors">Batal</button>
+                            <button type="submit" form="guide-form" disabled={isSaving} className="px-8 py-3 bg-[#0D5C35] hover:bg-[#0A492A] text-white rounded-xl font-bold shadow-lg shadow-emerald-200 transition-all flex items-center gap-2 disabled:opacity-60">
+                                {isSaving ? <><RefreshCw className="w-4 h-4 animate-spin" /> Menyimpan…</> : 'Simpan Panduan'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

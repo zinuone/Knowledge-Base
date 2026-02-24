@@ -1,17 +1,15 @@
+// File: index.tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async'; // <-- TAMBAHAN INI
+
 import App from './App';
 import DetailPage from './src/pages/DetailPage';
 import LoginPage from './src/pages/LoginPage';
-
-// --- TAMBAHAN PENTING (Biar Admin Jalan) ---
 import AdminDashboard from './src/pages/AdminDashboard';
 import ProtectedRoute from './src/components/ProtectedRoute';
-
 import CategoryPage from './src/pages/CategoryPage';
-
-// import './index.css'; // Biarkan dikomen kalau file css tidak ada
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -21,30 +19,32 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <BrowserRouter>
-      <Routes>
-        {/* Halaman Utama (Public) */}
-        <Route path="/" element={<App />} />
+    <HelmetProvider> {/* <-- BUNGKUSAN HELMET PROVIDER DI SINI */}
+      <BrowserRouter>
+        <Routes>
+          {/* Halaman Utama (Public) */}
+          <Route path="/" element={<App />} />
 
-        {/* Halaman Detail (Public) */}
-        <Route path="/detail/:id" element={<DetailPage />} />
+          {/* Halaman Detail (Public) */}
+          <Route path="/detail/:id" element={<DetailPage />} />
 
-        {/* Halaman Login (Public) */}
-        <Route path="/login" element={<LoginPage />} />
+          {/* Halaman Login (Public) */}
+          <Route path="/login" element={<LoginPage />} />
 
-        <Route path="/category/:categoryId" element={<CategoryPage />} />
+          {/* Halaman Kategori */}
+          <Route path="/category/:categoryId" element={<CategoryPage />} />
 
-        {/* Halaman Admin (Dilindungi Satpam/ProtectedRoute) */}
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
-
-      </Routes>
-    </BrowserRouter>
+          {/* Halaman Admin (Dilindungi Satpam/ProtectedRoute) */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
+    </HelmetProvider>
   </React.StrictMode>
 );

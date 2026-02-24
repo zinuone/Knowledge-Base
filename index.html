@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <link rel="icon" type="image/png" href="/logo-color.png" />
-    <title>Knowledge Base - KPKNL Kendari</title>
+    <title>Knowledge Base Divisi PKN | KPKNL Kendari</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -17,6 +17,7 @@
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <script>
       tailwind.config = {
+        darkMode: "class", // <-- INI DIA KUNCI DARK MODE-NYA
         theme: {
           extend: {
             colors: {
@@ -55,7 +56,7 @@
       }
     </style>
   </head>
-  <body class="bg-[#F8FAF9] text-slate-900 antialiased">
+  <body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
