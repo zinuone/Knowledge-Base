@@ -11,14 +11,14 @@ import {
   Youtube, Scale, Gift,
   MapPin, ExternalLink, ChevronDown,
   Sparkles, Building2, BarChart3, Layers, MessageSquare, TrendingUp,
-  PlayCircle, ArrowRight,
+  ArrowRight,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import KnowledgeCard from './src/components/KnowledgeCard';
 import FAQItem from './src/components/FAQItem';
 import { SkeletonCard, SkeletonRow } from './src/components/SkeletonLoader';
 
-/* ─── CSS ANIMASI HERO (injected) ─────────────────────────────── */
+/* ─── CSS ANIMASI HERO ────────────────────────────────────────── */
 const HERO_ANIM_CSS = `
 @keyframes blobFloat1 {
   0%,100% { transform: translate(0,0) scale(1); }
@@ -51,6 +51,10 @@ const HERO_ANIM_CSS = `
   from { transform: translateY(10px); opacity: 0; }
   to   { transform: translateY(0); opacity: 1; }
 }
+@keyframes suggestionSlide {
+  from { transform: translateY(-6px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
 .blob-1 { animation: blobFloat1 18s ease-in-out infinite; }
 .blob-2 { animation: blobFloat2 22s ease-in-out infinite; }
 .blob-3 { animation: blobFloat3 15s ease-in-out infinite; }
@@ -62,6 +66,7 @@ const HERO_ANIM_CSS = `
 }
 .pulse-ring { animation: pulseRing 3s ease-in-out infinite; }
 .stat-animate { animation: statCountUp 0.6s ease-out forwards; }
+.suggestion-item { animation: suggestionSlide 0.2s ease-out forwards; }
 `;
 
 /* ─── SCROLL REVEAL ───────────────────────────────────────────── */
@@ -85,11 +90,11 @@ const FadeInSection: React.FC<{ children: React.ReactNode; delay?: string }> = (
 };
 
 /* ─── TIPE DATA ───────────────────────────────────────────────── */
-interface ContentData  { id: string; title: string; category: string; description: string; updatedAt?: any; }
-interface FAQData      { id: string; question: string; answer: string; }
-interface GuideData    { id: string; content: string; }
+interface ContentData { id: string; title: string; category: string; description: string; updatedAt?: any; }
+interface FAQData { id: string; question: string; answer: string; }
+interface GuideData { id: string; content: string; }
 
-/* ─── FAQ ACCORDION (di luar App agar stabil) ────────────────── */
+/* ─── FAQ ACCORDION ───────────────────────────────────────────── */
 const FAQAccordionItem: React.FC<{ faq: FAQData; index: number }> = ({ faq, index }) => {
   const [isOpen, setIsOpen] = useState(false);
   return (
@@ -108,7 +113,7 @@ const FAQAccordionItem: React.FC<{ faq: FAQData; index: number }> = ({ faq, inde
         </div>
         <ChevronDown className={`flex-shrink-0 w-4 h-4 mt-0.5 transition-all duration-300 ${isOpen ? 'rotate-180 text-[#0D5C35]' : 'text-slate-400'}`} />
       </button>
-      <div className={`overflow-hidden transition-all duration-400 ease-in-out ${isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
+      <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
         <div className="px-5 pb-5 pt-2 pl-14 border-t border-slate-100 bg-white">
           <div className="prose prose-sm prose-slate max-w-none prose-p:text-slate-600 prose-p:leading-relaxed prose-li:marker:text-[#0D5C35] prose-strong:text-slate-800">
             <ReactMarkdown>{faq.answer}</ReactMarkdown>
@@ -123,77 +128,153 @@ const FAQAccordionItem: React.FC<{ faq: FAQData; index: number }> = ({ faq, inde
    APP COMPONENT
 ═══════════════════════════════════════════════════════════════ */
 const App: React.FC = () => {
-  const [searchQuery, setSearchQuery]                 = useState('');
-  const [activeSearch, setActiveSearch]               = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
-  const [documents, setDocuments]                     = useState<ContentData[]>([]);
-  const [faqs, setFaqs]                               = useState<FAQData[]>([]);
-  const [guides, setGuides]                           = useState<GuideData[]>([]);
-  const [isMenuOpen, setIsMenuOpen]                   = useState(false);
-  const [isScrolled, setIsScrolled]                   = useState(false);
-  const [isLoaded, setIsLoaded]                       = useState(false);
-  const [isLoadingData, setIsLoadingData]             = useState(true);
-  const [currentPage, setCurrentPage]                 = useState(1);
-  const [itemsPerPage, setItemsPerPage]               = useState(5);
+  const [documents, setDocuments] = useState<ContentData[]>([]);
+  const [faqs, setFaqs] = useState<FAQData[]>([]);
+  const [guides, setGuides] = useState<GuideData[]>([]);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
+  // Mengontrol apakah dropdown saran di hero sedang tampil
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
-  /* ── Kategori ── */
   const categories = [
-    { id: 'psp',                  title: 'PSP',                  description: 'Penggunaan, Pemanfaatan, Pemindahtanganan BMN',   icon: <FileText className="w-8 h-8" />, color: 'bg-emerald-50 text-[#0D5C35]' },
-    { id: 'penjualan',            title: 'PENJUALAN',            description: 'Pengelolaan Lelang dan Penjualan BMN',            icon: <Hammer  className="w-8 h-8" />, color: 'bg-amber-50 text-amber-700'   },
-    { id: 'sewa',                 title: 'SEWA',                 description: 'Mekanisme dan Prosedur Sewa BMN',                 icon: <Key     className="w-8 h-8" />, color: 'bg-blue-50 text-blue-700'     },
-    { id: 'penghapusan',          title: 'PENGHAPUSAN',          description: 'Proses Penghapusan Barang Milik Negara',          icon: <Trash2  className="w-8 h-8" />, color: 'bg-rose-50 text-rose-700'     },
-    { id: 'pinjam-pakai',         title: 'PINJAM PAKAI',         description: 'Aturan Pinjam Pakai Antar Instansi',             icon: <Clock   className="w-8 h-8" />, color: 'bg-indigo-50 text-indigo-700' },
-    { id: 'penggunaan-sementara', title: 'PENGGUNAAN SEMENTARA', description: 'Penggunaan BMN dalam jangka waktu tertentu',     icon: <Timer   className="w-8 h-8" />, color: 'bg-purple-50 text-purple-700' },
-    { id: 'alih-status',          title: 'ALIH STATUS',          description: 'Alih Status Penggunaan Barang Milik Negara',     icon: <RefreshCw className="w-8 h-8" />, color: 'bg-teal-50 text-teal-700'  },
-    { id: 'hibah',                title: 'HIBAH',                description: 'Prosedur Hibah Barang Milik Negara',             icon: <Gift    className="w-8 h-8" />, color: 'bg-orange-50 text-orange-700' },
+    { id: 'psp', title: 'PSP', description: 'Penggunaan, Pemanfaatan, Pemindahtanganan BMN', icon: <FileText className="w-8 h-8" />, color: 'bg-emerald-50 text-[#0D5C35]' },
+    { id: 'penjualan', title: 'PENJUALAN', description: 'Pengelolaan Lelang dan Penjualan BMN', icon: <Hammer className="w-8 h-8" />, color: 'bg-amber-50 text-amber-700' },
+    { id: 'sewa', title: 'SEWA', description: 'Mekanisme dan Prosedur Sewa BMN', icon: <Key className="w-8 h-8" />, color: 'bg-blue-50 text-blue-700' },
+    { id: 'penghapusan', title: 'PENGHAPUSAN', description: 'Proses Penghapusan Barang Milik Negara', icon: <Trash2 className="w-8 h-8" />, color: 'bg-rose-50 text-rose-700' },
+    { id: 'pinjam-pakai', title: 'PINJAM PAKAI', description: 'Aturan Pinjam Pakai Antar Instansi', icon: <Clock className="w-8 h-8" />, color: 'bg-indigo-50 text-indigo-700' },
+    { id: 'penggunaan-sementara', title: 'PENGGUNAAN SEMENTARA', description: 'Penggunaan BMN dalam jangka waktu tertentu', icon: <Timer className="w-8 h-8" />, color: 'bg-purple-50 text-purple-700' },
+    { id: 'alih-status', title: 'ALIH STATUS', description: 'Alih Status Penggunaan Barang Milik Negara', icon: <RefreshCw className="w-8 h-8" />, color: 'bg-teal-50 text-teal-700' },
+    { id: 'hibah', title: 'HIBAH', description: 'Prosedur Hibah Barang Milik Negara', icon: <Gift className="w-8 h-8" />, color: 'bg-orange-50 text-orange-700' },
   ];
 
   /* ── Firebase ── */
   useEffect(() => {
     setTimeout(() => setIsLoaded(true), 100);
     setIsLoadingData(true);
-    const qSop   = query(collection(db, 'knowledge-base'), orderBy('updatedAt',  'desc'));
-    const qFaq   = query(collection(db, 'faqs'),           orderBy('createdAt',  'desc'));
-    const qGuide = query(collection(db, 'guides'),         orderBy('updatedAt',  'desc'));
-    const unsubSop   = onSnapshot(qSop,   snap => { setDocuments(snap.docs.map(d => ({ id: d.id, ...d.data() })) as ContentData[]); setIsLoadingData(false); });
-    const unsubFaq   = onSnapshot(qFaq,   snap => setFaqs(snap.docs.map(d => ({ id: d.id, ...d.data() })) as FAQData[]));
+    const qSop = query(collection(db, 'knowledge-base'), orderBy('updatedAt', 'desc'));
+    const qFaq = query(collection(db, 'faqs'), orderBy('createdAt', 'desc'));
+    const qGuide = query(collection(db, 'guides'), orderBy('updatedAt', 'desc'));
+    const unsubSop = onSnapshot(qSop, snap => { setDocuments(snap.docs.map(d => ({ id: d.id, ...d.data() })) as ContentData[]); setIsLoadingData(false); });
+    const unsubFaq = onSnapshot(qFaq, snap => setFaqs(snap.docs.map(d => ({ id: d.id, ...d.data() })) as FAQData[]));
     const unsubGuide = onSnapshot(qGuide, snap => setGuides(snap.docs.map(d => ({ id: d.id, ...d.data() })) as GuideData[]));
-    const onScroll = () => { setIsScrolled(window.scrollY > 50); if (window.scrollY > 50 && isMenuOpen) setIsMenuOpen(false); };
+    const onScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+      if (window.scrollY > 50 && isMenuOpen) setIsMenuOpen(false);
+      // Tutup suggestion dropdown saat scroll
+      setShowSuggestions(false);
+    };
     window.addEventListener('scroll', onScroll);
     return () => { unsubSop(); unsubFaq(); unsubGuide(); window.removeEventListener('scroll', onScroll); };
   }, [isMenuOpen]);
 
-  /* ── Filter ── */
-  const searchResults = useMemo(() => {
-    if (!activeSearch) return [];
-    const q = activeSearch.toLowerCase();
-    return documents.filter(d => d.title.toLowerCase().includes(q) || d.description.toLowerCase().includes(q));
-  }, [activeSearch, documents]);
+  /* ══════════════════════════════════════════════════════════════
+     LOGIKA PENCARIAN — dipisah menjadi dua:
+     
+     1. liveSuggestions  → reaktif terhadap searchQuery (ketikan langsung)
+                           Digunakan untuk: dropdown saran di hero + pencarian cepat di main content
+                           TIDAK memicu scroll apapun
+     
+     2. filteredTableDocs → reaktif terhadap activeSearch (setelah user klik "Cari" / Enter)
+                            Digunakan untuk: tabel dokumen lengkap
+                            Memicu scroll ke tabel
+  ══════════════════════════════════════════════════════════════ */
 
+  // Saran live — muncul segera saat mengetik, minimum 1 karakter
+  const liveSuggestions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return documents
+      .filter(d => d.title.toLowerCase().includes(q) || d.description.toLowerCase().includes(q))
+      .slice(0, 5); // maks 5 item di dropdown hero
+  }, [searchQuery, documents]);
+
+  // Preview cepat di section main — maks 3, tampil saat searchQuery ada isi
+  // (BUKAN activeSearch — sehingga selalu sinkron dengan input)
+  const quickPreviewResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return documents
+      .filter(d => d.title.toLowerCase().includes(q) || d.description.toLowerCase().includes(q))
+      .slice(0, 3);
+  }, [searchQuery, documents]);
+
+  // Tabel lengkap — hanya update saat user secara eksplisit klik "Cari" atau Enter
   const filteredTableDocs = useMemo(() => {
     const q = activeSearch.toLowerCase();
     return documents.filter(d => {
-      const matchSearch = d.title.toLowerCase().includes(q) || d.category.toLowerCase().includes(q);
-      const matchCat    = selectedCategoryFilter === 'all' || d.category === selectedCategoryFilter;
+      const matchSearch = !q || d.title.toLowerCase().includes(q) || d.category.toLowerCase().includes(q);
+      const matchCat = selectedCategoryFilter === 'all' || d.category === selectedCategoryFilter;
       return matchSearch && matchCat;
     });
   }, [activeSearch, selectedCategoryFilter, documents]);
 
-  const indexOfLastItem  = currentPage * itemsPerPage;
+  const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentTableDocs = filteredTableDocs.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages       = Math.ceil(filteredTableDocs.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredTableDocs.length / itemsPerPage);
 
-  /* ── Handlers ── */
-  const handleCategoryClick = (id: string)  => navigate(`/category/${id}`);
-  const handleDocClick      = (id: string)  => navigate(`/detail/${id}`);
-  const scrollToSection     = (id: string)  => { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); setIsMenuOpen(false); };
-  const handleScrollTop     = ()            => window.scrollTo({ top: 0, behavior: 'smooth' });
-  const scrollToTable       = ()            => setTimeout(() => document.getElementById('document-table-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
-  const handleSearchAction  = ()            => { setActiveSearch(searchQuery); setCurrentPage(1); scrollToTable(); };
-  const handlePopularTag    = (tag: string) => { setSearchQuery(tag); setActiveSearch(tag); setCurrentPage(1); scrollToTable(); };
-  const handleClearSearch   = ()            => { setSearchQuery(''); setActiveSearch(''); setCurrentPage(1); };
+  /* ── Helpers ── */
+  const handleCategoryClick = (id: string) => navigate(`/category/${id}`);
+  const handleDocClick = (id: string) => { setShowSuggestions(false); navigate(`/detail/${id}`); };
+  const scrollToSection = (id: string) => { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); setIsMenuOpen(false); };
+  const handleScrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+  const scrollToTable = () => setTimeout(() => document.getElementById('document-table-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+
+  /*
+   * handleSearchAction — dipanggil HANYA saat:
+   *   • Klik tombol "Cari"
+   *   • Tekan Enter di input
+   * Efek: update tabel (activeSearch) + scroll ke tabel
+   */
+  const handleSearchAction = () => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    setActiveSearch(q);
+    setCurrentPage(1);
+    setShowSuggestions(false);
+    scrollToTable();
+  };
+
+  /*
+   * handlePopularTag — dipanggil saat klik tag pencarian populer
+   * Efek: HANYA mengisi input bar, TIDAK scroll, TIDAK update tabel
+   * User masih perlu tekan Enter / klik "Cari" untuk scroll ke hasil
+   */
+  const handlePopularTag = (tag: string) => {
+    setSearchQuery(tag);
+    setShowSuggestions(true);
+    // Fokus kembali ke input agar user bisa langsung Enter
+    setTimeout(() => searchInputRef.current?.focus(), 50);
+  };
+
+  /*
+   * handleSuggestionClick — klik item di dropdown saran hero
+   * Efek: langsung set activeSearch + scroll ke tabel (shortcut "Cari" sekaligus)
+   */
+  const handleSuggestionClick = (doc: ContentData) => {
+    setSearchQuery(doc.title);
+    setActiveSearch(doc.title);
+    setCurrentPage(1);
+    setShowSuggestions(false);
+    scrollToTable();
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setActiveSearch('');
+    setCurrentPage(1);
+    setShowSuggestions(false);
+    searchInputRef.current?.focus();
+  };
 
   const formatDate = (ts: any) => {
     if (!ts) return '-';
@@ -205,7 +286,7 @@ const App: React.FC = () => {
   };
 
   /* ══════════════════════════════════════════════════════════════
-     SECTION: HOME (Kategori + Tabel)
+     SECTION: HOME
   ══════════════════════════════════════════════════════════════ */
   const SectionHome = () => (
     <div className="space-y-4">
@@ -215,17 +296,44 @@ const App: React.FC = () => {
           <h3 className="font-black text-white text-lg uppercase tracking-widest drop-shadow-sm">Kategori Layanan</h3>
         </div>
 
-        {activeSearch && searchResults.length > 0 && (
+        {/* ── PENCARIAN CEPAT ── */}
+        {/* Tampil segera saat searchQuery ada isi — TIDAK menunggu activeSearch */}
+        {searchQuery.trim() && quickPreviewResults.length > 0 && (
           <div className="mb-8 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl animate-in fade-in zoom-in duration-300">
-            <p className="text-emerald-800 text-sm font-bold mb-4">Pencarian cepat: "<span className="text-[#0D5C35]">{activeSearch}</span>"</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {searchResults.slice(0, 3).map(doc => (
-                <div key={doc.id} onClick={() => handleDocClick(doc.id)} className="bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:shadow-md border border-emerald-100 transition-all hover:scale-[1.02]">
-                  <div className="text-xs font-bold text-emerald-600 uppercase mb-1">{doc.category}</div>
-                  <div className="font-bold text-slate-800 text-sm">{doc.title}</div>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-emerald-800 text-sm font-bold">
+                Pencarian cepat untuk{' '}
+                <span className="text-[#0D5C35]">"{searchQuery.trim()}"</span>
+              </p>
+              <span className="text-xs text-emerald-600 font-medium bg-emerald-100 px-2 py-0.5 rounded-full">
+                {quickPreviewResults.length} hasil
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {quickPreviewResults.map(doc => (
+                <div
+                  key={doc.id}
+                  onClick={() => handleDocClick(doc.id)}
+                  className="bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:shadow-md border border-emerald-100 transition-all hover:scale-[1.02] hover:border-[#0D5C35]/30 group"
+                >
+                  <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1 group-hover:text-[#0D5C35]">
+                    {doc.category.replace(/-/g, ' ')}
+                  </div>
+                  <div className="font-bold text-slate-800 text-sm line-clamp-2">{doc.title}</div>
                 </div>
               ))}
             </div>
+            {/* Ajak ke tabel penuh jika ada lebih banyak hasil */}
+            {filteredTableDocs.length > 3 && activeSearch === searchQuery.trim() && (
+              <p className="text-center text-xs text-emerald-600 font-medium mt-3">
+                Tampilkan semua {filteredTableDocs.length} hasil di tabel bawah ↓
+              </p>
+            )}
+            {activeSearch !== searchQuery.trim() && (
+              <p className="text-center text-xs text-slate-400 mt-3 italic">
+                Tekan <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-600 font-mono">Enter</kbd> atau klik <strong className="text-slate-600">Cari</strong> untuk lihat semua hasil di tabel
+              </p>
+            )}
           </div>
         )}
 
@@ -243,7 +351,7 @@ const App: React.FC = () => {
       <FadeInSection delay="delay-100">
         <div className="relative flex items-center py-8">
           <div className="flex-grow border-t-2 border-slate-100" />
-          <span className="flex-shrink-0 mx-4 text-slate-400 text-xs font-bold uppercase tracking-widest bg-[#F8FAF9] px-4 py-2 rounded-full border border-slate-200 shadow-sm">
+          <span className="flex-shrink-0 mx-4 text-slate-400 text-xs font-bold uppercase tracking-widest bg-[#F4F7F5] px-4 py-2 rounded-full border border-slate-200 shadow-sm">
             Atau telusuri database lengkap
           </span>
           <div className="flex-grow border-t-2 border-slate-100" />
@@ -252,12 +360,20 @@ const App: React.FC = () => {
 
       <FadeInSection delay="delay-200">
         <section id="document-table-section" className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-          {/* Table header */}
           <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50/50">
             <div className="flex items-center gap-2">
               <List className="w-5 h-5 text-[#0D5C35]" />
               <h3 className="font-bold text-slate-800 text-lg">Daftar Seluruh Dokumen</h3>
               <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{filteredTableDocs.length}</span>
+              {/* Indikasi filter aktif */}
+              {activeSearch && (
+                <span className="text-xs font-bold text-[#0D5C35] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  Filter: "{activeSearch}"
+                  <button onClick={handleClearSearch} className="ml-1 hover:text-rose-500 transition-colors">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
             </div>
             <div className="flex flex-col sm:flex-row items-center gap-3 text-sm w-full md:w-auto">
               <div className="flex items-center text-slate-600 bg-white border border-slate-300 rounded-lg px-2 py-1 w-full sm:w-auto">
@@ -297,7 +413,9 @@ const App: React.FC = () => {
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500 border border-slate-200 group-hover:bg-[#0D5C35] group-hover:text-white transition-colors whitespace-nowrap">
                             {doc.category.replace(/-/g, ' ')}
                           </span>
-                          {isNewDocument(doc.updatedAt) && <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-600 border border-amber-200 animate-pulse">Baru</span>}
+                          {isNewDocument(doc.updatedAt) && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-600 border border-amber-200 animate-pulse">Baru</span>
+                          )}
                         </div>
                         <h4 className="text-slate-900 font-bold text-sm md:text-base mb-1 group-hover:text-[#0D5C35] transition-colors line-clamp-2">{doc.title}</h4>
                         <p className="text-slate-400 text-xs">Update: {formatDate(doc.updatedAt)}</p>
@@ -309,7 +427,13 @@ const App: React.FC = () => {
                       </td>
                     </tr>
                   ))
-                  : <tr><td colSpan={3} className="px-6 py-10 text-center text-slate-400 italic bg-slate-50/30">Tidak ada dokumen yang ditemukan.</td></tr>
+                  : (
+                    <tr>
+                      <td colSpan={3} className="px-6 py-10 text-center text-slate-400 italic bg-slate-50/30">
+                        Tidak ada dokumen yang ditemukan{activeSearch ? ` untuk "${activeSearch}"` : ''}.
+                      </td>
+                    </tr>
+                  )
               }
             </tbody>
           </table>
@@ -328,11 +452,10 @@ const App: React.FC = () => {
   );
 
   /* ══════════════════════════════════════════════════════════════
-     SECTION: FAQ — 2 kolom (sticky info kiri + accordion kanan)
+     SECTION: FAQ
   ══════════════════════════════════════════════════════════════ */
   const SectionFAQ = () => (
     <div className="max-w-6xl mx-auto">
-      {/* Header terpusat */}
       <div className="text-center mb-10">
         <span className="inline-flex items-center gap-2 px-4 py-1.5 bg-amber-50 text-amber-600 rounded-full text-xs font-bold uppercase tracking-widest border border-amber-200 mb-4">
           <HelpCircle className="w-3.5 h-3.5" /> Pusat Bantuan
@@ -340,14 +463,8 @@ const App: React.FC = () => {
         <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Pertanyaan yang Sering Diajukan</h2>
         <p className="text-slate-500 max-w-lg mx-auto">Temukan jawaban atas pertanyaan umum seputar layanan BMN KPKNL Kendari</p>
       </div>
-
-      {/* Layout 2 kolom */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
-
-        {/* ── Panel kiri sticky ── */}
         <div className="lg:col-span-2 lg:sticky lg:top-24 space-y-4">
-
-          {/* Info card */}
           <div className="bg-gradient-to-br from-[#0D5C35] to-[#0A492A] rounded-2xl p-6 text-white shadow-lg shadow-emerald-900/20">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-white/10 rounded-xl"><HelpCircle className="w-5 h-5" /></div>
@@ -361,30 +478,23 @@ const App: React.FC = () => {
             </p>
             <div className="flex flex-wrap gap-2">
               {['Sewa BMN', 'Lelang', 'PSP', 'Hibah'].map(tag => (
-                <span key={tag} className="px-3 py-1 bg-white/10 rounded-full text-xs font-medium border border-white/10 text-white/80">
-                  {tag}
-                </span>
+                <span key={tag} className="px-3 py-1 bg-white/10 rounded-full text-xs font-medium border border-white/10 text-white/80">{tag}</span>
               ))}
             </div>
           </div>
-
-          {/* Tips card */}
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
             <div className="flex items-start gap-3">
               <Sparkles className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold text-slate-800 text-sm mb-1">Tidak menemukan jawaban?</p>
                 <p className="text-slate-600 text-xs leading-relaxed mb-3">Hubungi kami langsung melalui Konsultasi Online untuk mendapatkan bantuan lebih lanjut.</p>
-                <a href="#" target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-800 transition-colors">
+                <a href="#" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-800 transition-colors">
                   <Phone className="w-3.5 h-3.5" /> Konsul Online <ArrowRight className="w-3 h-3" />
                 </a>
               </div>
             </div>
           </div>
         </div>
-
-        {/* ── Accordion kanan ── */}
         <div className="lg:col-span-3 space-y-3">
           {faqs.length > 0
             ? faqs.map((faq, idx) => <FAQAccordionItem key={faq.id} faq={faq} index={idx} />)
@@ -401,11 +511,10 @@ const App: React.FC = () => {
   );
 
   /* ══════════════════════════════════════════════════════════════
-     SECTION: PANDUAN — Card visual bertingkat
+     SECTION: PANDUAN
   ══════════════════════════════════════════════════════════════ */
   const SectionPanduan = () => (
     <div className="max-w-4xl mx-auto">
-      {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-gradient-to-br from-[#0D5C35] to-[#0A492A] text-white rounded-2xl shadow-lg shadow-emerald-900/20">
@@ -422,26 +531,16 @@ const App: React.FC = () => {
           </span>
         )}
       </div>
-
-      {/* Content */}
       {guides.length > 0 ? (
         <div className="space-y-6">
           {guides.map((guide, idx) => (
             <div key={guide.id} className="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md hover:border-[#0D5C35]/20 transition-all duration-300">
-              {/* Card header strip */}
               <div className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-[#EAF2EE] to-transparent border-b border-slate-100">
-                <span className="flex-shrink-0 w-8 h-8 rounded-full bg-[#0D5C35] text-white text-sm font-black flex items-center justify-center shadow-sm">
-                  {idx + 1}
-                </span>
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#0D5C35]/40"></div>
-                  <div className="w-1 h-1 rounded-full bg-[#0D5C35]/20"></div>
-                </div>
+                <span className="flex-shrink-0 w-8 h-8 rounded-full bg-[#0D5C35] text-white text-sm font-black flex items-center justify-center shadow-sm">{idx + 1}</span>
                 <span className="text-[#0D5C35] text-xs font-bold uppercase tracking-widest">Panduan #{idx + 1}</span>
               </div>
-              {/* Card body */}
               <div className="px-6 py-5">
-                <div className="prose prose-slate max-w-none prose-sm prose-p:text-slate-600 prose-p:leading-relaxed prose-li:marker:text-[#0D5C35] prose-strong:text-slate-800 prose-headings:text-slate-800 prose-headings:font-bold prose-h1:text-xl prose-h2:text-lg prose-h3:text-base">
+                <div className="prose prose-slate max-w-none prose-sm prose-p:text-slate-600 prose-p:leading-relaxed prose-li:marker:text-[#0D5C35] prose-strong:text-slate-800 prose-headings:text-slate-800 prose-headings:font-bold">
                   <ReactMarkdown>{guide.content}</ReactMarkdown>
                 </div>
               </div>
@@ -458,29 +557,25 @@ const App: React.FC = () => {
   );
 
   /* ══════════════════════════════════════════════════════════════
-     SECTION: CTA (menggantikan Kontak)
-     — Statistik live + konsul online + social links
+     SECTION: CTA / INFO
   ══════════════════════════════════════════════════════════════ */
   const SectionCTA = () => {
-    const stats = [
-      { label: 'Total Dokumen',   value: documents.length, icon: <FileText className="w-6 h-6" />,    color: 'from-emerald-500 to-teal-600'   },
-      { label: 'Kategori Aktif',  value: categories.length, icon: <Layers className="w-6 h-6" />,     color: 'from-blue-500 to-indigo-600'    },
-      { label: 'FAQ Tersedia',    value: faqs.length,        icon: <MessageSquare className="w-6 h-6" />, color: 'from-amber-500 to-orange-600' },
-      { label: 'Panduan Lengkap', value: guides.length,      icon: <BookOpen className="w-6 h-6" />,   color: 'from-rose-500 to-pink-600'      },
+    const ctaStats = [
+      { label: 'Total Dokumen', value: documents.length, icon: <FileText className="w-6 h-6" />, color: 'from-emerald-500 to-teal-600' },
+      { label: 'Kategori Aktif', value: categories.length, icon: <Layers className="w-6 h-6" />, color: 'from-blue-500 to-indigo-600' },
+      { label: 'FAQ Tersedia', value: faqs.length, icon: <MessageSquare className="w-6 h-6" />, color: 'from-amber-500 to-orange-600' },
+      { label: 'Panduan Lengkap', value: guides.length, icon: <BookOpen className="w-6 h-6" />, color: 'from-rose-500 to-pink-600' },
     ];
-
     const socials = [
-      { href: 'https://www.instagram.com/kpknlkendari',                    icon: <Instagram className="w-5 h-5" />, label: 'Instagram', bg: 'bg-pink-50   hover:bg-pink-500',  text: 'hover:text-white text-pink-600'   },
-      { href: 'https://www.youtube.com/@kpknlkendarimelulo9245',           icon: <Youtube   className="w-5 h-5" />, label: 'YouTube',   bg: 'bg-red-50    hover:bg-red-500',   text: 'hover:text-white text-red-600'    },
-      { href: 'https://www.djkn.kemenkeu.go.id/kpknl-kendari',            icon: <Globe     className="w-5 h-5" />, label: 'Website',   bg: 'bg-blue-50   hover:bg-blue-500',  text: 'hover:text-white text-blue-600'   },
-      { href: 'https://lelang.go.id/',                                     icon: <Scale     className="w-5 h-5" />, label: 'Lelang',    bg: 'bg-amber-50  hover:bg-amber-500', text: 'hover:text-white text-amber-600'  },
+      { href: 'https://www.instagram.com/kpknlkendari', icon: <Instagram className="w-5 h-5" />, label: 'Instagram', bg: 'bg-pink-50 hover:bg-pink-500', text: 'hover:text-white text-pink-600' },
+      { href: 'https://www.youtube.com/@kpknlkendarimelulo9245', icon: <Youtube className="w-5 h-5" />, label: 'YouTube', bg: 'bg-red-50 hover:bg-red-500', text: 'hover:text-white text-red-600' },
+      { href: 'https://www.djkn.kemenkeu.go.id/kpknl-kendari', icon: <Globe className="w-5 h-5" />, label: 'Website', bg: 'bg-blue-50 hover:bg-blue-500', text: 'hover:text-white text-blue-600' },
+      { href: 'https://lelang.go.id/', icon: <Scale className="w-5 h-5" />, label: 'Lelang', bg: 'bg-amber-50 hover:bg-amber-500', text: 'hover:text-white text-amber-600' },
     ];
-
     return (
       <div id="info" className="max-w-5xl mx-auto">
-        {/* Statistik grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          {stats.map((s, i) => (
+          {ctaStats.map((s, i) => (
             <div key={s.label} className="bg-white rounded-2xl border border-slate-200 p-5 text-center shadow-sm hover:shadow-md transition-shadow group stat-animate" style={{ animationDelay: `${i * 100}ms` }}>
               <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${s.color} text-white flex items-center justify-center mx-auto mb-3 shadow-md group-hover:scale-110 transition-transform`}>
                 {s.icon}
@@ -490,16 +585,11 @@ const App: React.FC = () => {
             </div>
           ))}
         </div>
-
-        {/* CTA Banner */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0D5C35] via-[#0A492A] to-[#083D23] p-8 md:p-12 shadow-2xl shadow-emerald-900/30">
-          {/* Dekorasi */}
           <div className="absolute inset-0 hero-grid opacity-30 pointer-events-none" />
           <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-[#D4AF37]/10 blur-3xl pointer-events-none" />
           <div className="absolute -bottom-8 -left-8 w-48 h-48 rounded-full bg-white/5 blur-2xl pointer-events-none" />
-
           <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-            {/* Teks kiri */}
             <div className="text-center md:text-left">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#D4AF37]/20 border border-[#D4AF37]/30 rounded-full text-[#D4AF37] text-xs font-bold uppercase tracking-widest mb-4">
                 <TrendingUp className="w-3.5 h-3.5" /> Layanan Terbaik
@@ -512,8 +602,6 @@ const App: React.FC = () => {
                 Tim profesional kami siap membantu Anda memahami prosedur pengelolaan kekayaan negara secara langsung dan personal.
               </p>
             </div>
-
-            {/* Aksi kanan */}
             <div className="flex flex-col items-center gap-4 flex-shrink-0">
               <a href="#" target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-3 px-8 py-4 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 font-black rounded-2xl shadow-[0_0_24px_rgba(212,175,55,0.4)] hover:shadow-[0_0_30px_rgba(212,175,55,0.6)] hover:-translate-y-1 transition-all duration-300 whitespace-nowrap">
@@ -523,8 +611,6 @@ const App: React.FC = () => {
                 </div>
                 Konsultasi Online
               </a>
-
-              {/* Sosial media */}
               <div className="flex items-center gap-2">
                 {socials.map(s => (
                   <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label}
@@ -546,13 +632,9 @@ const App: React.FC = () => {
   ══════════════════════════════════════════════════════════════ */
   return (
     <div className="min-h-screen flex flex-col font-sans relative bg-[#F4F7F5]" id="top">
-
-      {/* Inject CSS animasi */}
       <style dangerouslySetInnerHTML={{ __html: HERO_ANIM_CSS }} />
 
-      {/* ══════════════════════════════════════
-          NAVBAR
-      ══════════════════════════════════════ */}
+      {/* ── NAVBAR ── */}
       <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out ${isScrolled ? 'bg-[#0A492A]/95 backdrop-blur-md shadow-lg py-3' : 'bg-transparent py-5'}`}>
         <nav className="max-w-7xl mx-auto px-6">
           <div className="flex justify-between items-center">
@@ -563,47 +645,38 @@ const App: React.FC = () => {
                 className="h-9 md:h-11 w-auto object-contain transition-all duration-500 drop-shadow-md hover:scale-105"
               />
             </div>
-
-            {/* Desktop menu — "Kontak" dihapus, diganti "Info" */}
             <div className="hidden md:flex items-center space-x-6">
               <div className="flex space-x-6 text-sm font-semibold uppercase tracking-wider">
                 {[
-                  { label: 'Beranda',  id: 'beranda'  },
-                  { label: 'FAQ',      id: 'faq'      },
-                  { label: 'Panduan',  id: 'panduan'  },
-                  { label: 'Info',     id: 'info'     },
+                  { label: 'Beranda', id: 'beranda' },
+                  { label: 'FAQ', id: 'faq' },
+                  { label: 'Panduan', id: 'panduan' },
+                  { label: 'Info', id: 'info' },
                 ].map(item => (
-                  <button key={item.id} onClick={() => scrollToSection(item.id)}
-                    className="text-white/90 hover:text-[#D4AF37] transition-colors">
+                  <button key={item.id} onClick={() => scrollToSection(item.id)} className="text-white/90 hover:text-[#D4AF37] transition-colors">
                     {item.label}
                   </button>
                 ))}
               </div>
-              <button onClick={() => navigate('/login')}
-                className="flex items-center px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold text-white border border-white/20 transition-all">
+              <button onClick={() => navigate('/login')} className="flex items-center px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold text-white border border-white/20 transition-all">
                 <LogIn className="w-3 h-3 mr-1.5" /> Admin
               </button>
             </div>
-
-            {/* Hamburger */}
             <div className="md:hidden">
               <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-white p-2 hover:bg-white/10 rounded-lg">
                 {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
             </div>
           </div>
-
-          {/* Mobile dropdown */}
           {isMenuOpen && (
             <div className="md:hidden absolute top-full left-0 right-0 mt-4 mx-4 bg-[#0A492A] rounded-2xl shadow-2xl border border-white/10 p-4 flex flex-col space-y-2 animate-in slide-in-from-top-5 duration-200">
               {[
                 { label: 'Beranda', id: 'beranda', icon: <Grid className="w-4 h-4" /> },
-                { label: 'FAQ',     id: 'faq',     icon: <HelpCircle className="w-4 h-4" /> },
+                { label: 'FAQ', id: 'faq', icon: <HelpCircle className="w-4 h-4" /> },
                 { label: 'Panduan', id: 'panduan', icon: <BookOpen className="w-4 h-4" /> },
-                { label: 'Info',    id: 'info',    icon: <BarChart3 className="w-4 h-4" /> },
+                { label: 'Info', id: 'info', icon: <BarChart3 className="w-4 h-4" /> },
               ].map(item => (
-                <button key={item.id} onClick={() => scrollToSection(item.id)}
-                  className="text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white font-semibold flex items-center gap-3">
+                <button key={item.id} onClick={() => scrollToSection(item.id)} className="text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white font-semibold flex items-center gap-3">
                   <span className="opacity-70">{item.icon}</span> {item.label}
                 </button>
               ))}
@@ -617,45 +690,33 @@ const App: React.FC = () => {
         </nav>
       </header>
 
-      {/* ══════════════════════════════════════
-          HERO — animated background
-      ══════════════════════════════════════ */}
+      {/* ── HERO dengan animated background ── */}
       <div className="relative bg-[#0D5C35] pt-40 pb-32 px-4 overflow-hidden">
-
-        {/* Layer 1: warna dasar gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#0D5C35] via-[#0A492A] to-[#062B18]" />
-
-        {/* Layer 2: dot grid bergerak */}
         <div className="absolute inset-0 hero-grid opacity-20" />
-
-        {/* Layer 3: animated blobs */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="blob-1 absolute top-[-80px] left-[-60px]  w-[420px] h-[420px] rounded-full bg-emerald-400/20  blur-3xl" />
-          <div className="blob-2 absolute bottom-[-100px] right-[-80px] w-[500px] h-[500px] rounded-full bg-teal-300/15   blur-3xl" />
-          <div className="blob-3 absolute top-[30%] left-[50%]      w-[300px] h-[300px] rounded-full bg-[#D4AF37]/10   blur-3xl" />
+          <div className="blob-1 absolute top-[-80px] left-[-60px]   w-[420px] h-[420px] rounded-full bg-emerald-400/20 blur-3xl" />
+          <div className="blob-2 absolute bottom-[-100px] right-[-80px] w-[500px] h-[500px] rounded-full bg-teal-300/15  blur-3xl" />
+          <div className="blob-3 absolute top-[30%] left-[50%]       w-[300px] h-[300px] rounded-full bg-[#D4AF37]/10 blur-3xl" />
         </div>
-
-        {/* Layer 4: floating particles */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           {[
-            { top: '15%',  left: '10%',  size: 'w-2 h-2',   delay: '0s'    },
-            { top: '25%',  left: '80%',  size: 'w-3 h-3',   delay: '1.2s'  },
-            { top: '60%',  left: '5%',   size: 'w-1.5 h-1.5', delay: '0.6s' },
-            { top: '70%',  left: '90%',  size: 'w-2.5 h-2.5', delay: '2s'  },
-            { top: '45%',  left: '95%',  size: 'w-2 h-2',   delay: '1.5s'  },
-            { top: '80%',  left: '40%',  size: 'w-1.5 h-1.5', delay: '0.3s' },
-            { top: '10%',  left: '55%',  size: 'w-2 h-2',   delay: '2.5s'  },
-            { top: '50%',  left: '20%',  size: 'w-1 h-1',   delay: '1s'    },
+            { top: '15%', left: '10%', size: 'w-2 h-2', delay: '0s' },
+            { top: '25%', left: '80%', size: 'w-3 h-3', delay: '1.2s' },
+            { top: '60%', left: '5%', size: 'w-1.5 h-1.5', delay: '0.6s' },
+            { top: '70%', left: '90%', size: 'w-2.5 h-2.5', delay: '2s' },
+            { top: '45%', left: '95%', size: 'w-2 h-2', delay: '1.5s' },
+            { top: '80%', left: '40%', size: 'w-1.5 h-1.5', delay: '0.3s' },
+            { top: '10%', left: '55%', size: 'w-2 h-2', delay: '2.5s' },
+            { top: '50%', left: '20%', size: 'w-1 h-1', delay: '1s' },
           ].map((p, i) => (
-            <div key={i} className={`particle absolute ${p.size} rounded-full bg-white/30`}
-              style={{ top: p.top, left: p.left, animationDelay: p.delay }} />
+            <div key={i} className={`particle absolute ${p.size} rounded-full bg-white/30`} style={{ top: p.top, left: p.left, animationDelay: p.delay }} />
           ))}
         </div>
 
-        {/* Konten hero */}
         <div className={`max-w-4xl mx-auto text-center relative z-10 transition-all duration-1000 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-white/80 text-xs font-semibold uppercase tracking-wider mb-6">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             Sistem Informasi Terpadu — KPKNL Kendari
           </div>
 
@@ -671,38 +732,95 @@ const App: React.FC = () => {
             Temukan SOP, regulasi, dan informasi layanan pengelolaan kekayaan negara secara cepat dan akurat.
           </p>
 
-          {/* Search bar */}
+          {/* ── SEARCH BAR dengan dropdown saran live ── */}
           <div className="max-w-2xl mx-auto">
-            <div className="flex items-stretch bg-white rounded-full shadow-2xl overflow-hidden focus-within:ring-4 focus-within:ring-[#D4AF37]/40 transition-all">
-              <div className="flex items-center pl-5 pr-2 flex-shrink-0">
-                <Search className="w-5 h-5 text-slate-400 pointer-events-none" />
-              </div>
-              <input
-                type="text"
-                className="flex-1 py-4 pr-1 bg-transparent text-slate-900 outline-none text-base md:text-lg placeholder:text-slate-400 min-w-0"
-                placeholder="Cari SOP atau Layanan..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSearchAction()}
-              />
-              {searchQuery && (
-                <button onClick={handleClearSearch} className="flex items-center flex-shrink-0 mx-2 p-1.5 text-slate-400 hover:text-rose-500 bg-slate-100 hover:bg-rose-50 rounded-full transition-all self-center">
-                  <X className="w-4 h-4" />
+            {/* Wrapper posisi relatif agar dropdown menempel */}
+            <div className="relative">
+              <div className="flex items-stretch bg-white rounded-full shadow-2xl overflow-hidden focus-within:ring-4 focus-within:ring-[#D4AF37]/40 transition-all">
+                <div className="flex items-center pl-5 pr-2 flex-shrink-0">
+                  <Search className="w-5 h-5 text-slate-400 pointer-events-none" />
+                </div>
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  className="flex-1 py-4 pr-1 bg-transparent text-slate-900 outline-none text-base md:text-lg placeholder:text-slate-400 min-w-0"
+                  placeholder="Cari SOP atau Layanan..."
+                  value={searchQuery}
+                  onChange={e => {
+                    setSearchQuery(e.target.value);
+                    setShowSuggestions(e.target.value.trim().length > 0);
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleSearchAction();
+                    if (e.key === 'Escape') setShowSuggestions(false);
+                  }}
+                  onFocus={() => { if (searchQuery.trim()) setShowSuggestions(true); }}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                />
+                {searchQuery && (
+                  <button onClick={handleClearSearch} className="flex items-center flex-shrink-0 mx-2 p-1.5 text-slate-400 hover:text-rose-500 bg-slate-100 hover:bg-rose-50 rounded-full transition-all self-center">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+                <div className="flex-shrink-0 self-center w-px h-7 bg-slate-200 mx-1" />
+                <button onClick={handleSearchAction}
+                  className="flex-shrink-0 flex items-center gap-2 px-7 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 font-black transition-all active:brightness-90 whitespace-nowrap text-sm md:text-base">
+                  <Search className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="hidden sm:inline">Cari</span>
                 </button>
+              </div>
+
+              {/* ── DROPDOWN SARAN LIVE ── */}
+              {/* Tampil saat mengetik (showSuggestions=true) dan ada hasil */}
+              {showSuggestions && liveSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50">
+                  <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Saran Pencarian</span>
+                    <span className="text-xs text-slate-400">{liveSuggestions.length} hasil</span>
+                  </div>
+                  {liveSuggestions.map((doc, i) => (
+                    <button
+                      key={doc.id}
+                      onMouseDown={() => handleSuggestionClick(doc)}
+                      className="suggestion-item w-full text-left px-4 py-3 hover:bg-emerald-50 transition-colors border-b border-slate-50 last:border-0 flex items-start gap-3 group"
+                      style={{ animationDelay: `${i * 40}ms` }}
+                    >
+                      <div className="p-1.5 bg-slate-100 group-hover:bg-[#0D5C35] rounded-lg flex-shrink-0 transition-colors mt-0.5">
+                        <Search className="w-3 h-3 text-slate-400 group-hover:text-white transition-colors" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-slate-800 text-sm group-hover:text-[#0D5C35] transition-colors line-clamp-1">{doc.title}</div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{doc.category.replace(/-/g, ' ')}</div>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#0D5C35] flex-shrink-0 ml-auto mt-1 transition-colors" />
+                    </button>
+                  ))}
+                  <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 text-center">
+                    <span className="text-xs text-slate-400">
+                      Tekan <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded font-mono text-slate-600">Enter</kbd> untuk cari semua hasil
+                    </span>
+                  </div>
+                </div>
               )}
-              <div className="flex-shrink-0 self-center w-px h-7 bg-slate-200 mx-1" />
-              <button onClick={handleSearchAction}
-                className="flex-shrink-0 flex items-center gap-2 px-7 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 font-black transition-all active:brightness-90 whitespace-nowrap text-sm md:text-base">
-                <Search className="w-4 h-4 md:w-5 md:h-5" />
-                <span className="hidden sm:inline">Cari</span>
-              </button>
+
+              {/* Pesan kosong saat ngetik tapi tidak ada hasil */}
+              {showSuggestions && searchQuery.trim() && liveSuggestions.length === 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-200 px-4 py-3 z-50 text-center">
+                  <p className="text-sm text-slate-400">Tidak ada saran untuk <strong className="text-slate-600">"{searchQuery}"</strong></p>
+                </div>
+              )}
             </div>
 
+            {/* Pencarian Populer — klik HANYA mengisi input, tidak scroll */}
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <span className="text-white/60 text-xs sm:text-sm font-medium py-1">Pencarian Populer:</span>
               {['Sewa BMN', 'Lelang', 'Penghapusan', 'Hibah'].map(tag => (
-                <button key={tag} onClick={() => handlePopularTag(tag)}
-                  className="bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1 rounded-full transition-colors border border-white/10">
+                <button
+                  key={tag}
+                  onClick={() => handlePopularTag(tag)}
+                  className="bg-white/10 hover:bg-white/25 text-white text-xs px-3 py-1 rounded-full transition-all border border-white/10 hover:border-white/30 hover:scale-105"
+                  title="Klik untuk mengisi kotak pencarian"
+                >
                   {tag}
                 </button>
               ))}
@@ -720,41 +838,29 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* ══════════════════════════════════════
-          MAIN CONTENT
-      ══════════════════════════════════════ */}
+      {/* ── MAIN CONTENT ── */}
       <main className="flex-grow max-w-7xl mx-auto px-4 -mt-16 relative z-10 w-full pb-24 space-y-20">
         <div id="beranda"><SectionHome /></div>
-
         <FadeInSection>
           <div id="faq" className="scroll-mt-24"><SectionFAQ /></div>
         </FadeInSection>
-
         <FadeInSection delay="delay-100">
           <div id="panduan" className="scroll-mt-24"><SectionPanduan /></div>
         </FadeInSection>
-
         <FadeInSection delay="delay-150">
-          {/* SectionCTA — id="info" ada di dalam komponen */}
           <SectionCTA />
         </FadeInSection>
       </main>
 
-      {/* ══════════════════════════════════════
-          FOOTER PREMIUM
-      ══════════════════════════════════════ */}
+      {/* ── FOOTER ── */}
       <footer className="relative bg-gradient-to-b from-[#0A492A] to-[#062B18] text-white overflow-hidden">
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-white/5 blur-3xl" />
           <div className="absolute -bottom-16 -right-16 w-96 h-96 rounded-full bg-[#D4AF37]/10 blur-3xl" />
         </div>
-
         <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-60" />
-
         <div className="relative max-w-7xl mx-auto px-6 pt-16 pb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-14">
-
-            {/* Kolom 1: Identitas */}
             <div>
               <div className="mb-5">
                 <img src="/logo-color.png" alt="Logo KPKNL" className="h-12 w-auto object-contain drop-shadow-md" onError={e => { e.currentTarget.style.display = 'none'; }} />
@@ -763,10 +869,8 @@ const App: React.FC = () => {
                 Kantor Pelayanan Kekayaan Negara dan Lelang Kendari — bagian dari Direktorat Jenderal Kekayaan Negara, Kementerian Keuangan RI.
               </p>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-full border border-white/10 text-xs text-emerald-100/80 font-medium mb-5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                Layanan Aktif
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />Layanan Aktif
               </div>
-              {/* Logo Kemenkeu */}
               <div className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10">
                 <div className="bg-white/90 rounded-xl p-1.5 flex-shrink-0 shadow-md">
                   <img src="/logo_kemenkeu.png" alt="Logo Kemenkeu" className="w-9 h-9 object-contain" onError={e => { e.currentTarget.style.display = 'none'; }} />
@@ -777,92 +881,55 @@ const App: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            {/* Kolom 2: Navigasi */}
             <div>
               <h4 className="font-black text-white uppercase tracking-widest text-xs mb-5 flex items-center gap-2">
                 <span className="h-px flex-1 bg-white/10" /><span>Navigasi</span><span className="h-px flex-1 bg-white/10" />
               </h4>
               <ul className="space-y-3">
-                {[
-                  { label: 'Beranda',          id: 'beranda' },
-                  { label: 'Kategori Layanan', id: 'beranda' },
-                  { label: 'FAQ',              id: 'faq'     },
-                  { label: 'Panduan',          id: 'panduan' },
-                  { label: 'Info & Statistik', id: 'info'    },
-                ].map(item => (
+                {[{ label: 'Beranda', id: 'beranda' }, { label: 'Kategori Layanan', id: 'beranda' }, { label: 'FAQ', id: 'faq' }, { label: 'Panduan', id: 'panduan' }, { label: 'Info & Statistik', id: 'info' }].map(item => (
                   <li key={item.label}>
                     <button onClick={() => scrollToSection(item.id)} className="text-emerald-100/70 hover:text-[#D4AF37] text-sm transition-colors flex items-center gap-2 group">
-                      <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 -ml-1 transition-all group-hover:translate-x-1" />
-                      {item.label}
+                      <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 -ml-1 transition-all group-hover:translate-x-1" />{item.label}
                     </button>
                   </li>
                 ))}
               </ul>
             </div>
-
-            {/* Kolom 3: Tautan */}
             <div>
               <h4 className="font-black text-white uppercase tracking-widest text-xs mb-5 flex items-center gap-2">
                 <span className="h-px flex-1 bg-white/10" /><span>Tautan Resmi</span><span className="h-px flex-1 bg-white/10" />
               </h4>
               <ul className="space-y-3">
-                {[
-                  { label: 'Website DJKN',  href: 'https://www.djkn.kemenkeu.go.id/kpknl-kendari' },
-                  { label: 'Portal Lelang', href: 'https://lelang.go.id/' },
-                  { label: 'SIMAK BMN',     href: '#' },
-                  { label: 'Kemenkeu RI',   href: 'https://www.kemenkeu.go.id' },
-                ].map(link => (
+                {[{ label: 'Website DJKN', href: 'https://www.djkn.kemenkeu.go.id/kpknl-kendari' }, { label: 'Portal Lelang', href: 'https://lelang.go.id/' }, { label: 'SIMAK BMN', href: '#' }, { label: 'Kemenkeu RI', href: 'https://www.kemenkeu.go.id' }].map(link => (
                   <li key={link.label}>
                     <a href={link.href} target="_blank" rel="noopener noreferrer" className="text-emerald-100/70 hover:text-[#D4AF37] text-sm transition-colors flex items-center gap-2 group">
-                      <ExternalLink className="w-3.5 h-3.5 flex-shrink-0 opacity-60 group-hover:opacity-100" />
-                      {link.label}
+                      <ExternalLink className="w-3.5 h-3.5 flex-shrink-0 opacity-60 group-hover:opacity-100" />{link.label}
                     </a>
                   </li>
                 ))}
               </ul>
             </div>
-
-            {/* Kolom 4: Kontak & Sosmed */}
             <div>
               <h4 className="font-black text-white uppercase tracking-widest text-xs mb-5 flex items-center gap-2">
                 <span className="h-px flex-1 bg-white/10" /><span>Kontak</span><span className="h-px flex-1 bg-white/10" />
               </h4>
               <ul className="space-y-3 mb-6">
-                <li className="flex items-start gap-3 text-emerald-100/70 text-sm">
-                  <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-[#D4AF37]" />
-                  <span>Jl. Made Sabara No.6, Korumba, Kendari, Sulawesi Tenggara 93111</span>
-                </li>
-                <li className="flex items-center gap-3 text-emerald-100/70 text-sm">
-                  <Mail className="w-4 h-4 flex-shrink-0 text-[#D4AF37]" />
-                  <a href="mailto:kpknl.kendari@kemenkeu.go.id" className="hover:text-[#D4AF37] transition-colors truncate">kpknl.kendari@kemenkeu.go.id</a>
-                </li>
+                <li className="flex items-start gap-3 text-emerald-100/70 text-sm"><MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-[#D4AF37]" /><span>Jl. Made Sabara No.6, Korumba, Kendari, Sulawesi Tenggara 93111</span></li>
+                <li className="flex items-center gap-3 text-emerald-100/70 text-sm"><Mail className="w-4 h-4 flex-shrink-0 text-[#D4AF37]" /><a href="mailto:kpknl.kendari@kemenkeu.go.id" className="hover:text-[#D4AF37] transition-colors truncate">kpknl.kendari@kemenkeu.go.id</a></li>
               </ul>
               <div className="flex gap-2 flex-wrap">
-                {[
-                  { href: 'https://www.instagram.com/kpknlkendari',                 icon: <Instagram className="w-4 h-4" />, label: 'Instagram', color: 'hover:bg-pink-500'   },
-                  { href: 'https://www.youtube.com/@kpknlkendarimelulo9245',         icon: <Youtube   className="w-4 h-4" />, label: 'YouTube',   color: 'hover:bg-red-500'    },
-                  { href: 'https://www.djkn.kemenkeu.go.id/kpknl-kendari',          icon: <Globe     className="w-4 h-4" />, label: 'Website',   color: 'hover:bg-blue-500'   },
-                  { href: 'https://lelang.go.id/',                                   icon: <Scale     className="w-4 h-4" />, label: 'Lelang',    color: 'hover:bg-amber-500'  },
-                ].map(sm => (
-                  <a key={sm.label} href={sm.href} target="_blank" rel="noopener noreferrer" aria-label={sm.label} title={sm.label}
-                    className={`p-2.5 bg-white/10 ${sm.color} rounded-xl transition-all duration-300 hover:scale-110 border border-white/10`}>
-                    {sm.icon}
-                  </a>
+                {[{ href: 'https://www.instagram.com/kpknlkendari', icon: <Instagram className="w-4 h-4" />, label: 'Instagram', color: 'hover:bg-pink-500' }, { href: 'https://www.youtube.com/@kpknlkendarimelulo9245', icon: <Youtube className="w-4 h-4" />, label: 'YouTube', color: 'hover:bg-red-500' }, { href: 'https://www.djkn.kemenkeu.go.id/kpknl-kendari', icon: <Globe className="w-4 h-4" />, label: 'Website', color: 'hover:bg-blue-500' }, { href: 'https://lelang.go.id/', icon: <Scale className="w-4 h-4" />, label: 'Lelang', color: 'hover:bg-amber-500' }].map(sm => (
+                  <a key={sm.label} href={sm.href} target="_blank" rel="noopener noreferrer" aria-label={sm.label} title={sm.label} className={`p-2.5 bg-white/10 ${sm.color} rounded-xl transition-all duration-300 hover:scale-110 border border-white/10`}>{sm.icon}</a>
                 ))}
               </div>
             </div>
           </div>
-
-          {/* Moto banner */}
           <div className="mb-10 p-5 rounded-2xl bg-gradient-to-r from-[#D4AF37]/10 via-white/5 to-[#D4AF37]/10 border border-[#D4AF37]/20 flex flex-col sm:flex-row items-center justify-center gap-3 text-center">
             <Sparkles className="w-5 h-5 text-[#D4AF37] animate-pulse flex-shrink-0" />
             <p className="text-[#D4AF37] font-black tracking-widest uppercase text-sm">"Melayani dengan Hati, Mengelola dengan Integritas"</p>
             <Sparkles className="w-5 h-5 text-[#D4AF37] animate-pulse flex-shrink-0" />
           </div>
-
           <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent mb-8" />
-
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-emerald-100/50">
             <div className="flex items-center gap-2">
               <Building2 className="w-3.5 h-3.5" />
@@ -878,7 +945,7 @@ const App: React.FC = () => {
         </div>
       </footer>
 
-      {/* Tombol scroll ke atas */}
+      {/* Scroll to top */}
       <button onClick={handleScrollTop} aria-label="Kembali ke atas"
         className={`fixed bottom-8 right-8 p-4 bg-[#D4AF37] text-white rounded-full shadow-2xl hover:bg-[#B5952F] hover:scale-110 active:scale-95 transition-all duration-500 z-50 group ${isScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
         <ArrowUp className="w-6 h-6 group-hover:-translate-y-1 transition-transform" />
