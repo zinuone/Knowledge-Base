@@ -1,5 +1,6 @@
 // File: src/components/KnowledgeCard.tsx
 import React from 'react';
+import { ArrowRight } from 'lucide-react';
 
 interface KnowledgeCardProps {
   title: string;
@@ -10,30 +11,69 @@ interface KnowledgeCardProps {
 
 const KnowledgeCard: React.FC<KnowledgeCardProps> = ({ title, description, icon, colorClass }) => {
   return (
-    // UPDATE: Tambahkan 'h-full', 'flex', 'flex-col', 'justify-between'
-    <div className="group bg-white p-8 rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-kemenkeu-gold/30 hover:-translate-y-2 transition-all duration-500 cursor-pointer overflow-hidden relative h-full flex flex-col justify-between">
-      
-      {/* Dekorasi Background */}
-      <div className="absolute top-0 right-0 w-24 h-24 bg-kemenkeu-gold/5 rounded-bl-full -mr-12 -mt-12 group-hover:bg-kemenkeu-gold/10 transition-colors"></div>
-      
-      {/* Container Konten Atas */}
-      <div className="flex-grow"> {/* Biar bagian ini memenuhi sisa ruang */}
-        <div className={`w-16 h-16 rounded-xl ${colorClass} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500 shadow-inner`}>
+    <div
+      className="
+        group bg-white p-7 rounded-2xl border border-slate-200
+        shadow-sm hover:shadow-2xl hover:border-[#D4AF37]/30 hover:-translate-y-2
+        transition-all duration-400 cursor-pointer overflow-hidden relative
+        h-full flex flex-col justify-between
+      "
+    >
+      {/* Shimmer glare saat hover */}
+      <div className="
+        absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none
+        bg-gradient-to-br from-transparent via-[#D4AF37]/5 to-transparent
+        transition-opacity duration-500
+      " />
+
+      {/* Dekorasi sudut kanan atas — sebelumnya pakai kemenkeu-gold (broken) */}
+      <div className="
+        absolute top-0 right-0 w-28 h-28 rounded-bl-full -mr-14 -mt-14
+        bg-[#D4AF37]/5 group-hover:bg-[#D4AF37]/12
+        transition-colors duration-500
+      " />
+
+      {/* ── Konten atas ── */}
+      <div className="flex-grow relative z-10">
+        {/* Icon */}
+        <div className={`
+          w-14 h-14 rounded-xl ${colorClass} flex items-center justify-center mb-5
+          group-hover:scale-110 transition-transform duration-400 shadow-sm group-hover:shadow-md
+        `}>
           {icon}
         </div>
-        
-        <h3 className="text-xl font-bold text-slate-900 mb-3 group-hover:text-kemenkeu-green transition-colors flex items-center">
+
+        {/* Title — sebelumnya pakai text-kemenkeu-green (broken) */}
+        <h3 className="
+          text-lg font-extrabold text-slate-900 mb-2.5 leading-tight
+          group-hover:text-[#0D5C35] transition-colors duration-200
+        ">
           {title}
         </h3>
-        
+
+        {/* Deskripsi */}
         <p className="text-slate-500 leading-relaxed text-sm">
           {description}
         </p>
       </div>
-      
-      {/* Footer Kartu (Akan didorong ke bawah) */}
-      <div className="mt-6 flex items-center text-kemenkeu-green text-[10px] font-bold uppercase tracking-[0.2em] opacity-60 group-hover:opacity-100 group-hover:text-kemenkeu-gold transition-all">
-        Detail Informasi <i className="fas fa-arrow-right ml-2 group-hover:ml-4 transition-all"></i>
+
+      {/* ── Footer — sebelumnya pakai text-kemenkeu-green & Font Awesome icon (broken) ── */}
+      <div className="
+        mt-6 pt-4 border-t border-slate-100
+        flex items-center justify-between
+        opacity-60 group-hover:opacity-100
+        text-[#0D5C35] group-hover:text-[#D4AF37]
+        transition-all duration-300
+      ">
+        <span className="text-[10px] font-black uppercase tracking-[0.18em]">
+          Detail Informasi
+        </span>
+        {/* Lucide ArrowRight menggantikan Font Awesome yang tidak di-import */}
+        <ArrowRight className="
+          w-4 h-4
+          group-hover:translate-x-1.5
+          transition-transform duration-300
+        " />
       </div>
     </div>
   );
