@@ -70,25 +70,34 @@ const LOGIN_CSS = `
   opacity: 0;
 }
 .login-shake { animation: loginShake 0.4s ease-in-out; }
+
+/* Sembunyikan native browser password reveal button (Edge/Chrome) */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear,
+input[type="password"]::-webkit-contacts-auto-fill-button,
+input[type="password"]::-webkit-credentials-auto-fill-button {
+  display: none !important;
+  visibility: hidden !important;
+}
 `;
 
 /* ─── Constants ───────────────────────────────────────────────── */
-const MAX_ATTEMPTS   = 5;
-const LOCKOUT_SECS   = 30;
-const REMEMBER_KEY   = 'pkn-remember-email';
-const ATTEMPT_KEY    = 'pkn-login-attempts';
-const LOCKOUT_KEY    = 'pkn-lockout-until';
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_SECS = 30;
+const REMEMBER_KEY = 'pkn-remember-email';
+const ATTEMPT_KEY = 'pkn-login-attempts';
+const LOCKOUT_KEY = 'pkn-lockout-until';
 
 /* ─── Firebase Error Map ──────────────────────────────────────── */
 const getFirebaseErrorMsg = (code: string): string => {
     const map: Record<string, string> = {
-        'auth/invalid-credential':    'Email atau password salah. Periksa kembali.',
-        'auth/user-not-found':        'Email tidak terdaftar dalam sistem.',
-        'auth/wrong-password':        'Password yang Anda masukkan salah.',
-        'auth/invalid-email':         'Format email tidak valid.',
-        'auth/user-disabled':         'Akun ini telah dinonaktifkan.',
-        'auth/too-many-requests':     'Terlalu banyak percobaan. Coba lagi nanti.',
-        'auth/network-request-failed':'Koneksi jaringan gagal. Cek internet Anda.',
+        'auth/invalid-credential': 'Email atau password salah. Periksa kembali.',
+        'auth/user-not-found': 'Email tidak terdaftar dalam sistem.',
+        'auth/wrong-password': 'Password yang Anda masukkan salah.',
+        'auth/invalid-email': 'Format email tidak valid.',
+        'auth/user-disabled': 'Akun ini telah dinonaktifkan.',
+        'auth/too-many-requests': 'Terlalu banyak percobaan. Coba lagi nanti.',
+        'auth/network-request-failed': 'Koneksi jaringan gagal. Cek internet Anda.',
     };
     return map[code] ?? 'Terjadi kesalahan. Silakan coba lagi.';
 };
@@ -97,18 +106,18 @@ const getFirebaseErrorMsg = (code: string): string => {
    KOMPONEN
 ══════════════════════════════════════════════════════════════ */
 const LoginPage: React.FC = () => {
-    const [email,       setEmail]       = useState('');
-    const [password,    setPassword]    = useState('');
-    const [showPass,    setShowPass]    = useState(false);
-    const [capsLock,    setCapsLock]    = useState(false);
-    const [rememberMe,  setRememberMe]  = useState(false);
-    const [error,       setError]       = useState('');
-    const [successMsg,  setSuccessMsg]  = useState('');
-    const [loading,     setLoading]     = useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPass, setShowPass] = useState(false);
+    const [capsLock, setCapsLock] = useState(false);
+    const [rememberMe, setRememberMe] = useState(false);
+    const [error, setError] = useState('');
+    const [successMsg, setSuccessMsg] = useState('');
+    const [loading, setLoading] = useState(false);
     const [isResetMode, setIsResetMode] = useState(false);
-    const [attempts,    setAttempts]    = useState(0);
+    const [attempts, setAttempts] = useState(0);
     const [lockoutLeft, setLockoutLeft] = useState(0);
-    const [shakeForm,   setShakeForm]   = useState(false);
+    const [shakeForm, setShakeForm] = useState(false);
 
     /* Dark Mode */
     const [isDark, setIsDark] = useState(() => {
@@ -116,11 +125,11 @@ const LoginPage: React.FC = () => {
     });
     useEffect(() => {
         document.documentElement.classList.toggle('dark', isDark);
-        try { localStorage.setItem('pkn-theme', isDark ? 'dark' : 'light'); } catch {}
+        try { localStorage.setItem('pkn-theme', isDark ? 'dark' : 'light'); } catch { }
     }, [isDark]);
 
-    const emailRef    = useRef<HTMLInputElement>(null);
-    const navigate    = useNavigate();
+    const emailRef = useRef<HTMLInputElement>(null);
+    const navigate = useNavigate();
 
     /* ── Init: baca remember + attempt + lockout dari localStorage ── */
     useEffect(() => {
@@ -129,8 +138,8 @@ const LoginPage: React.FC = () => {
             if (saved) { setEmail(saved); setRememberMe(true); }
 
             const savedAttempts = parseInt(localStorage.getItem(ATTEMPT_KEY) ?? '0');
-            const lockUntil     = parseInt(localStorage.getItem(LOCKOUT_KEY) ?? '0');
-            const now           = Date.now();
+            const lockUntil = parseInt(localStorage.getItem(LOCKOUT_KEY) ?? '0');
+            const now = Date.now();
 
             if (lockUntil > now) {
                 setAttempts(savedAttempts);
@@ -144,7 +153,7 @@ const LoginPage: React.FC = () => {
                 }
                 setAttempts(savedAttempts < MAX_ATTEMPTS ? savedAttempts : 0);
             }
-        } catch {}
+        } catch { }
         // Auto-focus email jika kosong, password jika sudah ada email
         setTimeout(() => emailRef.current?.focus(), 300);
     }, []);
@@ -232,21 +241,21 @@ const LoginPage: React.FC = () => {
 
     /* ── Data panel kiri ── */
     const particles = [
-        { top: '12%', left: '8%',  size: 'w-2 h-2',     delay: '0s'   },
-        { top: '28%', left: '85%', size: 'w-3 h-3',     delay: '1.3s' },
-        { top: '55%', left: '6%',  size: 'w-1.5 h-1.5', delay: '0.7s' },
+        { top: '12%', left: '8%', size: 'w-2 h-2', delay: '0s' },
+        { top: '28%', left: '85%', size: 'w-3 h-3', delay: '1.3s' },
+        { top: '55%', left: '6%', size: 'w-1.5 h-1.5', delay: '0.7s' },
         { top: '72%', left: '88%', size: 'w-2.5 h-2.5', delay: '2.1s' },
-        { top: '42%', left: '92%', size: 'w-2 h-2',     delay: '1.6s' },
+        { top: '42%', left: '92%', size: 'w-2 h-2', delay: '1.6s' },
         { top: '82%', left: '35%', size: 'w-1.5 h-1.5', delay: '0.4s' },
-        { top: '18%', left: '60%', size: 'w-2 h-2',     delay: '2.6s' },
-        { top: '65%', left: '25%', size: 'w-1 h-1',     delay: '1.1s' },
+        { top: '18%', left: '60%', size: 'w-2 h-2', delay: '2.6s' },
+        { top: '65%', left: '25%', size: 'w-1 h-1', delay: '1.1s' },
     ];
 
     const features = [
-        { icon: <FileText   className="w-4 h-4" />, label: 'Kelola SOP & Dokumen',    color: 'bg-emerald-400/20 border-emerald-300/30 text-emerald-100', delay: '0.1s'  },
-        { icon: <BarChart3  className="w-4 h-4" />, label: 'Dashboard & Statistik',   color: 'bg-[#D4AF37]/20  border-[#D4AF37]/30  text-[#D4AF37]',    delay: '0.25s' },
-        { icon: <BookOpen   className="w-4 h-4" />, label: 'Panduan & FAQ',           color: 'bg-blue-400/20   border-blue-300/30   text-blue-200',      delay: '0.4s'  },
-        { icon: <Shield     className="w-4 h-4" />, label: 'Akses Aman & Terlindungi',color: 'bg-rose-400/20   border-rose-300/30   text-rose-200',       delay: '0.55s' },
+        { icon: <FileText className="w-4 h-4" />, label: 'Kelola SOP & Dokumen', color: 'bg-emerald-400/20 border-emerald-300/30 text-emerald-100', delay: '0.1s' },
+        { icon: <BarChart3 className="w-4 h-4" />, label: 'Dashboard & Statistik', color: 'bg-[#D4AF37]/20  border-[#D4AF37]/30  text-[#D4AF37]', delay: '0.25s' },
+        { icon: <BookOpen className="w-4 h-4" />, label: 'Panduan & FAQ', color: 'bg-blue-400/20   border-blue-300/30   text-blue-200', delay: '0.4s' },
+        { icon: <Shield className="w-4 h-4" />, label: 'Akses Aman & Terlindungi', color: 'bg-rose-400/20   border-rose-300/30   text-rose-200', delay: '0.55s' },
     ];
 
     /* ── Warna strength password ── */
@@ -257,10 +266,10 @@ const LoginPage: React.FC = () => {
         if (/[A-Z]/.test(password)) s++;
         if (/[0-9]/.test(password)) s++;
         if (/[^A-Za-z0-9]/.test(password)) s++;
-        if      (s <= 1) return { label: 'Lemah',   color: 'bg-rose-500',   w: 'w-1/4' };
-        else if (s <= 2) return { label: 'Cukup',   color: 'bg-amber-400',  w: 'w-2/4' };
-        else if (s <= 3) return { label: 'Baik',    color: 'bg-blue-500',   w: 'w-3/4' };
-        else             return { label: 'Kuat',    color: 'bg-emerald-500',w: 'w-full' };
+        if (s <= 1) return { label: 'Lemah', color: 'bg-rose-500', w: 'w-1/4' };
+        else if (s <= 2) return { label: 'Cukup', color: 'bg-amber-400', w: 'w-2/4' };
+        else if (s <= 3) return { label: 'Baik', color: 'bg-blue-500', w: 'w-3/4' };
+        else return { label: 'Kuat', color: 'bg-emerald-500', w: 'w-full' };
     })();
 
     const isLocked = lockoutLeft > 0;

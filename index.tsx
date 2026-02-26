@@ -11,6 +11,8 @@ import AdminDashboard from './src/pages/AdminDashboard';
 import ProtectedRoute from './src/components/ProtectedRoute';
 import CategoryPage from './src/pages/CategoryPage';
 import BookmarksPage from './src/pages/BookmarksPage';
+import SearchPage from './src/pages/SearchPage';
+import NotFoundPage from './src/pages/NotFoundPage';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -38,6 +40,9 @@ root.render(
           {/* Halaman Favorit */}
           <Route path="/bookmarks" element={<BookmarksPage />} />
 
+          {/* Halaman Pencarian Global */}
+          <Route path="/search" element={<SearchPage />} />
+
           {/* Halaman Admin (Dilindungi Satpam/ProtectedRoute) */}
           <Route
             path="/admin"
@@ -47,6 +52,9 @@ root.render(
               </ProtectedRoute>
             }
           />
+
+          {/* 404 — harus paling bawah */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </BrowserRouter>
     </HelmetProvider>

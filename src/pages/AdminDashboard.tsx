@@ -18,10 +18,11 @@ import {
     AlertTriangle, X, List as ListIcon, Type, Hash, Search, Filter, RefreshCw,
     Menu, ChevronRight, Home, ChevronDown, ChevronUp, Calendar, BookMarked,
     Moon, Sun, ChevronLeft, User, Clock as ClockIcon, AlertCircle,
+    Tag, Italic, Code, Minus, Link as LinkIcon, Columns, Bold,
 } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-    Cell, PieChart, Pie, Legend
+    Cell, PieChart, Pie, Legend, AreaChart, Area,
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import toast, { Toaster } from 'react-hot-toast';
@@ -30,7 +31,7 @@ import toast, { Toaster } from 'react-hot-toast';
 interface ContentData {
     id: string; title: string; category: string; description: string;
     content: string; imageBase64?: string; pdfUrl?: string; videoUrl?: string;
-    views?: number; likes?: number; updatedAt?: any;
+    views?: number; likes?: number; updatedAt?: any; tags?: string[];
 }
 interface FAQData { id: string; question: string; answer: string; }
 interface GuideData { id: string; content: string; updatedAt?: any; }
@@ -53,29 +54,47 @@ const CHART_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#8
 
 /* ─── FORMAT TOOLBAR ──────────────────────────────────────────── */
 const FormatToolbar = ({
-    target, onInsert
+    target, onInsert, isSplitView, onToggleSplit,
 }: {
     target: 'sop' | 'faq' | 'guide';
     onInsert: (t: 'sop' | 'faq' | 'guide', tag: string) => void;
+    isSplitView?: boolean;
+    onToggleSplit?: () => void;
 }) => (
-    <div className="flex flex-wrap gap-1.5 p-2.5 bg-slate-100 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
+    <div className="flex flex-wrap gap-1 p-2 bg-slate-100 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600 items-center">
         {[
-            { tag: 'bold', title: 'Tebal', icon: <Type className="w-4 h-4" /> },
-            { tag: 'list', title: 'List', icon: <ListIcon className="w-4 h-4" /> },
-            { tag: 'number', title: 'Nomor', icon: <Hash className="w-4 h-4" /> },
-            { tag: 'quote', title: 'Kutipan', icon: <Quote className="w-4 h-4" /> },
+            { tag: 'bold', title: 'Tebal', icon: <Bold className="w-3.5 h-3.5" /> },
+            { tag: 'italic', title: 'Miring', icon: <Italic className="w-3.5 h-3.5" /> },
+            { tag: 'code', title: 'Kode inline', icon: <Code className="w-3.5 h-3.5" /> },
+            { tag: 'list', title: 'Bullet list', icon: <ListIcon className="w-3.5 h-3.5" /> },
+            { tag: 'number', title: 'Numbered list', icon: <Hash className="w-3.5 h-3.5" /> },
+            { tag: 'quote', title: 'Kutipan', icon: <Quote className="w-3.5 h-3.5" /> },
+            { tag: 'link', title: 'Tautan', icon: <LinkIcon className="w-3.5 h-3.5" /> },
+            { tag: 'hr', title: 'Garis pemisah', icon: <Minus className="w-3.5 h-3.5" /> },
         ].map(b => (
             <button key={b.tag} type="button" onClick={() => onInsert(target, b.tag)}
                 className="p-1.5 hover:bg-white dark:hover:bg-slate-600 rounded-lg text-slate-600 dark:text-slate-300 transition-colors" title={b.title}>
                 {b.icon}
             </button>
         ))}
+        <span className="w-px h-4 bg-slate-300 dark:bg-slate-500 mx-0.5" />
         {['H2', 'H3'].map(h => (
             <button key={h} type="button" onClick={() => onInsert(target, h.toLowerCase())}
-                className="px-2 py-1 bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded-lg text-xs font-black hover:bg-slate-50 dark:hover:bg-slate-500 transition-colors text-slate-600 dark:text-slate-200">
+                className="px-2 py-0.5 bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded-md text-xs font-black hover:bg-slate-50 dark:hover:bg-slate-500 transition-colors text-slate-600 dark:text-slate-200">
                 {h}
             </button>
         ))}
+        {onToggleSplit && (
+            <>
+                <span className="w-px h-4 bg-slate-300 dark:bg-slate-500 mx-0.5" />
+                <button type="button" onClick={onToggleSplit}
+                    title="Split view (editor + preview)"
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-colors ${isSplitView ? 'bg-[#0D5C35] text-white' : 'hover:bg-white dark:hover:bg-slate-600 text-slate-500 dark:text-slate-400'}`}>
+                    <Columns className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Split</span>
+                </button>
+            </>
+        )}
     </div>
 );
 
@@ -184,10 +203,11 @@ const AdminDashboard: React.FC = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
-    const emptyForm = { title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '', videoUrl: '' };
+    const emptyForm = { title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '', videoUrl: '', tagsRaw: '' };
     const [formData, setFormData] = useState(emptyForm);
     const [faqForm, setFaqForm] = useState({ question: '', answer: '' });
     const [guideForm, setGuideForm] = useState({ content: '' });
+    const [isSplitView, setIsSplitView] = useState(false);
 
     /* ── Current admin user info ── */
     const adminEmail = auth.currentUser?.email ?? 'Admin';
@@ -228,7 +248,30 @@ const AdminDashboard: React.FC = () => {
             catDist[k] = (catDist[k] || 0) + 1;
         });
         const pieData = Object.entries(catDist).map(([name, value]) => ({ name, value }));
-        return { totalViews, totalLikes, topViewed, pieData };
+
+        /* ── Trend: dokumen ditambah per 7 hari terakhir ── */
+        const trendData = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(); d.setDate(d.getDate() - (6 - i));
+            const label = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+            const count = contents.filter(c => {
+                if (!c.updatedAt?.seconds) return false;
+                return new Date(c.updatedAt.seconds * 1000)
+                    .toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) === label;
+            }).length;
+            return { hari: label, dokumen: count };
+        });
+
+        /* ── Views per kategori ── */
+        const catViews: Record<string, number> = {};
+        contents.forEach(i => {
+            const k = (i.category || 'psp').replace(/-/g, ' ').toUpperCase();
+            catViews[k] = (catViews[k] || 0) + (i.views || 0);
+        });
+        const catViewsData = Object.entries(catViews)
+            .map(([name, views]) => ({ name, views }))
+            .sort((a, b) => b.views - a.views);
+
+        return { totalViews, totalLikes, topViewed, pieData, trendData, catViewsData };
     }, [contents]);
 
     const filteredContents = useMemo(() =>
@@ -310,19 +353,24 @@ const AdminDashboard: React.FC = () => {
         });
     };
 
-    const handleEditSop = (i: ContentData) => { setEditingId(i.id); setFormData({ ...i, imageBase64: i.imageBase64 || '', pdfUrl: i.pdfUrl || '', videoUrl: i.videoUrl || '' }); setSopModalTab('editor'); setIsDirty(false); setIsModalOpen(true); };
+    const handleEditSop = (i: ContentData) => { setEditingId(i.id); setFormData({ ...i, imageBase64: i.imageBase64 || '', pdfUrl: i.pdfUrl || '', videoUrl: i.videoUrl || '', tagsRaw: (i.tags || []).join(', ') }); setSopModalTab('editor'); setIsDirty(false); setIsModalOpen(true); };
     const handleEditFaq = (i: FAQData) => { setEditingId(i.id); setFaqForm({ ...i }); setIsDirty(false); setIsFaqModalOpen(true); };
     const handleEditGuide = (i: GuideData) => { setEditingId(i.id); setGuideForm({ content: i.content }); setIsDirty(false); setIsGuideModalOpen(true); };
-    const handleAddSop = () => { setEditingId(null); setFormData(emptyForm); setSopModalTab('editor'); setIsDirty(false); setIsModalOpen(true); };
+    const handleAddSop = () => { setEditingId(null); setFormData({ ...emptyForm }); setSopModalTab('editor'); setIsSplitView(false); setIsDirty(false); setIsModalOpen(true); };
     const handleAddFaq = () => { setEditingId(null); setFaqForm({ question: '', answer: '' }); setIsDirty(false); setIsFaqModalOpen(true); };
     const handleAddGuide = () => { setEditingId(null); setGuideForm({ content: '' }); setIsDirty(false); setIsGuideModalOpen(true); };
 
     const handleSaveSop = async (e: React.FormEvent) => {
         e.preventDefault(); setIsSaving(true);
         try {
+            const tags = formData.tagsRaw
+                ? formData.tagsRaw.split(',').map((t: string) => t.trim()).filter(Boolean)
+                : [];
+            const { tagsRaw, ...rest } = formData;
+            const payload = { ...rest, tags };
             const p = editingId
-                ? updateDoc(doc(db, 'knowledge-base', editingId), { ...formData, updatedAt: serverTimestamp() })
-                : addDoc(collection(db, 'knowledge-base'), { ...formData, updatedAt: serverTimestamp(), views: 0, likes: 0, dislikes: 0 });
+                ? updateDoc(doc(db, 'knowledge-base', editingId), { ...payload, updatedAt: serverTimestamp() })
+                : addDoc(collection(db, 'knowledge-base'), { ...payload, updatedAt: serverTimestamp(), views: 0, likes: 0, dislikes: 0 });
             await toast.promise(p, { loading: 'Menyimpan SOP…', success: 'SOP berhasil disimpan!', error: 'Gagal menyimpan SOP.' });
             setIsDirty(false);
             setIsModalOpen(false);
@@ -368,20 +416,24 @@ const AdminDashboard: React.FC = () => {
         if (!textarea) return;
         const s = textarea.selectionStart, end = textarea.selectionEnd;
         const cur = target === 'sop' ? formData.content : target === 'faq' ? faqForm.answer : guideForm.content;
-        const before = cur.substring(0, s), after = cur.substring(end);
+        const before = cur.substring(0, s), sel = cur.substring(s, end), after = cur.substring(end);
         const inserts: Record<string, string> = {
-            bold: `${before}**Teks Tebal**${after}`,
-            list: `${before}\n- Poin 1\n- Poin 2${after}`,
-            number: `${before}\n1. Langkah 1\n2. Langkah 2${after}`,
-            h2: `${before}\n## Judul Besar${after}`,
-            h3: `${before}\n### Sub Judul${after}`,
-            quote: `${before}\n> "Catatan"${after}`,
+            bold: `${before}**${sel || 'Teks Tebal'}**${after}`,
+            italic: `${before}_${sel || 'Teks Miring'}_${after}`,
+            code: `${before}\`${sel || 'kode'}\`${after}`,
+            list: `${before}\n- ${sel || 'Poin 1'}\n- Poin 2${after}`,
+            number: `${before}\n1. ${sel || 'Langkah 1'}\n2. Langkah 2${after}`,
+            h2: `${before}\n## ${sel || 'Judul Besar'}${after}`,
+            h3: `${before}\n### ${sel || 'Sub Judul'}${after}`,
+            quote: `${before}\n> "${sel || 'Catatan penting'}"${after}`,
+            link: `${before}[${sel || 'Teks Link'}](https://contoh.com)${after}`,
+            hr: `${before}\n\n---\n\n${after}`,
         };
         const newText = inserts[tag] ?? cur;
         if (target === 'sop') { setFormData(p => ({ ...p, content: newText })); setIsDirty(true); }
         else if (target === 'faq') { setFaqForm(p => ({ ...p, answer: newText })); setIsDirty(true); }
         else { setGuideForm({ content: newText }); setIsDirty(true); }
-        setTimeout(() => textarea.focus(), 100);
+        setTimeout(() => textarea.focus(), 50);
     };
 
     /* ── Nav items ── */
@@ -598,6 +650,58 @@ const AdminDashboard: React.FC = () => {
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* ── 2 Chart Baru ── */}
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
+                                    {/* Trend 7 hari */}
+                                    <div className="bg-white dark:bg-[#162918] p-5 md:p-7 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                        <div className="mb-4">
+                                            <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center text-sm md:text-base">
+                                                <BarChart3 className="w-5 h-5 mr-2.5 text-[#D4AF37] flex-shrink-0" /> Aktivitas 7 Hari Terakhir
+                                            </h3>
+                                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 ml-7">Dokumen yang diupdate per hari</p>
+                                        </div>
+                                        <div className="h-52 w-full">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <AreaChart data={stats.trendData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                                                    <defs>
+                                                        <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="5%" stopColor="#0D5C35" stopOpacity={0.35} />
+                                                            <stop offset="95%" stopColor="#0D5C35" stopOpacity={0} />
+                                                        </linearGradient>
+                                                    </defs>
+                                                    <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#2d4a35' : '#f1f5f9'} />
+                                                    <XAxis dataKey="hari" tick={{ fontSize: 9, fontWeight: 700, fill: isDark ? '#94a3b8' : '#64748b' }} axisLine={false} tickLine={false} />
+                                                    <YAxis tick={{ fontSize: 10, fill: isDark ? '#94a3b8' : '#64748b' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                                    <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.2)', background: isDark ? '#162918' : '#fff', color: isDark ? '#f1f5f9' : '#1e293b', fontSize: '12px' }} />
+                                                    <Area type="monotone" dataKey="dokumen" stroke="#0D5C35" strokeWidth={2.5} fill="url(#trendGrad)" dot={{ fill: '#0D5C35', r: 4, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
+                                                </AreaChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+                                    {/* Views per kategori */}
+                                    <div className="bg-white dark:bg-[#162918] p-5 md:p-7 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                        <div className="mb-4">
+                                            <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center text-sm md:text-base">
+                                                <Eye className="w-5 h-5 mr-2.5 text-blue-500 flex-shrink-0" /> Views per Kategori
+                                            </h3>
+                                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 ml-7">Total tampilan berdasarkan kategori</p>
+                                        </div>
+                                        <div className="h-52 w-full">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <BarChart data={stats.catViewsData} layout="vertical" margin={{ top: 0, right: 20, left: 5, bottom: 0 }}>
+                                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={isDark ? '#2d4a35' : '#f1f5f9'} />
+                                                    <XAxis type="number" hide />
+                                                    <YAxis dataKey="name" type="category" width={90} tick={{ fontSize: 9, fontWeight: 700, fill: isDark ? '#94a3b8' : '#64748b' }} axisLine={false} tickLine={false} />
+                                                    <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', background: isDark ? '#162918' : '#fff', color: isDark ? '#f1f5f9' : '#1e293b', fontSize: '12px' }} />
+                                                    <Bar dataKey="views" radius={[0, 6, 6, 0]} barSize={14}>
+                                                        {stats.catViewsData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                                                    </Bar>
+                                                </BarChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -651,6 +755,7 @@ const AdminDashboard: React.FC = () => {
                                                 <tr>
                                                     <th className="px-5 py-4">Judul & Info</th>
                                                     <th className="px-5 py-4 w-36">Kategori</th>
+                                                    <th className="px-5 py-4 w-44 hidden lg:table-cell">Tags</th>
                                                     <th className="px-5 py-4 text-center w-32">Statistik</th>
                                                     <th className="px-5 py-4 text-center w-28">Aksi</th>
                                                 </tr>
@@ -670,6 +775,18 @@ const AdminDashboard: React.FC = () => {
                                                                 {(item.category || 'psp').replace(/-/g, ' ')}
                                                             </span>
                                                         </td>
+                                                        <td className="px-5 py-4 hidden lg:table-cell">
+                                                            {(item.tags || []).length > 0 ? (
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {(item.tags || []).slice(0, 3).map(tag => (
+                                                                        <span key={tag} className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600">
+                                                                            <Tag className="w-2.5 h-2.5" />{tag}
+                                                                        </span>
+                                                                    ))}
+                                                                    {(item.tags || []).length > 3 && <span className="text-[9px] text-slate-400">+{(item.tags || []).length - 3}</span>}
+                                                                </div>
+                                                            ) : <span className="text-[10px] text-slate-300 dark:text-slate-600 italic">—</span>}
+                                                        </td>
                                                         <td className="px-5 py-4 text-center">
                                                             <div className="flex items-center justify-center gap-1.5 text-xs font-bold flex-wrap">
                                                                 <span className="flex items-center bg-blue-50 dark:bg-blue-900/20 px-2 py-1.5 rounded-lg text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/30 gap-1"><Eye className="w-3.5 h-3.5" />{item.views || 0}</span>
@@ -685,7 +802,7 @@ const AdminDashboard: React.FC = () => {
                                                     </tr>
                                                 )) : (
                                                     <tr>
-                                                        <td colSpan={4} className="py-16 text-center">
+                                                        <td colSpan={5} className="py-16 text-center">
                                                             <FileText className="w-12 h-12 text-slate-200 dark:text-slate-600 mx-auto mb-3" />
                                                             <p className="text-slate-400 dark:text-slate-500 font-bold">Tidak ada data yang cocok.</p>
                                                         </td>
@@ -916,25 +1033,72 @@ const AdminDashboard: React.FC = () => {
                                         value={formData.pdfUrl} onChange={e => { setFormData(p => ({ ...p, pdfUrl: e.target.value })); setIsDirty(true); }} />
                                 </div>
 
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <Tag className="w-3.5 h-3.5" /> Tags / Label <span className="text-slate-400 normal-case font-normal">(Opsional — pisahkan dengan koma)</span>
+                                    </label>
+                                    <input type="text" placeholder="Contoh: formulir, surat, batas-waktu, permohonan"
+                                        className="w-full p-3.5 border border-slate-200 dark:border-slate-600 dark:bg-[#0f1f16] dark:text-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-medium bg-slate-50 focus:bg-white dark:focus:bg-[#0f1f16]"
+                                        value={formData.tagsRaw} onChange={e => { setFormData(p => ({ ...p, tagsRaw: e.target.value })); setIsDirty(true); }} />
+                                    {formData.tagsRaw && (
+                                        <div className="flex flex-wrap gap-1.5 pt-1">
+                                            {formData.tagsRaw.split(',').map(t => t.trim()).filter(Boolean).map(tag => (
+                                                <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
+                                                    <Tag className="w-3 h-3" />{tag}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
                                 {/* ── Editor / Preview Tab ── */}
                                 <div className="space-y-1.5">
                                     <div className="flex items-center justify-between">
                                         <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Isi Dokumen (Markdown)</label>
-                                        <div className="flex bg-slate-100 dark:bg-slate-700 rounded-lg p-0.5 gap-0.5">
-                                            <button type="button" onClick={() => setSopModalTab('editor')}
-                                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${sopModalTab === 'editor' ? 'bg-white dark:bg-slate-600 text-slate-800 dark:text-slate-100 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
-                                                ✏️ Editor
-                                            </button>
-                                            <button type="button" onClick={() => setSopModalTab('preview')}
-                                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${sopModalTab === 'preview' ? 'bg-white dark:bg-slate-600 text-slate-800 dark:text-slate-100 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
-                                                👁 Preview
-                                            </button>
+                                        <div className="flex items-center gap-2">
+                                            {!isSplitView && (
+                                                <div className="flex bg-slate-100 dark:bg-slate-700 rounded-lg p-0.5 gap-0.5">
+                                                    <button type="button" onClick={() => setSopModalTab('editor')}
+                                                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${sopModalTab === 'editor' ? 'bg-white dark:bg-slate-600 text-slate-800 dark:text-slate-100 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
+                                                        ✏️ Editor
+                                                    </button>
+                                                    <button type="button" onClick={() => setSopModalTab('preview')}
+                                                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${sopModalTab === 'preview' ? 'bg-white dark:bg-slate-600 text-slate-800 dark:text-slate-100 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
+                                                        👁 Preview
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
-                                    {sopModalTab === 'editor' ? (
+                                    {isSplitView ? (
+                                        /* ── Split View: editor + preview side by side ── */
+                                        <div className="border border-slate-200 dark:border-slate-600 rounded-xl overflow-hidden shadow-sm">
+                                            <FormatToolbar target="sop" onInsert={insertFormat} isSplitView={isSplitView} onToggleSplit={() => setIsSplitView(false)} />
+                                            <div className="grid grid-cols-2 divide-x divide-slate-200 dark:divide-slate-600">
+                                                <div>
+                                                    <div className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-600 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Editor</div>
+                                                    <textarea id="content-editor" rows={16}
+                                                        className="w-full p-4 font-mono text-sm outline-none bg-slate-50 dark:bg-[#0f1f16] dark:text-slate-200 resize-none"
+                                                        required value={formData.content} onChange={e => { setFormData(p => ({ ...p, content: e.target.value })); setIsDirty(true); }} />
+                                                </div>
+                                                <div>
+                                                    <div className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-600 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Preview</div>
+                                                    <div className="p-4 bg-white dark:bg-[#0f1f16] h-[calc(16*1.5rem+2rem)] overflow-y-auto">
+                                                        {formData.content ? (
+                                                            <div className="prose prose-sm prose-slate dark:prose-invert max-w-none prose-p:text-slate-600 dark:prose-p:text-slate-300 prose-headings:text-slate-800 dark:prose-headings:text-slate-100 prose-li:marker:text-[#0D5C35]">
+                                                                <ReactMarkdown>{formData.content}</ReactMarkdown>
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-slate-300 dark:text-slate-600 italic text-xs text-center mt-8">Preview tampil di sini…</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : sopModalTab === 'editor' ? (
                                         <div className="border border-slate-200 dark:border-slate-600 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#0D5C35] shadow-sm">
-                                            <FormatToolbar target="sop" onInsert={insertFormat} />
+                                            <FormatToolbar target="sop" onInsert={insertFormat} isSplitView={isSplitView} onToggleSplit={() => setIsSplitView(true)} />
                                             <textarea id="content-editor" placeholder="Ketik isi SOP di sini…" rows={14}
                                                 className="w-full p-5 font-mono text-sm outline-none bg-slate-50 dark:bg-[#0f1f16] dark:text-slate-200 focus:bg-white dark:focus:bg-[#0f1f16] resize-y"
                                                 required value={formData.content} onChange={e => { setFormData(p => ({ ...p, content: e.target.value })); setIsDirty(true); }} />

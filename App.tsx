@@ -231,7 +231,7 @@ const App: React.FC = () => {
     const unsubGuide = onSnapshot(qGuide, snap => setGuides(snap.docs.map(d => ({ id: d.id, ...d.data() })) as GuideData[]));
     /* Refresh history when user returns to this tab */
     const refreshHistory = () => {
-      try { setRecentHistory(JSON.parse(localStorage.getItem('pkn-history') || '[]')); } catch {}
+      try { setRecentHistory(JSON.parse(localStorage.getItem('pkn-history') || '[]')); } catch { }
     };
     window.addEventListener('focus', refreshHistory);
     const onScroll = () => {
@@ -393,26 +393,26 @@ const App: React.FC = () => {
             <div className="flex items-center justify-between mb-4 md:mb-5">
               <div className="flex items-center gap-3">
                 <div className="w-1 h-5 bg-[#D4AF37] rounded-full" />
-                <h3 className="font-black text-white text-base uppercase tracking-wider drop-shadow-sm">Terakhir Dibaca</h3>
-                <span className="text-xs font-bold text-white/50 bg-white/10 px-2 py-0.5 rounded-full">{recentHistory.length}</span>
+                <h3 className="font-black text-slate-800 dark:text-slate-100 text-base uppercase tracking-wider">Terakhir Dibaca</h3>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">{recentHistory.length}</span>
               </div>
               <button
-                onClick={() => { try { localStorage.removeItem('pkn-history'); setRecentHistory([]); } catch {} }}
-                className="text-white/40 hover:text-white/70 text-xs font-medium transition-colors"
+                onClick={() => { try { localStorage.removeItem('pkn-history'); setRecentHistory([]); } catch { } }}
+                className="text-slate-400 hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-400 text-xs font-medium transition-colors"
               >Hapus semua</button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
               {recentHistory.map((item, i) => (
                 <div key={item.id} onClick={() => handleDocClick(item.id)}
-                  className="group bg-white/8 hover:bg-white/15 dark:bg-white/5 dark:hover:bg-white/10 border border-white/10 hover:border-[#D4AF37]/30 rounded-2xl p-4 cursor-pointer transition-all duration-300 hover:-translate-y-1"
+                  className="group bg-white dark:bg-[#162918] hover:bg-[#EAF2EE] dark:hover:bg-[#1a3021] border border-slate-200 dark:border-slate-700 hover:border-[#0D5C35]/30 dark:hover:border-[#D4AF37]/25 rounded-2xl p-4 cursor-pointer transition-all duration-300 hover:-translate-y-1 shadow-sm hover:shadow-md"
                   style={{ animationDelay: `${i * 60}ms` }}>
-                  <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-white/10 text-white/60 mb-2 truncate max-w-full">
+                  <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 group-hover:bg-[#0D5C35] group-hover:text-white transition-colors mb-2 truncate max-w-full">
                     {item.category.replace(/-/g, ' ')}
                   </span>
-                  <h4 className="font-bold text-white/90 group-hover:text-[#D4AF37] transition-colors text-sm line-clamp-2 leading-snug mb-1">
+                  <h4 className="font-bold text-slate-800 dark:text-slate-100 group-hover:text-[#0D5C35] dark:group-hover:text-emerald-400 transition-colors text-sm line-clamp-2 leading-snug mb-1">
                     {item.title}
                   </h4>
-                  <p className="text-white/40 text-[10px]">
+                  <p className="text-slate-400 dark:text-slate-500 text-[10px]">
                     {new Date(item.visitedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
                   </p>
                 </div>
@@ -821,7 +821,13 @@ const App: React.FC = () => {
                   <span className="opacity-70">{item.icon}</span> {item.label}
                 </button>
               ))}
-              <div className="mt-4 pt-4 border-t border-white/10">
+              <div className="mt-2 pt-2 border-t border-white/10">
+                <button onClick={() => { setIsMenuOpen(false); navigate('/bookmarks'); }}
+                  className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-[#D4AF37] font-semibold flex items-center gap-3 transition-all">
+                  <Bookmark className="w-4 h-4 opacity-70" /> Dokumen Favorit
+                </button>
+              </div>
+              <div className="mt-1 pt-2 border-t border-white/10">
                 <button onClick={() => navigate('/login')}
                   className="w-full text-left px-4 py-3 rounded-xl bg-white/10 text-[#D4AF37] font-bold flex items-center gap-3 hover:bg-white/20 transition-all">
                   <LogIn className="w-4 h-4" /> Login Admin

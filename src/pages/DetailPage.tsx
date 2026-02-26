@@ -12,6 +12,7 @@ import {
   Eye, ThumbsUp, ThumbsDown, Share2, Check, Home, ChevronRight,
   Maximize2, X, PlayCircle, Sparkles, ArrowRight, Bookmark,
   BookmarkCheck, Printer, BookOpen, ArrowUp, Clock, Copy,
+  MessageCircle, Tag, Search as SearchIcon,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import toast, { Toaster } from 'react-hot-toast';
@@ -91,19 +92,20 @@ interface ContentData {
   views?: number;
   likes?: number;
   dislikes?: number;
+  tags?: string[];
 }
 
 /* ─── HELPER: Warna kategori ──────────────────────────────────── */
 const getCategoryStyle = (cat: string) => {
   const map: Record<string, string> = {
-    'psp':                  'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700/30',
-    'penjualan':            'bg-amber-100   text-amber-800   border-amber-200   dark:bg-amber-900/30   dark:text-amber-300   dark:border-amber-700/30',
-    'sewa':                 'bg-blue-100    text-blue-800    border-blue-200    dark:bg-blue-900/30    dark:text-blue-300    dark:border-blue-700/30',
-    'penghapusan':          'bg-rose-100    text-rose-800    border-rose-200    dark:bg-rose-900/30    dark:text-rose-300    dark:border-rose-700/30',
-    'pinjam-pakai':         'bg-indigo-100  text-indigo-800  border-indigo-200  dark:bg-indigo-900/30  dark:text-indigo-300  dark:border-indigo-700/30',
+    'psp': 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700/30',
+    'penjualan': 'bg-amber-100   text-amber-800   border-amber-200   dark:bg-amber-900/30   dark:text-amber-300   dark:border-amber-700/30',
+    'sewa': 'bg-blue-100    text-blue-800    border-blue-200    dark:bg-blue-900/30    dark:text-blue-300    dark:border-blue-700/30',
+    'penghapusan': 'bg-rose-100    text-rose-800    border-rose-200    dark:bg-rose-900/30    dark:text-rose-300    dark:border-rose-700/30',
+    'pinjam-pakai': 'bg-indigo-100  text-indigo-800  border-indigo-200  dark:bg-indigo-900/30  dark:text-indigo-300  dark:border-indigo-700/30',
     'penggunaan-sementara': 'bg-purple-100  text-purple-800  border-purple-200  dark:bg-purple-900/30  dark:text-purple-300  dark:border-purple-700/30',
-    'alih-status':          'bg-teal-100    text-teal-800    border-teal-200    dark:bg-teal-900/30    dark:text-teal-300    dark:border-teal-700/30',
-    'hibah':                'bg-orange-100  text-orange-800  border-orange-200  dark:bg-orange-900/30  dark:text-orange-300  dark:border-orange-700/30',
+    'alih-status': 'bg-teal-100    text-teal-800    border-teal-200    dark:bg-teal-900/30    dark:text-teal-300    dark:border-teal-700/30',
+    'hibah': 'bg-orange-100  text-orange-800  border-orange-200  dark:bg-orange-900/30  dark:text-orange-300  dark:border-orange-700/30',
   };
   return map[cat] ?? 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600';
 };
@@ -121,7 +123,7 @@ const getEmbedUrl = (url: string): string | null => {
       const m = url.match(/\/d\/(.+?)\//);
       if (m) return `https://drive.google.com/file/d/${m[1]}/preview`;
     }
-  } catch {}
+  } catch { }
   return url;
 };
 
@@ -132,26 +134,26 @@ const DetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [data,            setData]           = useState<ContentData | null>(null);
-  const [relatedDocs,     setRelatedDocs]    = useState<ContentData[]>([]);
-  const [loading,         setLoading]        = useState(true);
-  const [hasVoted,        setHasVoted]       = useState(false);
-  const [voteType,        setVoteType]       = useState<'like' | 'dislike' | null>(null);
-  const [isCopied,        setIsCopied]       = useState(false);
-  const [isLightboxOpen,  setIsLightboxOpen] = useState(false);
-  const [scrollProgress,  setScrollProgress] = useState(0);
-  const [isScrolled,      setIsScrolled]     = useState(false);
-  const [isBookmarked,    setIsBookmarked]   = useState(false);
-  const [bookmarkAnim,    setBookmarkAnim]   = useState(false);
-  const [isReadingMode,   setIsReadingMode]  = useState(false);
-  const [copyTooltip,     setCopyTooltip]    = useState<{x:number;y:number}|null>(null);
+  const [data, setData] = useState<ContentData | null>(null);
+  const [relatedDocs, setRelatedDocs] = useState<ContentData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hasVoted, setHasVoted] = useState(false);
+  const [voteType, setVoteType] = useState<'like' | 'dislike' | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [bookmarkAnim, setBookmarkAnim] = useState(false);
+  const [isReadingMode, setIsReadingMode] = useState(false);
+  const [copyTooltip, setCopyTooltip] = useState<{ x: number; y: number } | null>(null);
 
   /* ── Dark Mode: baca dari localStorage ── */
   useEffect(() => {
     try {
       const isDark = localStorage.getItem('pkn-theme') === 'dark';
       document.documentElement.classList.toggle('dark', isDark);
-    } catch {}
+    } catch { }
   }, []);
 
   /* ── Load bookmark state ── */
@@ -160,7 +162,7 @@ const DetailPage: React.FC = () => {
     try {
       const bookmarks: string[] = JSON.parse(localStorage.getItem('pkn-bookmarks') || '[]');
       setIsBookmarked(bookmarks.includes(id));
-    } catch {}
+    } catch { }
   }, [id]);
 
   /* ── Reset & restore vote state per dokumen ── */
@@ -174,7 +176,7 @@ const DetailPage: React.FC = () => {
         setHasVoted(true);
         setVoteType(saved);
       }
-    } catch {}
+    } catch { }
   }, [id]);
 
   /* Scroll progress bar */
@@ -214,7 +216,7 @@ const DetailPage: React.FC = () => {
             const entry = { id: mainData.id, title: mainData.title, category: mainData.category, description: mainData.description, visitedAt: Date.now() };
             const updated = [entry, ...hist.filter((h: any) => h.id !== mainData.id)].slice(0, 5);
             localStorage.setItem('pkn-history', JSON.stringify(updated));
-          } catch {}
+          } catch { }
 
           /* Hitung view (sekali per session) */
           const sessionKey = `viewed_${id}`;
@@ -244,7 +246,7 @@ const DetailPage: React.FC = () => {
       });
       setHasVoted(true);
       setVoteType(type);
-      try { sessionStorage.setItem(`vote_${id}`, type); } catch {}
+      try { sessionStorage.setItem(`vote_${id}`, type); } catch { }
       toast.success('Terima kasih atas masukan Anda!', { id: toastId });
     } catch {
       toast.error('Gagal mengirim masukan.', { id: toastId });
@@ -262,6 +264,13 @@ const DetailPage: React.FC = () => {
     setTimeout(() => setIsCopied(false), 2500);
   };
 
+  /* Share via WhatsApp */
+  const handleShareWA = () => {
+    if (!data) return;
+    const text = `📄 *${data.title}*\n\n${data.description}\n\n🔗 Baca selengkapnya:\n${window.location.href}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
   /* Bookmark */
   const handleBookmark = () => {
     if (!id || !data) return;
@@ -277,7 +286,7 @@ const DetailPage: React.FC = () => {
         icon: newState ? '🔖' : '🗑️',
         style: { borderRadius: '12px', background: '#1e293b', color: '#fff', fontWeight: '600' },
       });
-    } catch {}
+    } catch { }
   };
 
   /* Print / Ekspor PDF */
@@ -365,7 +374,7 @@ const DetailPage: React.FC = () => {
         <meta property="og:type" content="article" />
         <meta property="og:locale" content="id_ID" />
         <meta name="robots" content="index, follow" />
-        <meta name="keywords" content={`KPKNL Kendari, ${data.category.replace(/-/g,' ')}, BMN, ${data.title}`} />
+        <meta name="keywords" content={`KPKNL Kendari, ${data.category.replace(/-/g, ' ')}, BMN, ${data.title}`} />
       </Helmet>
       <style dangerouslySetInnerHTML={{ __html: PAGE_CSS }} />
       <Toaster position="top-center" toastOptions={{ style: { borderRadius: '12px', fontWeight: 600 } }} />
@@ -419,7 +428,7 @@ const DetailPage: React.FC = () => {
         <div className="max-w-4xl mx-auto px-4 sm:px-5 py-4 flex items-center justify-between gap-3 md:gap-4">
           <div className="flex items-center gap-2 md:gap-3 min-w-0">
             <button
-              onClick={() => data.category ? navigate(`/category/${data.category}`) : navigate('/')}
+              onClick={() => navigate(-1)}
               className="flex-shrink-0 p-2 hover:bg-white/20 rounded-full transition"
               aria-label="Kembali">
               <ArrowLeft className="w-5 h-5" />
@@ -437,6 +446,13 @@ const DetailPage: React.FC = () => {
               ? <><Check className="w-3.5 h-3.5 text-emerald-300" /><span className="hidden sm:inline">Tersalin!</span></>
               : <><Share2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Bagikan</span></>
             }
+          </button>
+          {/* WhatsApp Share */}
+          <button onClick={handleShareWA}
+            className="flex-shrink-0 flex items-center gap-1.5 bg-[#25D366]/15 hover:bg-[#25D366]/30 border border-[#25D366]/30 px-3 md:px-3.5 py-2 rounded-xl transition-all text-xs font-bold text-white"
+            aria-label="Bagikan via WhatsApp">
+            <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
+            <span className="hidden md:inline text-[#25D366]">WA</span>
           </button>
           {/* Bookmark */}
           <button onClick={handleBookmark} aria-label={isBookmarked ? 'Hapus Bookmark' : 'Simpan Bookmark'}
@@ -470,7 +486,7 @@ const DetailPage: React.FC = () => {
             </div>
             <p className="text-[8pt] text-slate-400 text-right">{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
           </div>
-          <p className="print-meta mt-2">Kategori: {data.category.replace(/-/g,' ').toUpperCase()} &nbsp;|&nbsp; {data.views || 0} Views &nbsp;|&nbsp; {readingTime} menit baca</p>
+          <p className="print-meta mt-2">Kategori: {data.category.replace(/-/g, ' ').toUpperCase()} &nbsp;|&nbsp; {data.views || 0} Views &nbsp;|&nbsp; {readingTime} menit baca</p>
         </div>
 
         {/* Breadcrumb */}
@@ -537,6 +553,20 @@ const DetailPage: React.FC = () => {
               <p className="text-base md:text-lg text-slate-500 dark:text-slate-400 font-medium max-w-2xl leading-relaxed">
                 {data.description}
               </p>
+              {/* Tags */}
+              {(data.tags || []).length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {(data.tags || []).map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => navigate(`/search?q=${encodeURIComponent(tag)}`)}
+                      className="no-print inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-[#0D5C35] hover:text-white hover:border-[#0D5C35] transition-all"
+                    >
+                      <Tag className="w-3 h-3" />{tag}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -545,7 +575,7 @@ const DetailPage: React.FC = () => {
 
             {/* Konten Markdown */}
             <div className={`prose-content-wrap ${isReadingMode ? 'max-w-[68ch] mx-auto' : ''}`}>
-            <div className="
+              <div className="
               prose prose-slate dark:prose-invert max-w-none mb-10 md:mb-12
               prose-headings:scroll-mt-24
               prose-h2:text-xl sm:prose-h2:text-2xl prose-h2:font-extrabold prose-h2:text-slate-800 dark:prose-h2:text-slate-100
@@ -565,13 +595,13 @@ const DetailPage: React.FC = () => {
                 prose-blockquote:px-4 sm:prose-blockquote:px-5 prose-blockquote:py-3 prose-blockquote:rounded-r-xl
                 prose-blockquote:text-slate-600 dark:prose-blockquote:text-slate-400 prose-blockquote:not-italic
             "
-            onMouseUp={handleTextSelect}
-            >
-              <ReactMarkdown
-                components={{ li: ({ node, ...props }) => <li className="pl-2 my-1" {...props} /> }}>
-                {data.content}
-              </ReactMarkdown>
-            </div>
+                onMouseUp={handleTextSelect}
+              >
+                <ReactMarkdown
+                  components={{ li: ({ node, ...props }) => <li className="pl-2 my-1" {...props} /> }}>
+                  {data.content}
+                </ReactMarkdown>
+              </div>
             </div>{/* /prose-content-wrap */}
 
             {/* VOTE */}
@@ -596,7 +626,7 @@ const DetailPage: React.FC = () => {
                       ${hasVoted && voteType === 'like'
                         ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 dark:shadow-emerald-900/30 cursor-default scale-105'
                         : hasVoted ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
-                        : 'bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-700 hover:border-emerald-200 shadow-sm hover:shadow-md hover:-translate-y-0.5'
+                          : 'bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-700 hover:border-emerald-200 shadow-sm hover:shadow-md hover:-translate-y-0.5'
                       }`}>
                     <ThumbsUp className="w-4 h-4" /> <span className="hidden sm:inline">Ya, Membantu</span><span className="sm:hidden">Ya</span>
                   </button>
@@ -605,7 +635,7 @@ const DetailPage: React.FC = () => {
                       ${hasVoted && voteType === 'dislike'
                         ? 'bg-rose-500 text-white shadow-lg shadow-rose-200 dark:shadow-rose-900/30 cursor-default scale-105'
                         : hasVoted ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
-                        : 'bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-700 hover:border-rose-200 shadow-sm hover:shadow-md hover:-translate-y-0.5'
+                          : 'bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-700 hover:border-rose-200 shadow-sm hover:shadow-md hover:-translate-y-0.5'
                       }`}>
                     <ThumbsDown className="w-4 h-4" /> <span className="hidden sm:inline">Tidak</span>
                   </button>
