@@ -6,10 +6,12 @@ import {
   collection, query, where, limit, getDocs
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { Helmet } from 'react-helmet-async';
 import {
   ArrowLeft, Calendar, FileText, Image as ImageIcon, Download,
   Eye, ThumbsUp, ThumbsDown, Share2, Check, Home, ChevronRight,
   Maximize2, X, PlayCircle, Sparkles, ArrowRight, Bookmark,
+  BookmarkCheck, Printer, BookOpen, ArrowUp, Clock, Copy,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import toast, { Toaster } from 'react-hot-toast';
@@ -25,8 +27,54 @@ const PAGE_CSS = `
   0%,100% { box-shadow: 0 0 6px #D4AF37, 0 0 12px #D4AF37aa; }
   50%     { box-shadow: 0 0 12px #D4AF37, 0 0 24px #D4AF37; }
 }
+@keyframes bookmarkPop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+@keyframes tooltipIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
 .detail-fade-in { animation: fadeInUp 0.5s ease-out forwards; }
 .progress-glow  { animation: progressGlow 2s ease-in-out infinite; }
+.bookmark-pop   { animation: bookmarkPop 0.35s ease-out; }
+.copy-tooltip   { animation: tooltipIn 0.15s ease-out forwards; }
+
+.reading-mode .prose p,
+.reading-mode .prose li {
+  font-size: 1.1rem !important;
+  line-height: 2.05 !important;
+}
+.reading-mode .prose-content-wrap {
+  max-width: 68ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ── Enhanced Print / PDF Styles ── */
+@media print {
+  @page {
+    margin: 18mm 15mm;
+    size: A4;
+  }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { background: white !important; color: #1e293b !important; font-family: 'Plus Jakarta Sans', Arial, sans-serif !important; }
+  .no-print { display: none !important; }
+  header, nav, footer { display: none !important; }
+  .fixed, .sticky { position: static !important; }
+  #print-article { box-shadow: none !important; border: none !important; border-radius: 0 !important; padding: 0 !important; }
+  #print-article .prose p { font-size: 10.5pt !important; line-height: 1.75 !important; }
+  #print-header { display: flex !important; flex-direction: column; border-bottom: 2.5px solid #0D5C35; padding-bottom: 10px; margin-bottom: 14px; }
+  #print-header-inner { display: flex; align-items: center; justify-content: space-between; }
+  .print-title { font-size: 18pt !important; font-weight: 900 !important; color: #0D5C35 !important; line-height: 1.3 !important; }
+  .print-meta  { font-size: 8pt !important; color: #64748b !important; margin-top: 6px; }
+  .progress-glow { display: none !important; }
+  a { color: inherit !important; text-decoration: none !important; }
+  img { max-width: 100% !important; page-break-inside: avoid; }
+  h2, h3 { page-break-after: avoid; }
+  .prose-content-wrap { max-width: 100% !important; }
+}
 `;
 
 /* ─── TIPE DATA ────────────────────────────────────────────────── */
@@ -93,6 +141,10 @@ const DetailPage: React.FC = () => {
   const [isLightboxOpen,  setIsLightboxOpen] = useState(false);
   const [scrollProgress,  setScrollProgress] = useState(0);
   const [isScrolled,      setIsScrolled]     = useState(false);
+  const [isBookmarked,    setIsBookmarked]   = useState(false);
+  const [bookmarkAnim,    setBookmarkAnim]   = useState(false);
+  const [isReadingMode,   setIsReadingMode]  = useState(false);
+  const [copyTooltip,     setCopyTooltip]    = useState<{x:number;y:number}|null>(null);
 
   /* ── Dark Mode: baca dari localStorage ── */
   useEffect(() => {
@@ -101,6 +153,29 @@ const DetailPage: React.FC = () => {
       document.documentElement.classList.toggle('dark', isDark);
     } catch {}
   }, []);
+
+  /* ── Load bookmark state ── */
+  useEffect(() => {
+    if (!id) return;
+    try {
+      const bookmarks: string[] = JSON.parse(localStorage.getItem('pkn-bookmarks') || '[]');
+      setIsBookmarked(bookmarks.includes(id));
+    } catch {}
+  }, [id]);
+
+  /* ── Reset & restore vote state per dokumen ── */
+  useEffect(() => {
+    if (!id) return;
+    setHasVoted(false);
+    setVoteType(null);
+    try {
+      const saved = sessionStorage.getItem(`vote_${id}`);
+      if (saved === 'like' || saved === 'dislike') {
+        setHasVoted(true);
+        setVoteType(saved);
+      }
+    } catch {}
+  }, [id]);
 
   /* Scroll progress bar */
   useEffect(() => {
@@ -111,6 +186,13 @@ const DetailPage: React.FC = () => {
     };
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  /* ── Close copy tooltip on outside click ── */
+  useEffect(() => {
+    const close = () => setCopyTooltip(null);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
   }, []);
 
   /* Fetch data */
@@ -125,6 +207,14 @@ const DetailPage: React.FC = () => {
         if (docSnap.exists()) {
           const mainData = { id: docSnap.id, ...docSnap.data() } as ContentData;
           setData(mainData);
+
+          /* ── Simpan ke riwayat terakhir dibaca ── */
+          try {
+            const hist = JSON.parse(localStorage.getItem('pkn-history') || '[]');
+            const entry = { id: mainData.id, title: mainData.title, category: mainData.category, description: mainData.description, visitedAt: Date.now() };
+            const updated = [entry, ...hist.filter((h: any) => h.id !== mainData.id)].slice(0, 5);
+            localStorage.setItem('pkn-history', JSON.stringify(updated));
+          } catch {}
 
           /* Hitung view (sekali per session) */
           const sessionKey = `viewed_${id}`;
@@ -154,6 +244,7 @@ const DetailPage: React.FC = () => {
       });
       setHasVoted(true);
       setVoteType(type);
+      try { sessionStorage.setItem(`vote_${id}`, type); } catch {}
       toast.success('Terima kasih atas masukan Anda!', { id: toastId });
     } catch {
       toast.error('Gagal mengirim masukan.', { id: toastId });
@@ -169,6 +260,52 @@ const DetailPage: React.FC = () => {
       style: { borderRadius: '12px', background: '#1e293b', color: '#fff', fontWeight: '600' },
     });
     setTimeout(() => setIsCopied(false), 2500);
+  };
+
+  /* Bookmark */
+  const handleBookmark = () => {
+    if (!id || !data) return;
+    try {
+      const bookmarks: string[] = JSON.parse(localStorage.getItem('pkn-bookmarks') || '[]');
+      const newState = !isBookmarked;
+      const updated = newState ? [...bookmarks, id] : bookmarks.filter(b => b !== id);
+      localStorage.setItem('pkn-bookmarks', JSON.stringify(updated));
+      setIsBookmarked(newState);
+      setBookmarkAnim(true);
+      setTimeout(() => setBookmarkAnim(false), 400);
+      toast.success(newState ? 'Dokumen disimpan ke Favorit!' : 'Dihapus dari Favorit', {
+        icon: newState ? '🔖' : '🗑️',
+        style: { borderRadius: '12px', background: '#1e293b', color: '#fff', fontWeight: '600' },
+      });
+    } catch {}
+  };
+
+  /* Print / Ekspor PDF */
+  const handlePrint = () => { window.print(); };
+
+  /* Copy selected text */
+  const handleCopySelection = () => {
+    const text = window.getSelection()?.toString() || '';
+    if (text) {
+      navigator.clipboard.writeText(text);
+      toast.success('Teks disalin!', {
+        icon: '📋',
+        style: { borderRadius: '12px', background: '#1e293b', color: '#fff', fontWeight: '600' },
+      });
+      setCopyTooltip(null);
+      window.getSelection()?.removeAllRanges();
+    }
+  };
+
+  const handleTextSelect = (e: React.MouseEvent) => {
+    setTimeout(() => {
+      const sel = window.getSelection();
+      if (sel && sel.toString().trim().length > 5) {
+        setCopyTooltip({ x: e.clientX, y: e.clientY });
+      } else {
+        setCopyTooltip(null);
+      }
+    }, 10);
   };
 
   /* ── Loading state ── */
@@ -212,11 +349,48 @@ const DetailPage: React.FC = () => {
     ? new Date(data.updatedAt.seconds * 1000).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
     : 'Baru saja';
   const categoryStyle = getCategoryStyle(data.category);
+  const isNewDoc = data.updatedAt
+    ? (Date.now() - data.updatedAt.seconds * 1000) <= 7 * 24 * 60 * 60 * 1000
+    : false;
+  const readingTime = Math.max(1, Math.ceil((data.content || '').split(/\s+/).length / 200));
 
   return (
     <div className="min-h-screen bg-[#F4F7F5] dark:bg-[#0d1a12] pb-24 font-sans relative transition-colors duration-300">
+      {/* ── SEO DINAMIS ── */}
+      <Helmet>
+        <title>{data.title} | Knowledge Base KPKNL Kendari</title>
+        <meta name="description" content={data.description} />
+        <meta property="og:title" content={`${data.title} — KPKNL Kendari`} />
+        <meta property="og:description" content={data.description} />
+        <meta property="og:type" content="article" />
+        <meta property="og:locale" content="id_ID" />
+        <meta name="robots" content="index, follow" />
+        <meta name="keywords" content={`KPKNL Kendari, ${data.category.replace(/-/g,' ')}, BMN, ${data.title}`} />
+      </Helmet>
       <style dangerouslySetInnerHTML={{ __html: PAGE_CSS }} />
       <Toaster position="top-center" toastOptions={{ style: { borderRadius: '12px', fontWeight: 600 } }} />
+
+      {/* ── Copy Tooltip ── */}
+      {copyTooltip && (
+        <div
+          className="copy-tooltip fixed z-[100] bg-slate-800 dark:bg-slate-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl flex items-center gap-1.5 cursor-pointer hover:bg-[#0D5C35] transition-colors border border-white/10 select-none"
+          style={{ left: `${Math.min(copyTooltip.x, window.innerWidth - 130)}px`, top: `${copyTooltip.y - 48}px`, transform: 'translateX(-50%)' }}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={handleCopySelection}
+        >
+          <Copy className="w-3 h-3" /> Salin teks
+          {/* Arrow */}
+          <span className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-slate-800 dark:border-t-slate-700" />
+        </div>
+      )}
+
+      {/* ── Scroll to Top ── */}
+      <button
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        aria-label="Kembali ke atas"
+        className={`no-print fixed bottom-7 right-7 z-50 p-3.5 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all duration-300 group ${isScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
+        <ArrowUp className="w-5 h-5 group-hover:-translate-y-0.5 transition-transform" />
+      </button>
 
       {/* Progress bar */}
       <div
@@ -264,11 +438,40 @@ const DetailPage: React.FC = () => {
               : <><Share2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Bagikan</span></>
             }
           </button>
+          {/* Bookmark */}
+          <button onClick={handleBookmark} aria-label={isBookmarked ? 'Hapus Bookmark' : 'Simpan Bookmark'}
+            className={`no-print flex-shrink-0 flex items-center gap-1.5 px-3 md:px-3.5 py-2 rounded-xl transition-all text-xs font-bold border
+              ${isBookmarked
+                ? 'bg-[#D4AF37] border-[#D4AF37]/60 text-slate-900 shadow-lg shadow-[#D4AF37]/25'
+                : 'bg-white/10 hover:bg-white/20 border-white/15'
+              } ${bookmarkAnim ? 'bookmark-pop' : ''}`}>
+            {isBookmarked
+              ? <><BookmarkCheck className="w-3.5 h-3.5" /><span className="hidden sm:inline">Tersimpan</span></>
+              : <><Bookmark className="w-3.5 h-3.5" /><span className="hidden sm:inline">Simpan</span></>
+            }
+          </button>
+          {/* Print */}
+          <button onClick={handlePrint} aria-label="Cetak / Ekspor PDF"
+            className="no-print flex-shrink-0 hidden sm:flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 md:px-3.5 py-2 rounded-xl transition-all text-xs font-bold border border-white/15">
+            <Printer className="w-3.5 h-3.5" /><span className="hidden md:inline">Cetak</span>
+          </button>
         </div>
       </header>
 
       {/* ── MAIN ── */}
       <main className="max-w-4xl mx-auto mt-6 md:mt-8 px-4 detail-fade-in">
+
+        {/* Print-only header */}
+        <div id="print-header" className="hidden print:flex flex-col mb-6">
+          <div id="print-header-inner">
+            <div>
+              <p className="text-[8pt] text-slate-400 uppercase tracking-widest font-bold mb-0.5">Kantor Pelayanan Kekayaan Negara dan Lelang Kendari</p>
+              <p className="text-[8pt] text-slate-400">Direktorat Jenderal Kekayaan Negara — Kementerian Keuangan RI</p>
+            </div>
+            <p className="text-[8pt] text-slate-400 text-right">{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+          </div>
+          <p className="print-meta mt-2">Kategori: {data.category.replace(/-/g,' ').toUpperCase()} &nbsp;|&nbsp; {data.views || 0} Views &nbsp;|&nbsp; {readingTime} menit baca</p>
+        </div>
 
         {/* Breadcrumb */}
         <nav aria-label="Breadcrumb"
@@ -288,7 +491,7 @@ const DetailPage: React.FC = () => {
         <div className="bg-white dark:bg-[#162918] rounded-3xl shadow-md border border-slate-100 dark:border-slate-700 overflow-hidden">
 
           {/* Header artikel */}
-          <div className="relative p-6 sm:p-8 md:p-12 border-b border-slate-100 dark:border-slate-700 overflow-hidden bg-gradient-to-br from-white via-slate-50 to-[#EAF2EE]/40 dark:from-[#162918] dark:via-[#1a3021] dark:to-[#162918]">
+          <div className="relative p-6 sm:p-8 md:px-12 md:pt-10 md:pb-8 border-b border-slate-100 dark:border-slate-700 overflow-hidden bg-gradient-to-br from-white via-slate-50 to-[#EAF2EE]/40 dark:from-[#162918] dark:via-[#1a3021] dark:to-[#162918]">
             <div className="absolute -right-8 -top-8 opacity-[0.04] pointer-events-none select-none">
               <FileText className="w-72 h-72 text-[#0D5C35]" />
             </div>
@@ -300,12 +503,32 @@ const DetailPage: React.FC = () => {
                   <span className="w-1.5 h-1.5 rounded-full bg-current mr-2 opacity-60" />
                   {data.category.replace(/-/g, ' ')}
                 </span>
+                {isNewDoc && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-widest bg-amber-400 text-amber-900 border border-amber-500 shadow-sm animate-pulse">
+                    ✨ Baru
+                  </span>
+                )}
                 <span className="text-slate-400 dark:text-slate-500 text-xs font-medium bg-white dark:bg-slate-700 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-600 shadow-sm flex items-center gap-1.5">
                   <Calendar className="w-3 h-3" /> {dateStr}
                 </span>
                 <span className="text-slate-400 dark:text-slate-500 text-xs font-medium bg-white dark:bg-slate-700 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-600 shadow-sm flex items-center gap-1.5">
                   <Eye className="w-3 h-3" /> {data.views || 0} Views
                 </span>
+                <span className="text-slate-400 dark:text-slate-500 text-xs font-medium bg-white dark:bg-slate-700 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-600 shadow-sm flex items-center gap-1.5">
+                  <Clock className="w-3 h-3" /> {readingTime} mnt baca
+                </span>
+                {/* Mode Baca toggle */}
+                <button
+                  onClick={() => setIsReadingMode(m => !m)}
+                  className={`no-print inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border shadow-sm transition-all
+                    ${isReadingMode
+                      ? 'bg-[#0D5C35] text-white border-[#0D5C35] shadow-emerald-200 dark:shadow-emerald-900/30'
+                      : 'bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-100 dark:border-slate-600 hover:border-[#0D5C35]/40 hover:text-[#0D5C35]'
+                    }`}
+                  title={isReadingMode ? 'Nonaktifkan Mode Baca' : 'Aktifkan Mode Baca'}>
+                  <BookOpen className="w-3 h-3" />
+                  {isReadingMode ? 'Mode Baca ✓' : 'Mode Baca'}
+                </button>
               </div>
 
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100 mb-3 md:mb-4 leading-tight tracking-tight">
@@ -318,9 +541,10 @@ const DetailPage: React.FC = () => {
           </div>
 
           {/* Body artikel */}
-          <div className="p-6 sm:p-8 md:p-10">
+          <div id="print-article" className={`px-6 sm:px-8 md:px-10 pt-7 pb-6 sm:pb-8 md:pb-10 ${isReadingMode ? 'reading-mode' : ''}`}>
 
             {/* Konten Markdown */}
+            <div className={`prose-content-wrap ${isReadingMode ? 'max-w-[68ch] mx-auto' : ''}`}>
             <div className="
               prose prose-slate dark:prose-invert max-w-none mb-10 md:mb-12
               prose-headings:scroll-mt-24
@@ -340,15 +564,18 @@ const DetailPage: React.FC = () => {
                 prose-blockquote:bg-amber-50/50 dark:prose-blockquote:bg-amber-900/10
                 prose-blockquote:px-4 sm:prose-blockquote:px-5 prose-blockquote:py-3 prose-blockquote:rounded-r-xl
                 prose-blockquote:text-slate-600 dark:prose-blockquote:text-slate-400 prose-blockquote:not-italic
-            ">
+            "
+            onMouseUp={handleTextSelect}
+            >
               <ReactMarkdown
                 components={{ li: ({ node, ...props }) => <li className="pl-2 my-1" {...props} /> }}>
                 {data.content}
               </ReactMarkdown>
             </div>
+            </div>{/* /prose-content-wrap */}
 
             {/* VOTE */}
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#EAF2EE] via-white to-amber-50/40 dark:from-[#0D5C35]/10 dark:via-[#162918] dark:to-amber-900/5 border border-[#0D5C35]/12 dark:border-[#0D5C35]/20 p-5 md:p-7 mb-8 md:mb-10 shadow-sm">
+            <div className="no-print relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#EAF2EE] via-white to-amber-50/40 dark:from-[#0D5C35]/10 dark:via-[#162918] dark:to-amber-900/5 border border-[#0D5C35]/12 dark:border-[#0D5C35]/20 p-5 md:p-7 mb-8 md:mb-10 shadow-sm">
               <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-[#D4AF37]/8 blur-2xl pointer-events-none" />
               <div className="absolute -left-4 -bottom-4 w-24 h-24 rounded-full bg-[#0D5C35]/8 blur-2xl pointer-events-none" />
               <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-4 md:gap-5">
@@ -467,7 +694,7 @@ const DetailPage: React.FC = () => {
 
         {/* ── DOKUMEN TERKAIT ── */}
         {relatedDocs.length > 0 && (
-          <div className="mt-10 md:mt-14 mb-6">
+          <div className="no-print mt-10 md:mt-14 mb-6">
             <div className="flex items-center gap-3 mb-5 md:mb-6">
               <div className="w-1 h-6 bg-[#0D5C35] rounded-full" />
               <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100">Lihat Juga Informasi Terkait</h3>

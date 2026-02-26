@@ -6,7 +6,7 @@ import { db } from '../firebase';
 import {
     ArrowLeft, FileText, Hammer, Key, Trash2, Clock,
     Timer, RefreshCw, Gift, ArrowRight, ArrowUp, Home,
-    ChevronRight, Layers, Search, X,
+    ChevronRight, Layers, Search, X, ArrowUpDown,
 } from 'lucide-react';
 import { SkeletonCategoryGrid } from '../components/SkeletonLoader';
 
@@ -43,7 +43,10 @@ interface ContentData {
     id: string;
     title: string;
     description: string;
+    updatedAt?: any;
 }
+
+type SortKey = 'default' | 'az' | 'za' | 'newest' | 'oldest';
 
 const CategoryPage: React.FC = () => {
     const { categoryId } = useParams<{ categoryId: string }>();
@@ -52,13 +55,14 @@ const CategoryPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [isScrolled, setIsScrolled] = useState(false);
     const [searchLocal, setSearchLocal] = useState('');
+    const [sortBy, setSortBy] = useState<SortKey>('default');
 
     /* ── Dark Mode: baca dari localStorage ── */
     useEffect(() => {
         try {
             const isDark = localStorage.getItem('pkn-theme') === 'dark';
             document.documentElement.classList.toggle('dark', isDark);
-        } catch {}
+        } catch { }
     }, []);
 
     const categoryTitle = categoryId?.replace(/-/g, ' ').toUpperCase() ?? '';
@@ -69,14 +73,14 @@ const CategoryPage: React.FC = () => {
             gradient: string; hoverBg: string; hoverText: string;
             darkBg: string; darkColor: string;
         }> = {
-            'psp':                  { icon: <FileText  className="w-8 h-8" />, color: 'text-emerald-600', bg: 'bg-emerald-100', darkBg: 'dark:bg-emerald-900/30', darkColor: 'dark:text-emerald-400', gradient: 'from-emerald-500 to-teal-600',      hoverBg: 'group-hover:bg-emerald-600',  hoverText: 'group-hover:text-white' },
-            'penjualan':            { icon: <Hammer    className="w-8 h-8" />, color: 'text-amber-600',   bg: 'bg-amber-100',   darkBg: 'dark:bg-amber-900/30',   darkColor: 'dark:text-amber-400',   gradient: 'from-amber-500 to-orange-600',    hoverBg: 'group-hover:bg-amber-600',    hoverText: 'group-hover:text-white' },
-            'sewa':                 { icon: <Key       className="w-8 h-8" />, color: 'text-blue-600',    bg: 'bg-blue-100',    darkBg: 'dark:bg-blue-900/30',    darkColor: 'dark:text-blue-400',    gradient: 'from-blue-500 to-indigo-600',     hoverBg: 'group-hover:bg-blue-600',     hoverText: 'group-hover:text-white' },
-            'penghapusan':          { icon: <Trash2    className="w-8 h-8" />, color: 'text-rose-600',    bg: 'bg-rose-100',    darkBg: 'dark:bg-rose-900/30',    darkColor: 'dark:text-rose-400',    gradient: 'from-rose-500 to-pink-600',       hoverBg: 'group-hover:bg-rose-600',     hoverText: 'group-hover:text-white' },
-            'pinjam-pakai':         { icon: <Clock     className="w-8 h-8" />, color: 'text-indigo-600',  bg: 'bg-indigo-100',  darkBg: 'dark:bg-indigo-900/30',  darkColor: 'dark:text-indigo-400',  gradient: 'from-indigo-500 to-purple-600',   hoverBg: 'group-hover:bg-indigo-600',   hoverText: 'group-hover:text-white' },
-            'penggunaan-sementara': { icon: <Timer     className="w-8 h-8" />, color: 'text-purple-600',  bg: 'bg-purple-100',  darkBg: 'dark:bg-purple-900/30',  darkColor: 'dark:text-purple-400',  gradient: 'from-purple-500 to-violet-600',   hoverBg: 'group-hover:bg-purple-600',   hoverText: 'group-hover:text-white' },
-            'alih-status':          { icon: <RefreshCw className="w-8 h-8" />, color: 'text-teal-600',    bg: 'bg-teal-100',    darkBg: 'dark:bg-teal-900/30',    darkColor: 'dark:text-teal-400',    gradient: 'from-teal-500 to-cyan-600',       hoverBg: 'group-hover:bg-teal-600',     hoverText: 'group-hover:text-white' },
-            'hibah':                { icon: <Gift      className="w-8 h-8" />, color: 'text-orange-600',  bg: 'bg-orange-100',  darkBg: 'dark:bg-orange-900/30',  darkColor: 'dark:text-orange-400',  gradient: 'from-orange-500 to-red-500',      hoverBg: 'group-hover:bg-orange-600',   hoverText: 'group-hover:text-white' },
+            'psp': { icon: <FileText className="w-8 h-8" />, color: 'text-emerald-600', bg: 'bg-emerald-100', darkBg: 'dark:bg-emerald-900/30', darkColor: 'dark:text-emerald-400', gradient: 'from-emerald-500 to-teal-600', hoverBg: 'group-hover:bg-emerald-600', hoverText: 'group-hover:text-white' },
+            'penjualan': { icon: <Hammer className="w-8 h-8" />, color: 'text-amber-600', bg: 'bg-amber-100', darkBg: 'dark:bg-amber-900/30', darkColor: 'dark:text-amber-400', gradient: 'from-amber-500 to-orange-600', hoverBg: 'group-hover:bg-amber-600', hoverText: 'group-hover:text-white' },
+            'sewa': { icon: <Key className="w-8 h-8" />, color: 'text-blue-600', bg: 'bg-blue-100', darkBg: 'dark:bg-blue-900/30', darkColor: 'dark:text-blue-400', gradient: 'from-blue-500 to-indigo-600', hoverBg: 'group-hover:bg-blue-600', hoverText: 'group-hover:text-white' },
+            'penghapusan': { icon: <Trash2 className="w-8 h-8" />, color: 'text-rose-600', bg: 'bg-rose-100', darkBg: 'dark:bg-rose-900/30', darkColor: 'dark:text-rose-400', gradient: 'from-rose-500 to-pink-600', hoverBg: 'group-hover:bg-rose-600', hoverText: 'group-hover:text-white' },
+            'pinjam-pakai': { icon: <Clock className="w-8 h-8" />, color: 'text-indigo-600', bg: 'bg-indigo-100', darkBg: 'dark:bg-indigo-900/30', darkColor: 'dark:text-indigo-400', gradient: 'from-indigo-500 to-purple-600', hoverBg: 'group-hover:bg-indigo-600', hoverText: 'group-hover:text-white' },
+            'penggunaan-sementara': { icon: <Timer className="w-8 h-8" />, color: 'text-purple-600', bg: 'bg-purple-100', darkBg: 'dark:bg-purple-900/30', darkColor: 'dark:text-purple-400', gradient: 'from-purple-500 to-violet-600', hoverBg: 'group-hover:bg-purple-600', hoverText: 'group-hover:text-white' },
+            'alih-status': { icon: <RefreshCw className="w-8 h-8" />, color: 'text-teal-600', bg: 'bg-teal-100', darkBg: 'dark:bg-teal-900/30', darkColor: 'dark:text-teal-400', gradient: 'from-teal-500 to-cyan-600', hoverBg: 'group-hover:bg-teal-600', hoverText: 'group-hover:text-white' },
+            'hibah': { icon: <Gift className="w-8 h-8" />, color: 'text-orange-600', bg: 'bg-orange-100', darkBg: 'dark:bg-orange-900/30', darkColor: 'dark:text-orange-400', gradient: 'from-orange-500 to-red-500', hoverBg: 'group-hover:bg-orange-600', hoverText: 'group-hover:text-white' },
         };
         return map[catId ?? ''] ?? {
             icon: <FileText className="w-8 h-8" />, color: 'text-[#0D5C35]', bg: 'bg-[#EAF2EE]',
@@ -110,6 +114,18 @@ const CategoryPage: React.FC = () => {
             d.title.toLowerCase().includes(searchLocal.toLowerCase()) ||
             d.description.toLowerCase().includes(searchLocal.toLowerCase()))
         : documents;
+
+    /* ── Sort ── */
+    const sortedDocs = (() => {
+        const arr = [...filteredDocs];
+        switch (sortBy) {
+            case 'az': return arr.sort((a, b) => a.title.localeCompare(b.title, 'id'));
+            case 'za': return arr.sort((a, b) => b.title.localeCompare(a.title, 'id'));
+            case 'newest': return arr.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+            case 'oldest': return arr.sort((a, b) => (a.updatedAt?.seconds || 0) - (b.updatedAt?.seconds || 0));
+            default: return arr;
+        }
+    })();
 
     return (
         <div className="min-h-screen bg-[#F4F7F5] dark:bg-[#0d1a12] font-sans pb-24 relative transition-colors duration-300">
@@ -178,7 +194,7 @@ const CategoryPage: React.FC = () => {
 
                 {/* Search lokal + info dokumen */}
                 {!loading && documents.length > 0 && (
-                    <div className="mb-7 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                    <div className="mb-7 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center flex-wrap">
                         <div className="relative flex-1 max-w-sm">
                             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                             <input
@@ -194,9 +210,31 @@ const CategoryPage: React.FC = () => {
                                 </button>
                             )}
                         </div>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 self-center">
+
+                        {/* Sort buttons */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            {([
+                                { key: 'default', label: 'Default' },
+                                { key: 'newest', label: 'Terbaru' },
+                                { key: 'oldest', label: 'Terlama' },
+                                { key: 'az', label: 'A–Z' },
+                                { key: 'za', label: 'Z–A' },
+                            ] as { key: SortKey; label: string }[]).map(s => (
+                                <button key={s.key} onClick={() => setSortBy(s.key)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all
+                                        ${sortBy === s.key
+                                            ? 'bg-[#0D5C35] text-white shadow-md'
+                                            : 'bg-white dark:bg-[#162918] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600 hover:border-[#0D5C35]/40 hover:text-[#0D5C35]'
+                                        }`}>
+                                    {s.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        <p className="text-sm text-slate-500 dark:text-slate-400 self-center whitespace-nowrap">
                             {searchLocal ? (
-                                <><span className="font-bold text-slate-700 dark:text-slate-200">{filteredDocs.length}</span> dari {documents.length} dokumen</>
+                                <><span className="font-bold text-slate-700 dark:text-slate-200">{sortedDocs.length}</span> dari {documents.length} dokumen</>
                             ) : (
                                 <><span className="font-bold text-slate-700 dark:text-slate-200">{documents.length}</span> dokumen ditemukan</>
                             )}
@@ -206,9 +244,9 @@ const CategoryPage: React.FC = () => {
 
                 {loading ? (
                     <SkeletonCategoryGrid />
-                ) : filteredDocs.length > 0 ? (
+                ) : sortedDocs.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-7">
-                        {filteredDocs.map((doc, i) => (
+                        {sortedDocs.map((doc, i) => (
                             <div key={doc.id} onClick={() => navigate(`/detail/${doc.id}`)}
                                 className="cat-card bg-white dark:bg-[#162918] rounded-3xl p-6 md:p-8 border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-2xl hover:-translate-y-2 cursor-pointer transition-all duration-350 group flex flex-col h-full"
                                 style={{ animationDelay: `${i * 70}ms` }}>

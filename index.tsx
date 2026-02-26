@@ -10,6 +10,7 @@ import LoginPage from './src/pages/LoginPage';
 import AdminDashboard from './src/pages/AdminDashboard';
 import ProtectedRoute from './src/components/ProtectedRoute';
 import CategoryPage from './src/pages/CategoryPage';
+import BookmarksPage from './src/pages/BookmarksPage';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -33,6 +34,9 @@ root.render(
 
           {/* Halaman Kategori */}
           <Route path="/category/:categoryId" element={<CategoryPage />} />
+
+          {/* Halaman Favorit */}
+          <Route path="/bookmarks" element={<BookmarksPage />} />
 
           {/* Halaman Admin (Dilindungi Satpam/ProtectedRoute) */}
           <Route

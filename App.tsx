@@ -1,16 +1,9 @@
-// File: src/App.tsx
-// ─── CATATAN INSTALASI ────────────────────────────────────────────────────────
-// 1. npm install react-helmet-async
-// 2. Di main.tsx / index.tsx, bungkus <App /> dengan <HelmetProvider>:
-//    import { HelmetProvider } from 'react-helmet-async';
-//    <HelmetProvider><RouterProvider ... /></HelmetProvider>
-// 3. Di tailwind.config.js, tambahkan: darkMode: 'class'
-// ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from './src/firebase';
 import { Helmet } from 'react-helmet-async';
+import toast, { Toaster } from 'react-hot-toast';
 import {
   Search, FileText, Hammer, Key, Trash2, Clock, RefreshCw,
   Info, Phone, BookOpen, Mail, ArrowUp, Timer, HelpCircle, LogIn,
@@ -19,7 +12,7 @@ import {
   Youtube, Scale, Gift,
   MapPin, ExternalLink, ChevronDown,
   Sparkles, Building2, BarChart3, Layers, MessageSquare, TrendingUp,
-  ArrowRight, Moon, Sun, SlidersHorizontal,
+  ArrowRight, Moon, Sun, SlidersHorizontal, Bookmark,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import KnowledgeCard from './src/components/KnowledgeCard';
@@ -81,6 +74,20 @@ const HERO_ANIM_CSS = `
 .stat-animate { animation: statCountUp 0.6s ease-out forwards; }
 .suggestion-item { animation: suggestionSlide 0.2s ease-out forwards; }
 .cat-filter-item { animation: catFilterSlide 0.25s ease-out forwards; }
+
+@keyframes sunSpin {
+  from { transform: rotate(0deg) scale(1); }
+  50%  { transform: rotate(180deg) scale(1.2); }
+  to   { transform: rotate(360deg) scale(1); }
+}
+@keyframes moonBob {
+  0%, 100% { transform: rotate(-20deg) scale(1); }
+  50%       { transform: rotate(20deg) scale(1.15); }
+}
+.sun-icon  { transition: transform 0.4s ease; }
+.moon-icon { transition: transform 0.4s ease; }
+.dark-toggle:hover .sun-icon  { animation: sunSpin 0.7s ease-in-out; }
+.dark-toggle:hover .moon-icon { animation: moonBob 0.5s ease-in-out; }
 `;
 
 /* ─── SCROLL REVEAL ───────────────────────────────────────────── */
@@ -107,6 +114,7 @@ const FadeInSection: React.FC<{ children: React.ReactNode; delay?: string }> = (
 interface ContentData { id: string; title: string; category: string; description: string; updatedAt?: any; }
 interface FAQData { id: string; question: string; answer: string; }
 interface GuideData { id: string; content: string; }
+interface HistoryItem { id: string; title: string; category: string; description: string; visitedAt: number; }
 
 /* ─── FAQ ACCORDION ───────────────────────────────────────────── */
 const FAQAccordionItem: React.FC<{ faq: FAQData; index: number; isDark: boolean }> = ({ faq, index, isDark }) => {
@@ -167,6 +175,11 @@ const App: React.FC = () => {
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
+  const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
+  const [recentHistory, setRecentHistory] = useState<HistoryItem[]>(() => {
+    try { return JSON.parse(localStorage.getItem('pkn-history') || '[]'); } catch { return []; }
+  });
+  const prevDocIdsRef = useRef<Set<string> | null>(null);
 
   /* ── Dark Mode ── */
   const [isDark, setIsDark] = useState(() => {
@@ -198,16 +211,36 @@ const App: React.FC = () => {
     const qSop = query(collection(db, 'knowledge-base'), orderBy('updatedAt', 'desc'));
     const qFaq = query(collection(db, 'faqs'), orderBy('createdAt', 'desc'));
     const qGuide = query(collection(db, 'guides'), orderBy('updatedAt', 'desc'));
-    const unsubSop = onSnapshot(qSop, snap => { setDocuments(snap.docs.map(d => ({ id: d.id, ...d.data() })) as ContentData[]); setIsLoadingData(false); });
+    const unsubSop = onSnapshot(qSop, snap => {
+      const newDocs = snap.docs.map(d => ({ id: d.id, ...d.data() })) as ContentData[];
+      /* ── Notifikasi dokumen baru (realtime) ── */
+      if (prevDocIdsRef.current !== null) {
+        const added = newDocs.filter(d => !prevDocIdsRef.current!.has(d.id));
+        if (added.length > 0) {
+          toast.success(
+            `🔔 ${added.length} dokumen baru ditambahkan!`,
+            { duration: 6000, style: { borderRadius: '12px', background: '#0D5C35', color: '#fff', fontWeight: 700 } }
+          );
+        }
+      }
+      prevDocIdsRef.current = new Set(newDocs.map(d => d.id));
+      setDocuments(newDocs);
+      setIsLoadingData(false);
+    });
     const unsubFaq = onSnapshot(qFaq, snap => setFaqs(snap.docs.map(d => ({ id: d.id, ...d.data() })) as FAQData[]));
     const unsubGuide = onSnapshot(qGuide, snap => setGuides(snap.docs.map(d => ({ id: d.id, ...d.data() })) as GuideData[]));
+    /* Refresh history when user returns to this tab */
+    const refreshHistory = () => {
+      try { setRecentHistory(JSON.parse(localStorage.getItem('pkn-history') || '[]')); } catch {}
+    };
+    window.addEventListener('focus', refreshHistory);
     const onScroll = () => {
       setIsScrolled(window.scrollY > 50);
       if (window.scrollY > 50 && isMenuOpen) setIsMenuOpen(false);
       setShowSuggestions(false);
     };
     window.addEventListener('scroll', onScroll);
-    return () => { unsubSop(); unsubFaq(); unsubGuide(); window.removeEventListener('scroll', onScroll); };
+    return () => { unsubSop(); unsubFaq(); unsubGuide(); window.removeEventListener('scroll', onScroll); window.removeEventListener('focus', refreshHistory); };
   }, [isMenuOpen]);
 
   /* ── Pencarian ── */
@@ -237,12 +270,16 @@ const App: React.FC = () => {
 
   const filteredTableDocs = useMemo(() => {
     const q = activeSearch.toLowerCase();
+    const bmIds = showBookmarkedOnly
+      ? (() => { try { return new Set<string>(JSON.parse(localStorage.getItem('pkn-bookmarks') || '[]')); } catch { return new Set<string>(); } })()
+      : null;
     return documents.filter(d => {
       const matchSearch = !q || d.title.toLowerCase().includes(q) || d.category.toLowerCase().includes(q);
       const matchCat = selectedCategoryFilter === 'all' || d.category === selectedCategoryFilter;
-      return matchSearch && matchCat;
+      const matchBookmark = !showBookmarkedOnly || (bmIds?.has(d.id) ?? false);
+      return matchSearch && matchCat && matchBookmark;
     });
-  }, [activeSearch, selectedCategoryFilter, documents]);
+  }, [activeSearch, selectedCategoryFilter, documents, showBookmarkedOnly]);
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -293,7 +330,7 @@ const App: React.FC = () => {
   };
   const isNewDocument = (ts: any) => {
     if (!ts) return false;
-    return Math.ceil(Math.abs(Date.now() - ts.seconds * 1000) / 86400000) <= 30;
+    return Math.ceil(Math.abs(Date.now() - ts.seconds * 1000) / 86400000) <= 7;
   };
 
   /* ══════════════════════════════════════════════════════════════
@@ -349,6 +386,40 @@ const App: React.FC = () => {
               </div>
             ))}
         </div>
+
+        {/* ── Terakhir Dibaca ── */}
+        {recentHistory.length > 0 && (
+          <div className="mt-10 md:mt-12">
+            <div className="flex items-center justify-between mb-4 md:mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-1 h-5 bg-[#D4AF37] rounded-full" />
+                <h3 className="font-black text-white text-base uppercase tracking-wider drop-shadow-sm">Terakhir Dibaca</h3>
+                <span className="text-xs font-bold text-white/50 bg-white/10 px-2 py-0.5 rounded-full">{recentHistory.length}</span>
+              </div>
+              <button
+                onClick={() => { try { localStorage.removeItem('pkn-history'); setRecentHistory([]); } catch {} }}
+                className="text-white/40 hover:text-white/70 text-xs font-medium transition-colors"
+              >Hapus semua</button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+              {recentHistory.map((item, i) => (
+                <div key={item.id} onClick={() => handleDocClick(item.id)}
+                  className="group bg-white/8 hover:bg-white/15 dark:bg-white/5 dark:hover:bg-white/10 border border-white/10 hover:border-[#D4AF37]/30 rounded-2xl p-4 cursor-pointer transition-all duration-300 hover:-translate-y-1"
+                  style={{ animationDelay: `${i * 60}ms` }}>
+                  <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-white/10 text-white/60 mb-2 truncate max-w-full">
+                    {item.category.replace(/-/g, ' ')}
+                  </span>
+                  <h4 className="font-bold text-white/90 group-hover:text-[#D4AF37] transition-colors text-sm line-clamp-2 leading-snug mb-1">
+                    {item.title}
+                  </h4>
+                  <p className="text-white/40 text-[10px]">
+                    {new Date(item.visitedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       <FadeInSection delay="delay-100">
@@ -368,6 +439,17 @@ const App: React.FC = () => {
               <List className="w-5 h-5 text-[#0D5C35]" />
               <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Daftar Seluruh Dokumen</h3>
               <span className="text-xs font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full">{filteredTableDocs.length}</span>
+              {/* Bookmark filter toggle */}
+              <button
+                onClick={() => { setShowBookmarkedOnly(p => !p); setCurrentPage(1); }}
+                title={showBookmarkedOnly ? 'Tampilkan semua dokumen' : 'Tampilkan dokumen tersimpan'}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-all
+                  ${showBookmarkedOnly
+                    ? 'bg-[#D4AF37] text-slate-900 border-[#D4AF37]/60 shadow-sm'
+                    : 'bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-[#D4AF37]/50 hover:text-[#D4AF37]'
+                  }`}>
+                {showBookmarkedOnly ? '🔖' : '🔖'} {showBookmarkedOnly ? 'Favorit' : 'Favorit'}
+              </button>
               {activeSearch && (
                 <span className="text-xs font-bold text-[#0D5C35] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700/30 px-2 py-0.5 rounded-full flex items-center gap-1">
                   Filter: "{activeSearch}"
@@ -425,6 +507,9 @@ const App: React.FC = () => {
                           </span>
                           {isNewDocument(doc.updatedAt) && (
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-700/30 animate-pulse">Baru</span>
+                          )}
+                          {(() => { try { const bm: string[] = JSON.parse(localStorage.getItem('pkn-bookmarks') || '[]'); return bm.includes(doc.id); } catch { return false; } })() && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#D4AF37]/15 text-[#8a7020] dark:text-[#D4AF37] border border-[#D4AF37]/30">🔖 Favorit</span>
                           )}
                         </div>
                         <h4 className="text-slate-900 dark:text-slate-100 font-bold text-sm md:text-base mb-1 group-hover:text-[#0D5C35] dark:group-hover:text-emerald-400 transition-colors line-clamp-2">{doc.title}</h4>
@@ -659,6 +744,7 @@ const App: React.FC = () => {
       </Helmet>
 
       <style dangerouslySetInnerHTML={{ __html: HERO_ANIM_CSS }} />
+      <Toaster position="top-right" toastOptions={{ style: { borderRadius: '12px', fontWeight: 600 } }} />
 
       {/* ── NAVBAR ── */}
       <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out ${isScrolled ? 'bg-[#0A492A]/95 backdrop-blur-md shadow-lg py-3' : 'bg-transparent py-5'}`}>
@@ -679,18 +765,27 @@ const App: React.FC = () => {
                   <button key={item.id} onClick={() => scrollToSection(item.id)} className="text-white/90 hover:text-[#D4AF37] transition-colors">{item.label}</button>
                 ))}
               </div>
+              <button onClick={() => navigate('/bookmarks')}
+                className="flex items-center gap-1.5 text-white/80 hover:text-[#D4AF37] transition-colors text-sm font-semibold uppercase tracking-wider"
+                title="Dokumen Favorit">
+                <Bookmark className="w-4 h-4" />
+              </button>
               {/* Dark mode toggle */}
               <button
                 onClick={() => setIsDark(p => !p)}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all hover:scale-110"
+                className="dark-toggle relative p-2.5 rounded-full bg-white/10 hover:bg-white/25 text-white border border-white/20 hover:border-white/40 transition-all hover:scale-110 hover:shadow-lg hover:shadow-white/10"
                 aria-label={isDark ? 'Mode Terang' : 'Mode Gelap'}
-                title={isDark ? 'Mode Terang' : 'Mode Gelap'}
+                title={isDark ? 'Aktifkan Mode Terang' : 'Aktifkan Mode Gelap'}
               >
-                {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                {isDark
+                  ? <Sun className="sun-icon w-4 h-4 text-[#D4AF37]" />
+                  : <Moon className="moon-icon w-4 h-4 text-white/90" />
+                }
               </button>
               <button onClick={() => navigate('/login')}
-                className="flex items-center px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold text-white border border-white/20 transition-all">
-                <LogIn className="w-3 h-3 mr-1.5" /> Admin
+                className="group flex items-center gap-2 px-4 py-2 bg-[#D4AF37] hover:bg-[#B5952F] rounded-full text-xs font-black text-slate-900 shadow-md shadow-[#D4AF37]/30 hover:shadow-[#D4AF37]/50 hover:scale-105 transition-all duration-300">
+                <LogIn className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                <span>Admin</span>
               </button>
             </div>
 
@@ -698,10 +793,13 @@ const App: React.FC = () => {
             <div className="md:hidden flex items-center gap-2">
               <button
                 onClick={() => setIsDark(p => !p)}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all"
+                className="dark-toggle p-2.5 rounded-full bg-white/10 hover:bg-white/25 text-white border border-white/20 transition-all"
                 aria-label="Toggle dark mode"
               >
-                {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                {isDark
+                  ? <Sun className="sun-icon w-4 h-4 text-[#D4AF37]" />
+                  : <Moon className="moon-icon w-4 h-4" />
+                }
               </button>
               <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-white p-2 hover:bg-white/10 rounded-lg">
                 {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}

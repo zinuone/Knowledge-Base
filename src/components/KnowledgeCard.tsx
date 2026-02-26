@@ -13,8 +13,9 @@ const KnowledgeCard: React.FC<KnowledgeCardProps> = ({ title, description, icon,
   return (
     <div
       className="
-        group bg-white p-7 rounded-2xl border border-slate-200
-        shadow-sm hover:shadow-2xl hover:border-[#D4AF37]/30 hover:-translate-y-2
+        group bg-white dark:bg-[#162918] p-7 rounded-2xl
+        border border-slate-200 dark:border-slate-700
+        shadow-sm hover:shadow-2xl hover:border-[#D4AF37]/30 dark:hover:border-[#D4AF37]/25 hover:-translate-y-2
         transition-all duration-400 cursor-pointer overflow-hidden relative
         h-full flex flex-col justify-between
       "
@@ -43,26 +44,26 @@ const KnowledgeCard: React.FC<KnowledgeCardProps> = ({ title, description, icon,
           {icon}
         </div>
 
-        {/* Title — sebelumnya pakai text-kemenkeu-green (broken) */}
+        {/* Title */}
         <h3 className="
-          text-lg font-extrabold text-slate-900 mb-2.5 leading-tight
-          group-hover:text-[#0D5C35] transition-colors duration-200
+          text-lg font-extrabold text-slate-900 dark:text-slate-100 mb-2.5 leading-tight
+          group-hover:text-[#0D5C35] dark:group-hover:text-emerald-400 transition-colors duration-200
         ">
           {title}
         </h3>
 
         {/* Deskripsi */}
-        <p className="text-slate-500 leading-relaxed text-sm">
+        <p className="text-slate-500 dark:text-slate-400 leading-relaxed text-sm">
           {description}
         </p>
       </div>
 
-      {/* ── Footer — sebelumnya pakai text-kemenkeu-green & Font Awesome icon (broken) ── */}
+      {/* ── Footer ── */}
       <div className="
-        mt-6 pt-4 border-t border-slate-100
+        mt-6 pt-4 border-t border-slate-100 dark:border-slate-700
         flex items-center justify-between
         opacity-60 group-hover:opacity-100
-        text-[#0D5C35] group-hover:text-[#D4AF37]
+        text-[#0D5C35] dark:text-emerald-400 group-hover:text-[#D4AF37] dark:group-hover:text-[#D4AF37]
         transition-all duration-300
       ">
         <span className="text-[10px] font-black uppercase tracking-[0.18em]">
