@@ -37,27 +37,27 @@ const KnowledgeCard: React.FC<KnowledgeCardProps> = ({ title, description, icon,
         pointer-events-none
       " />
       {/* Ring 2 — sedang */}
-      <div className="
+      {/* <div className="
         absolute -top-4 -right-4 w-24 h-24 rounded-full
         border border-[#D4AF37]/8 group-hover:border-[#D4AF37]/20
         transition-all duration-500 group-hover:scale-105
         pointer-events-none
-      " />
+      " /> */}
       {/* Ring 3 — kecil, lebih visible */}
-      <div className="
+      {/* <div className="
         absolute top-0 right-0 w-12 h-12 rounded-bl-full
         bg-gradient-to-bl from-[#D4AF37]/10 to-transparent
         group-hover:from-[#D4AF37]/20
         transition-all duration-400
         pointer-events-none
-      " />
+      " /> */}
       {/* Ring 4 — bottom-left accent */}
-      <div className="
+      {/* <div className="
         absolute -bottom-8 -left-8 w-24 h-24 rounded-full
         bg-slate-50 dark:bg-slate-800/40 group-hover:bg-[#EAF2EE] dark:group-hover:bg-[#0D5C35]/10
         transition-all duration-500
         pointer-events-none
-      " />
+      " /> */}
 
       {/* ── Konten atas ── */}
       <div className="flex-grow relative z-10">
