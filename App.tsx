@@ -1193,7 +1193,7 @@ const App: React.FC = () => {
             </div>
 
             {/* Ctrl+K hint */}
-            <div className="mt-3 flex justify-center">
+            {/* <div className="mt-3 flex justify-center">
               <button onClick={() => navigate('/search')}
                 className="kbd-pill inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/8 border border-white/15 text-white/45 hover:text-white/80 hover:bg-white/15 transition-all text-[11px] font-medium">
                 <Command className="w-3 h-3" />
@@ -1201,7 +1201,7 @@ const App: React.FC = () => {
                 <span className="text-white/25 mx-0.5">·</span>
                 <span>Buka pencarian lengkap</span>
               </button>
-            </div>
+            </div> */}
 
             <div className="mt-10">
               <a href="https://www.djkn.kemenkeu.go.id/kpknl-kendari/kontak" target="_blank" rel="noopener noreferrer"
