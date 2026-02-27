@@ -211,6 +211,7 @@ const App: React.FC = () => {
   const [faqs, setFaqs] = useState<FAQData[]>([]);
   const [guides, setGuides] = useState<GuideData[]>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const setMenuOpen = (val: boolean) => { isMenuOpenRef.current = val; setIsMenuOpen(val); };
   const [isScrolled, setIsScrolled] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -221,6 +222,7 @@ const App: React.FC = () => {
   });
   const [activeDocTab, setActiveDocTab] = useState<'popular' | 'newest' | 'new'>('popular');
   const prevDocIdsRef = useRef<Set<string> | null>(null);
+  const isMenuOpenRef = useRef(false);
   const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(-1);
 
   /* ── Dark Mode ── */
@@ -279,12 +281,12 @@ const App: React.FC = () => {
     window.addEventListener('focus', refreshHistory);
     const onScroll = () => {
       setIsScrolled(window.scrollY > 50);
-      if (window.scrollY > 50 && isMenuOpen) setIsMenuOpen(false);
+      if (window.scrollY > 50 && isMenuOpenRef.current) setMenuOpen(false);
       setShowSuggestions(false);
     };
     window.addEventListener('scroll', onScroll);
     return () => { unsubSop(); unsubFaq(); unsubGuide(); window.removeEventListener('scroll', onScroll); window.removeEventListener('focus', refreshHistory); };
-  }, [isMenuOpen]);
+  }, []); /* listener sekali pasang, ref selalu fresh */
 
   /* ── Pencarian ── */
   const liveSuggestions = useMemo(() => {
@@ -315,7 +317,7 @@ const App: React.FC = () => {
   /* ── Helpers ── */
   const handleCategoryClick = (id: string) => navigate(`/category/${id}`);
   const handleDocClick = (id: string) => { setShowSuggestions(false); navigate(`/detail/${id}`); };
-  const scrollToSection = (id: string) => { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); setIsMenuOpen(false); };
+  const scrollToSection = (id: string) => { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); setMenuOpen(false); };
   const handleScrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
   const handleSearchAction = () => {
@@ -992,7 +994,7 @@ const App: React.FC = () => {
                   : <Moon className="moon-icon w-4 h-4" />
                 }
               </button>
-              <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-white p-2 hover:bg-white/10 rounded-lg">
+              <button onClick={() => setMenuOpen(!isMenuOpen)} className="text-white p-2 hover:bg-white/10 rounded-lg">
                 {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
             </div>
@@ -1013,11 +1015,11 @@ const App: React.FC = () => {
                 </button>
               ))}
               <div className="mt-2 pt-2 border-t border-white/10">
-                <button onClick={() => { setIsMenuOpen(false); navigate('/search'); }}
+                <button onClick={() => { setMenuOpen(false); navigate('/search'); }}
                   className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white/90 font-semibold flex items-center gap-3 transition-all">
                   <Search className="w-4 h-4 opacity-70" /> Pencarian
                 </button>
-                <button onClick={() => { setIsMenuOpen(false); navigate('/bookmarks'); }}
+                <button onClick={() => { setMenuOpen(false); navigate('/bookmarks'); }}
                   className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-[#D4AF37] font-semibold flex items-center gap-3 transition-all">
                   <Bookmark className="w-4 h-4 opacity-70" /> Dokumen Favorit
                 </button>
