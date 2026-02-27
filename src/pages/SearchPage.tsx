@@ -7,7 +7,7 @@ import {
     Search, X, Home, ChevronRight, Eye, Calendar, Tag,
     FileText, Filter, ArrowLeft, SlidersHorizontal, Clock,
     ArrowRight, Sparkles,
-} from 'lucide-react';
+ ChevronLeft } from 'lucide-react';
 
 /* ─── CSS ──────────────────────────────────────────────────────── */
 const PAGE_CSS = `
@@ -91,6 +91,8 @@ const SearchPage: React.FC = () => {
     const [filterCat, setFilterCat] = useState(searchParams.get('cat') || 'all');
     const [sortBy, setSortBy] = useState<'relevance' | 'newest' | 'views'>('relevance');
     const [showFilters, setShowFilters] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const RESULTS_PER_PAGE = 10;
 
     /* Dark mode sync */
     useEffect(() => {
@@ -126,6 +128,9 @@ const SearchPage: React.FC = () => {
         }, 400);
         return () => clearTimeout(timer);
     }, [inputVal]);
+
+    /* Reset halaman saat query/filter/sort berubah */
+    useEffect(() => { setCurrentPage(1); }, [activeQuery, filterCat, sortBy]);
 
     const doSearch = useCallback((q: string, cat: string) => {
         const p: Record<string, string> = {};
@@ -177,6 +182,9 @@ const SearchPage: React.FC = () => {
     }, [allDocs, activeQuery, filterCat, sortBy]);
 
     const hasQuery = activeQuery || filterCat !== 'all';
+
+    const totalPages = Math.ceil(results.length / RESULTS_PER_PAGE);
+    const paginatedResults = results.slice((currentPage - 1) * RESULTS_PER_PAGE, currentPage * RESULTS_PER_PAGE);
 
     /* ── RENDER ── */
     return (
@@ -292,7 +300,7 @@ const SearchPage: React.FC = () => {
                                 </p>
                             )}
                             <span className="text-xs font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">
-                                {results.length} dokumen
+                                {results.length} dokumen{totalPages > 1 ? ` · hal. ${currentPage}/${totalPages}` : ''}
                             </span>
                         </div>
                         {activeQuery && (
@@ -363,7 +371,7 @@ const SearchPage: React.FC = () => {
                 {/* Results list */}
                 {!loading && results.length > 0 && (
                     <div className="space-y-4">
-                        {results.map((doc, i) => {
+                        {paginatedResults.map((doc, i) => {
                             const dateStr = doc.updatedAt?.seconds
                                 ? new Date(doc.updatedAt.seconds * 1000).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
                                 : '';
@@ -422,6 +430,49 @@ const SearchPage: React.FC = () => {
                     </div>
                 )}
             </main>
+
+            {/* ── Pagination ── */}
+            {!loading && totalPages > 1 && (
+                <div className="flex flex-col items-center gap-3 py-6 border-t border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-2 flex-wrap justify-center">
+                        <button
+                            onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                            disabled={currentPage === 1}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold bg-white dark:bg-[#162918] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#0D5C35]/40 hover:text-[#0D5C35] dark:hover:text-emerald-400 disabled:opacity-35 disabled:cursor-not-allowed transition-all shadow-sm">
+                            <ChevronLeft className="w-4 h-4" /> Sebelumnya
+                        </button>
+                        <div className="flex items-center gap-1.5">
+                            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                                let page: number;
+                                if (totalPages <= 7) page = i + 1;
+                                else if (currentPage <= 4) page = i + 1;
+                                else if (currentPage >= totalPages - 3) page = totalPages - 6 + i;
+                                else page = currentPage - 3 + i;
+                                return (
+                                    <button key={page}
+                                        onClick={() => { setCurrentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                        className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${currentPage === page
+                                            ? 'bg-[#0D5C35] text-white shadow-md shadow-emerald-200/50 dark:shadow-emerald-900/30 scale-110'
+                                            : 'bg-white dark:bg-[#162918] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#0D5C35]/40 hover:text-[#0D5C35] dark:hover:text-emerald-400'
+                                        }`}>
+                                        {page}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <button
+                            onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                            disabled={currentPage === totalPages}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold bg-white dark:bg-[#162918] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#0D5C35]/40 hover:text-[#0D5C35] dark:hover:text-emerald-400 disabled:opacity-35 disabled:cursor-not-allowed transition-all shadow-sm">
+                            Berikutnya <ArrowRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+                        Halaman <span className="font-black text-slate-700 dark:text-slate-200">{currentPage}</span> dari <span className="font-black text-slate-700 dark:text-slate-200">{totalPages}</span>
+                        <span className="mx-1.5 opacity-40">·</span>{results.length} hasil total
+                    </p>
+                </div>
+            )}
 
             {/* Bottom CTA */}
             <div className="border-t border-slate-200 dark:border-slate-700 py-8 text-center">

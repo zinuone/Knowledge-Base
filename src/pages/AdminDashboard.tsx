@@ -200,7 +200,7 @@ const AdminDashboard: React.FC = () => {
     const [pendingCloseModal, setPendingCloseModal] = useState<'sop' | 'faq' | 'guide' | null>(null);
 
     const [confirmModal, setConfirmModal] = useState<{
-        isOpen: boolean; type: 'delete' | 'logout' | 'unsaved';
+        isOpen: boolean; type: 'delete' | 'logout' | 'unsaved' | 'info';
         title: string; message: string; onConfirm: () => void;
     }>({ isOpen: false, type: 'delete', title: '', message: '', onConfirm: () => { } });
 
@@ -212,6 +212,7 @@ const AdminDashboard: React.FC = () => {
     const [faqForm, setFaqForm] = useState({ question: '', answer: '' });
     const [guideForm, setGuideForm] = useState({ content: '' });
     const [isSplitView, setIsSplitView] = useState(false);
+    const [tagInput, setTagInput] = useState('');
 
     /* ── Current admin user info ── */
     const adminEmail = auth.currentUser?.email ?? 'Admin';
@@ -357,15 +358,25 @@ const AdminDashboard: React.FC = () => {
         });
     };
 
-    const handleEditSop = (i: ContentData) => { setEditingId(i.id); setFormData({ ...i, imageBase64: i.imageBase64 || '', pdfUrl: i.pdfUrl || '', videoUrl: i.videoUrl || '', tagsRaw: (i.tags || []).join(', ') }); setSopModalTab('editor'); setIsDirty(false); setIsModalOpen(true); };
+    const handleEditSop = (i: ContentData) => { setEditingId(i.id); setFormData({ ...i, imageBase64: i.imageBase64 || '', pdfUrl: i.pdfUrl || '', videoUrl: i.videoUrl || '', tagsRaw: (i.tags || []).join(', ') }); setSopModalTab('editor'); setIsDirty(false); setTagInput(''); setIsModalOpen(true); };
     const handleEditFaq = (i: FAQData) => { setEditingId(i.id); setFaqForm({ ...i }); setIsDirty(false); setIsFaqModalOpen(true); };
     const handleEditGuide = (i: GuideData) => { setEditingId(i.id); setGuideForm({ content: i.content }); setIsDirty(false); setIsGuideModalOpen(true); };
-    const handleAddSop = () => { setEditingId(null); setFormData({ ...emptyForm }); setSopModalTab('editor'); setIsSplitView(false); setIsDirty(false); setIsModalOpen(true); };
+    const handleAddSop = () => { setEditingId(null); setFormData({ ...emptyForm }); setSopModalTab('editor'); setIsSplitView(false); setIsDirty(false); setTagInput(''); setIsModalOpen(true); };
     const handleAddFaq = () => { setEditingId(null); setFaqForm({ question: '', answer: '' }); setIsDirty(false); setIsFaqModalOpen(true); };
     const handleAddGuide = () => { setEditingId(null); setGuideForm({ content: '' }); setIsDirty(false); setIsGuideModalOpen(true); };
 
     const handleSaveSop = async (e: React.FormEvent) => {
-        e.preventDefault(); setIsSaving(true);
+        e.preventDefault();
+        /* ── Validasi form ── */
+        if (!formData.title.trim()) { toast.error('⚠️ Judul dokumen tidak boleh kosong.'); return; }
+        if (formData.title.trim().length < 5) { toast.error('⚠️ Judul minimal 5 karakter.'); return; }
+        if (!formData.description.trim()) { toast.error('⚠️ Deskripsi tidak boleh kosong.'); return; }
+        if (formData.description.trim().length < 10) { toast.error('⚠️ Deskripsi minimal 10 karakter.'); return; }
+        if (!formData.content.trim()) { toast.error('⚠️ Isi dokumen tidak boleh kosong.'); return; }
+        if (formData.content.trim().length < 20) { toast.error('⚠️ Isi dokumen minimal 20 karakter.'); return; }
+        if (formData.pdfUrl && !/^https?:\/\/.+/.test(formData.pdfUrl.trim())) { toast.error('⚠️ URL PDF tidak valid. Harus dimulai https://'); return; }
+        if (formData.videoUrl && !/^https?:\/\/.+/.test(formData.videoUrl.trim())) { toast.error('⚠️ URL Video tidak valid. Harus dimulai https://'); return; }
+        setIsSaving(true);
         try {
             const tags = formData.tagsRaw
                 ? formData.tagsRaw.split(',').map((t: string) => t.trim()).filter(Boolean)
@@ -383,7 +394,12 @@ const AdminDashboard: React.FC = () => {
     };
 
     const handleSaveFaq = async (e: React.FormEvent) => {
-        e.preventDefault(); setIsSaving(true);
+        e.preventDefault();
+        if (!faqForm.question.trim()) { toast.error('⚠️ Pertanyaan tidak boleh kosong.'); return; }
+        if (faqForm.question.trim().length < 10) { toast.error('⚠️ Pertanyaan minimal 10 karakter.'); return; }
+        if (!faqForm.answer.trim()) { toast.error('⚠️ Jawaban tidak boleh kosong.'); return; }
+        if (faqForm.answer.trim().length < 10) { toast.error('⚠️ Jawaban minimal 10 karakter.'); return; }
+        setIsSaving(true);
         try {
             const p: Promise<void> = editingId
                 ? updateDoc(doc(db, 'faqs', editingId), { ...faqForm, createdAt: serverTimestamp() })
@@ -809,6 +825,21 @@ const AdminDashboard: React.FC = () => {
                                                         <td className="px-5 py-4 text-center">
                                                             <div className="flex justify-center gap-2">
                                                                 <button onClick={() => handleEditSop(item)} className="p-2.5 text-amber-600 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-500 hover:text-white rounded-xl border border-amber-100 dark:border-amber-700/30 transition-all" title="Edit"><Edit className="w-4 h-4" /></button>
+                                                                <button
+                                                                    onClick={() => setConfirmModal({
+                                                                        isOpen: true, type: 'info',
+                                                                        title: 'Reset Statistik?',
+                                                                        message: `Reset views, likes & dislikes untuk "${item.title}" menjadi 0?`,
+                                                                        onConfirm: async () => {
+                                                                            await updateDoc(doc(db, 'knowledge-base', item.id), { views: 0, likes: 0, dislikes: 0 });
+                                                                            toast.success('✅ Statistik berhasil direset!');
+                                                                            setConfirmModal(p => ({ ...p, isOpen: false }));
+                                                                        }
+                                                                    })}
+                                                                    className="p-2.5 text-blue-600 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-500 hover:text-white rounded-xl border border-blue-100 dark:border-blue-700/30 transition-all"
+                                                                    title="Reset Statistik">
+                                                                    <RefreshCw className="w-4 h-4" />
+                                                                </button>
                                                                 <button onClick={() => confirmDelete('knowledge-base', item.id)} className="p-2.5 text-rose-600 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-500 hover:text-white rounded-xl border border-rose-100 dark:border-rose-700/30 transition-all" title="Hapus"><Trash2 className="w-4 h-4" /></button>
                                                             </div>
                                                         </td>
@@ -946,7 +977,7 @@ const AdminDashboard: React.FC = () => {
                 MODALS
             ══════════════════════════════════════════════════════════ */}
 
-            {/* Konfirmasi (delete / logout / unsaved) */}
+            {/* Konfirmasi (delete / logout / unsaved / info) */}
             {confirmModal.isOpen && (
                 <div className="fixed inset-0 bg-slate-900/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-white dark:bg-[#162918] rounded-3xl w-full max-w-sm p-7 md:p-8 shadow-2xl dark:border dark:border-slate-700">
@@ -954,8 +985,11 @@ const AdminDashboard: React.FC = () => {
                             <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mb-5 shadow-inner
                                 ${confirmModal.type === 'delete' ? 'bg-rose-50 text-rose-500 border-4 border-rose-100'
                                     : confirmModal.type === 'unsaved' ? 'bg-amber-50 text-amber-500 border-4 border-amber-100'
-                                        : 'bg-amber-50 text-amber-500 border-4 border-amber-100'}`}>
-                                {confirmModal.type === 'unsaved' ? <AlertCircle className="w-8 h-8 md:w-10 md:h-10" /> : <AlertTriangle className="w-8 h-8 md:w-10 md:h-10" />}
+                                        : confirmModal.type === 'info' ? 'bg-blue-50 text-blue-500 border-4 border-blue-100'
+                                            : 'bg-amber-50 text-amber-500 border-4 border-amber-100'}`}>
+                                {confirmModal.type === 'unsaved' ? <AlertCircle className="w-8 h-8 md:w-10 md:h-10" />
+                                    : confirmModal.type === 'info' ? <RefreshCw className="w-8 h-8 md:w-10 md:h-10" />
+                                        : <AlertTriangle className="w-8 h-8 md:w-10 md:h-10" />}
                             </div>
                             <h3 className="text-xl md:text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">{confirmModal.title}</h3>
                             <p className="text-slate-500 dark:text-slate-400 mb-7 leading-relaxed font-medium text-sm md:text-base">{confirmModal.message}</p>
@@ -968,8 +1002,12 @@ const AdminDashboard: React.FC = () => {
                                     className={`flex-1 py-3 text-white font-bold rounded-xl shadow-lg transition-all
                                     ${confirmModal.type === 'delete' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
                                             : confirmModal.type === 'unsaved' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'
-                                                : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'}`}>
-                                    {confirmModal.type === 'delete' ? 'Ya, Hapus' : confirmModal.type === 'unsaved' ? 'Buang Perubahan' : 'Ya, Keluar'}
+                                                : confirmModal.type === 'info' ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
+                                                    : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'}`}>
+                                    {confirmModal.type === 'delete' ? 'Ya, Hapus'
+                                        : confirmModal.type === 'unsaved' ? 'Buang Perubahan'
+                                            : confirmModal.type === 'info' ? 'Ya, Reset'
+                                                : 'Ya, Keluar'}
                                 </button>
                             </div>
                         </div>
@@ -1048,23 +1086,60 @@ const AdminDashboard: React.FC = () => {
 
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                                        <Tag className="w-3.5 h-3.5" /> Tags / Label <span className="text-slate-400 normal-case font-normal">(Opsional — pisahkan dengan koma)</span>
+                                        <Tag className="w-3.5 h-3.5" /> Tags / Label
+                                        <span className="text-slate-400 normal-case font-normal text-[10px] ml-1">(Opsional — tekan Enter atau , untuk menambah)</span>
                                     </label>
-                                    <input type="text" placeholder="Contoh: formulir, surat, batas-waktu, permohonan"
-                                        className="w-full p-3.5 border border-slate-200 dark:border-slate-600 dark:bg-[#0f1f16] dark:text-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-medium bg-slate-50 focus:bg-white dark:focus:bg-[#0f1f16]"
-                                        value={formData.tagsRaw} onChange={e => { setFormData(p => ({ ...p, tagsRaw: e.target.value })); setIsDirty(true); }} />
-                                    {formData.tagsRaw && (
-                                        <div className="flex flex-wrap gap-1.5 pt-1">
-                                            {formData.tagsRaw.split(',').map(t => t.trim()).filter(Boolean).map(tag => (
-                                                <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
-                                                    <Tag className="w-3 h-3" />{tag}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
+                                    {/* ── Chip input ── */}
+                                    <div
+                                        className="min-h-[46px] w-full flex flex-wrap gap-1.5 p-2.5 border border-slate-200 dark:border-slate-600 rounded-xl bg-slate-50 dark:bg-[#0f1f16] focus-within:ring-2 focus-within:ring-[#0D5C35] focus-within:bg-white dark:focus-within:bg-[#0f1f16] transition-all cursor-text"
+                                        onClick={() => document.getElementById('tag-chip-input')?.focus()}>
+                                        {formData.tagsRaw.split(',').map(t => t.trim()).filter(Boolean).map(tag => (
+                                            <span key={tag} className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-bold bg-[#0D5C35]/10 dark:bg-emerald-900/25 text-[#0D5C35] dark:text-emerald-400 border border-[#0D5C35]/20 dark:border-emerald-700/30">
+                                                <Tag className="w-2.5 h-2.5" />{tag}
+                                                <button type="button"
+                                                    onClick={e => {
+                                                        e.stopPropagation();
+                                                        const newTags = formData.tagsRaw.split(',').map(t => t.trim()).filter(t => t && t !== tag).join(', ');
+                                                        setFormData(p => ({ ...p, tagsRaw: newTags }));
+                                                        setIsDirty(true);
+                                                    }}
+                                                    className="w-4 h-4 rounded-full bg-[#0D5C35]/20 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center transition-colors ml-0.5">
+                                                    <X className="w-2.5 h-2.5" />
+                                                </button>
+                                            </span>
+                                        ))}
+                                        <input
+                                            id="tag-chip-input"
+                                            type="text"
+                                            placeholder={formData.tagsRaw ? '' : 'Ketik tag lalu tekan Enter…'}
+                                            className="flex-1 min-w-[140px] bg-transparent outline-none text-sm text-slate-700 dark:text-slate-200 placeholder:text-slate-400 font-medium py-0.5"
+                                            value={tagInput}
+                                            onChange={e => setTagInput(e.target.value.replace(',', ''))}
+                                            onKeyDown={e => {
+                                                if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
+                                                    e.preventDefault();
+                                                    const newTag = tagInput.trim();
+                                                    const existing = formData.tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
+                                                    if (!existing.includes(newTag)) {
+                                                        setFormData(p => ({ ...p, tagsRaw: [...existing, newTag].join(', ') }));
+                                                        setIsDirty(true);
+                                                    }
+                                                    setTagInput('');
+                                                }
+                                                if (e.key === 'Backspace' && !tagInput) {
+                                                    const tags = formData.tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
+                                                    if (tags.length > 0) {
+                                                        setFormData(p => ({ ...p, tagsRaw: tags.slice(0, -1).join(', ') }));
+                                                        setIsDirty(true);
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 dark:text-slate-500">Tekan <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[9px] font-bold">Enter</kbd> atau <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[9px] font-bold">,</kbd> untuk menambah · <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[9px] font-bold">Backspace</kbd> untuk hapus terakhir</p>
                                 </div>
 
-                                {/* ── Editor / Preview Tab ── */}
+                            {/* ── Editor / Preview Tab ── */}
                                 <div className="space-y-1.5">
                                     <div className="flex items-center justify-between">
                                         <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Isi Dokumen (Markdown)</label>

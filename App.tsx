@@ -13,7 +13,6 @@ import {
   MapPin, ExternalLink, ChevronDown,
   Sparkles, Building2, BarChart3, Layers, MessageSquare, TrendingUp,
   ArrowRight, Moon, Sun, SlidersHorizontal, Bookmark,
-  Divide,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import KnowledgeCard from './src/components/KnowledgeCard';

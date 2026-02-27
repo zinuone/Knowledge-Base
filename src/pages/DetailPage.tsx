@@ -173,7 +173,7 @@ const DetailPage: React.FC = () => {
     setHasVoted(false);
     setVoteType(null);
     try {
-      const saved = sessionStorage.getItem(`vote_${id}`);
+      const saved = localStorage.getItem(`pkn-vote-${id}`);
       if (saved === 'like' || saved === 'dislike') {
         setHasVoted(true);
         setVoteType(saved);
@@ -248,7 +248,7 @@ const DetailPage: React.FC = () => {
       });
       setHasVoted(true);
       setVoteType(type);
-      try { sessionStorage.setItem(`vote_${id}`, type); } catch { }
+      try { localStorage.setItem(`pkn-vote-${id}`, type); } catch { }
       toast.success('Terima kasih atas masukan Anda!', { id: toastId });
     } catch {
       toast.error('Gagal mengirim masukan.', { id: toastId });
