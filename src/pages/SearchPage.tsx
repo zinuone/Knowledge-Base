@@ -193,7 +193,7 @@ const SearchPage: React.FC = () => {
 
                     <div className="flex items-center gap-2 mb-2">
                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 border border-white/15 rounded-full text-xs font-bold text-white/70 uppercase tracking-wider">
-                            <SearchIcon className="w-3.5 h-3.5" /> Pencarian Global
+                            <Search className="w-3.5 h-3.5" /> Pencarian Global
                         </div>
                     </div>
                     <h1 className="text-2xl md:text-3xl font-black text-white mb-2 tracking-tight">

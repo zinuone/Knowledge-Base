@@ -7,7 +7,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import {
   Search, FileText, Hammer, Key, Trash2, Clock, RefreshCw,
   Info, Phone, BookOpen, Mail, ArrowUp, Timer, HelpCircle, LogIn,
-  Menu, X, ChevronLeft, ChevronRight, Eye, List, Grid,
+  Menu, X, ChevronLeft, ChevronRight, Eye, Grid, Zap, Flame,
   Instagram, Globe, Filter,
   Youtube, Scale, Gift,
   MapPin, ExternalLink, ChevronDown,
@@ -17,7 +17,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import KnowledgeCard from './src/components/KnowledgeCard';
 import FAQItem from './src/components/FAQItem';
-import { SkeletonCard, SkeletonRow } from './src/components/SkeletonLoader';
+import { SkeletonCard } from './src/components/SkeletonLoader';
 
 
 /* ─── CSS ANIMASI ─────────────────────────────────────────────── */
@@ -88,6 +88,18 @@ const HERO_ANIM_CSS = `
 .moon-icon { transition: transform 0.4s ease; }
 .dark-toggle:hover .sun-icon  { animation: sunSpin 0.7s ease-in-out; }
 .dark-toggle:hover .moon-icon { animation: moonBob 0.5s ease-in-out; }
+
+@keyframes tabSlide {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes statPop {
+  0%   { transform: scale(0.92); opacity: 0; }
+  60%  { transform: scale(1.04); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.tab-content-enter { animation: tabSlide 0.25s ease-out forwards; }
+.stat-pop { animation: statPop 0.4s ease-out forwards; }
 `;
 
 /* ─── SCROLL REVEAL ───────────────────────────────────────────── */
@@ -162,7 +174,6 @@ const FAQAccordionItem: React.FC<{ faq: FAQData; index: number; isDark: boolean 
 ═══════════════════════════════════════════════════════════════ */
 const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeSearch, setActiveSearch] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
   const [documents, setDocuments] = useState<ContentData[]>([]);
   const [faqs, setFaqs] = useState<FAQData[]>([]);
@@ -171,14 +182,12 @@ const App: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(5);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
-  const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
   const [recentHistory, setRecentHistory] = useState<HistoryItem[]>(() => {
     try { return JSON.parse(localStorage.getItem('pkn-history') || '[]'); } catch { return []; }
   });
+  const [activeDocTab, setActiveDocTab] = useState<'popular' | 'newest' | 'new'>('popular');
   const prevDocIdsRef = useRef<Set<string> | null>(null);
 
   /* ── Dark Mode ── */
@@ -268,58 +277,31 @@ const App: React.FC = () => {
       .slice(0, 3);
   }, [searchQuery, documents, selectedCategoryFilter]);
 
-  const filteredTableDocs = useMemo(() => {
-    const q = activeSearch.toLowerCase();
-    const bmIds = showBookmarkedOnly
-      ? (() => { try { return new Set<string>(JSON.parse(localStorage.getItem('pkn-bookmarks') || '[]')); } catch { return new Set<string>(); } })()
-      : null;
-    return documents.filter(d => {
-      const matchSearch = !q || d.title.toLowerCase().includes(q) || d.category.toLowerCase().includes(q);
-      const matchCat = selectedCategoryFilter === 'all' || d.category === selectedCategoryFilter;
-      const matchBookmark = !showBookmarkedOnly || (bmIds?.has(d.id) ?? false);
-      return matchSearch && matchCat && matchBookmark;
-    });
-  }, [activeSearch, selectedCategoryFilter, documents, showBookmarkedOnly]);
-
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentTableDocs = filteredTableDocs.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredTableDocs.length / itemsPerPage);
 
   /* ── Helpers ── */
   const handleCategoryClick = (id: string) => navigate(`/category/${id}`);
   const handleDocClick = (id: string) => { setShowSuggestions(false); navigate(`/detail/${id}`); };
   const scrollToSection = (id: string) => { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); setIsMenuOpen(false); };
   const handleScrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
-  const scrollToTable = () => setTimeout(() => document.getElementById('document-table-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
 
   const handleSearchAction = () => {
     const q = searchQuery.trim();
     if (!q) return;
-    setActiveSearch(q);
-    setCurrentPage(1);
     setShowSuggestions(false);
-    scrollToTable();
+    navigate(`/search?q=${encodeURIComponent(q)}`);
   };
 
   const handlePopularTag = (tag: string) => {
-    setSearchQuery(tag);
-    setShowSuggestions(true);
-    setTimeout(() => searchInputRef.current?.focus(), 50);
+    navigate(`/search?q=${encodeURIComponent(tag)}`);
   };
 
   const handleSuggestionClick = (doc: ContentData) => {
-    setSearchQuery(doc.title);
-    setActiveSearch(doc.title);
-    setCurrentPage(1);
     setShowSuggestions(false);
-    scrollToTable();
+    navigate(`/detail/${doc.id}`);
   };
 
   const handleClearSearch = () => {
     setSearchQuery('');
-    setActiveSearch('');
-    setCurrentPage(1);
     setShowSuggestions(false);
     searchInputRef.current?.focus();
   };
@@ -332,6 +314,21 @@ const App: React.FC = () => {
     if (!ts) return false;
     return Math.ceil(Math.abs(Date.now() - ts.seconds * 1000) / 86400000) <= 7;
   };
+
+  /* ── Showcase dokumen ── */
+  const showcaseDocs = useMemo(() => {
+    const popular = [...documents].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 6);
+    const newest = [...documents].slice(0, 6);
+    const newDocs = documents.filter(d => isNewDocument(d.updatedAt)).slice(0, 6);
+    return { popular, newest, newDocs };
+  }, [documents]);
+
+  const statsData = useMemo(() => ({
+    total: documents.length,
+    newCount: documents.filter(d => isNewDocument(d.updatedAt)).length,
+    cats: new Set(documents.map(d => d.category)).size,
+    views: documents.reduce((a, d) => a + (d.views || 0), 0),
+  }), [documents]);
 
   /* ══════════════════════════════════════════════════════════════
      SECTION: HOME
@@ -367,11 +364,9 @@ const App: React.FC = () => {
                 </div>
               ))}
             </div>
-            {activeSearch !== searchQuery.trim() && (
-              <p className="text-center text-xs text-slate-400 mt-3 italic">
-                Tekan <kbd className="px-1.5 py-0.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded text-slate-600 dark:text-slate-300 font-mono">Enter</kbd> untuk lihat semua di tabel
-              </p>
-            )}
+            <p className="text-center text-xs text-slate-400 mt-3 italic">
+              Tekan <kbd className="px-1.5 py-0.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded text-slate-600 dark:text-slate-300 font-mono">Enter</kbd> untuk buka halaman pencarian lengkap
+            </p>
           </div>
         )}
 
@@ -422,133 +417,221 @@ const App: React.FC = () => {
         )}
       </section>
 
+      {/* ══════════════════════════════════════════════════════════
+           STATS BAR
+      ══════════════════════════════════════════════════════════ */}
       <FadeInSection delay="delay-100">
-        <div className="relative flex items-center py-8">
-          <div className="flex-grow border-t-2 border-slate-100 dark:border-slate-700" />
-          <span className="flex-shrink-0 mx-4 text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-widest bg-[#F4F7F5] dark:bg-[#0d1a12] px-4 py-2 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm">
-            Atau telusuri database lengkap
-          </span>
-          <div className="flex-grow border-t-2 border-slate-100 dark:border-slate-700" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            {
+              label: 'Total Dokumen',
+              value: statsData.total,
+              icon: <FileText className="w-5 h-5" />,
+              accent: 'text-[#0D5C35] dark:text-emerald-400',
+              bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+              border: 'border-emerald-100 dark:border-emerald-800/30',
+            },
+            {
+              label: 'Dokumen Baru',
+              value: statsData.newCount,
+              icon: <Zap className="w-5 h-5" />,
+              accent: 'text-amber-600 dark:text-amber-400',
+              bg: 'bg-amber-50 dark:bg-amber-900/20',
+              border: 'border-amber-100 dark:border-amber-800/30',
+            },
+            {
+              label: 'Kategori Aktif',
+              value: statsData.cats,
+              icon: <Layers className="w-5 h-5" />,
+              accent: 'text-blue-600 dark:text-blue-400',
+              bg: 'bg-blue-50 dark:bg-blue-900/20',
+              border: 'border-blue-100 dark:border-blue-800/30',
+            },
+            {
+              label: 'Total Dibaca',
+              value: statsData.views.toLocaleString('id-ID'),
+              icon: <Eye className="w-5 h-5" />,
+              accent: 'text-purple-600 dark:text-purple-400',
+              bg: 'bg-purple-50 dark:bg-purple-900/20',
+              border: 'border-purple-100 dark:border-purple-800/30',
+            },
+          ].map((s, i) => (
+            <div key={i} className={`bg-white dark:bg-[#162918] rounded-2xl border ${s.border} p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5`}>
+              <div className={`${s.bg} ${s.accent} p-3 rounded-xl flex-shrink-0`}>{s.icon}</div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider truncate">{s.label}</p>
+                <p className={`text-2xl font-black ${s.accent} leading-tight`}>{isLoadingData ? '—' : s.value}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </FadeInSection>
 
+      {/* ══════════════════════════════════════════════════════════
+           DOCUMENT SHOWCASE — Terpopuler / Terbaru / Baru
+      ══════════════════════════════════════════════════════════ */}
       <FadeInSection delay="delay-200">
-        <section id="document-table-section" className="bg-white dark:bg-[#162918] rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-          <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50/50 dark:bg-[#1a3021]/50">
-            <div className="flex items-center gap-2 flex-wrap">
-              <List className="w-5 h-5 text-[#0D5C35]" />
-              <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Daftar Seluruh Dokumen</h3>
-              <span className="text-xs font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full">{filteredTableDocs.length}</span>
-              {/* Bookmark filter toggle */}
+        <div className="bg-white dark:bg-[#162918] rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+          {/* Header + Tabs */}
+          <div className="px-6 pt-6 pb-0 border-b border-slate-100 dark:border-slate-700">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div>
+                <h3 className="font-black text-slate-800 dark:text-slate-100 text-lg tracking-tight">Temukan Dokumen</h3>
+                <p className="text-slate-400 dark:text-slate-500 text-xs mt-0.5">Pilih dokumen berdasarkan popularitas atau waktu update</p>
+              </div>
               <button
-                onClick={() => { setShowBookmarkedOnly(p => !p); setCurrentPage(1); }}
-                title={showBookmarkedOnly ? 'Tampilkan semua dokumen' : 'Tampilkan dokumen tersimpan'}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-all
-                  ${showBookmarkedOnly
-                    ? 'bg-[#D4AF37] text-slate-900 border-[#D4AF37]/60 shadow-sm'
-                    : 'bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-[#D4AF37]/50 hover:text-[#D4AF37]'
-                  }`}>
-                {showBookmarkedOnly ? '🔖' : '🔖'} {showBookmarkedOnly ? 'Favorit' : 'Favorit'}
+                onClick={() => navigate('/search')}
+                className="flex-shrink-0 flex items-center gap-1.5 text-xs font-bold text-[#0D5C35] dark:text-emerald-400 hover:underline transition-colors">
+                Lihat semua <ArrowRight className="w-3.5 h-3.5" />
               </button>
-              {activeSearch && (
-                <span className="text-xs font-bold text-[#0D5C35] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  Filter: "{activeSearch}"
-                  <button onClick={handleClearSearch} className="ml-1 hover:text-rose-500 transition-colors"><X className="w-3 h-3" /></button>
-                </span>
-              )}
-              {selectedCategoryFilter !== 'all' && (
-                <span className="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  {categories.find(c => c.id === selectedCategoryFilter)?.title}
-                  <button onClick={() => setSelectedCategoryFilter('all')} className="ml-1 hover:text-rose-500 transition-colors"><X className="w-3 h-3" /></button>
-                </span>
-              )}
             </div>
-            <div className="flex flex-col sm:flex-row items-center gap-3 text-sm w-full md:w-auto">
-              <div className="flex items-center text-slate-600 dark:text-slate-300 bg-white dark:bg-[#0f1f16] border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1 w-full sm:w-auto">
-                <Filter className="w-4 h-4 mr-2 text-slate-400 flex-shrink-0" />
-                <select value={selectedCategoryFilter}
-                  onChange={e => { setSelectedCategoryFilter(e.target.value); setCurrentPage(1); }}
-                  className="bg-transparent outline-none cursor-pointer text-slate-700 dark:text-slate-200 font-medium w-full">
-                  <option value="all">Semua Kategori</option>
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                </select>
-              </div>
-              <div className="flex items-center text-slate-600 dark:text-slate-300 gap-2">
-                <span className="whitespace-nowrap">Tampil</span>
-                <select value={itemsPerPage}
-                  onChange={e => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                  className="border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1 bg-white dark:bg-[#0f1f16] dark:text-slate-200 focus:ring-2 focus:ring-[#0D5C35] outline-none cursor-pointer">
-                  <option value={5}>5</option><option value={10}>10</option><option value={20}>20</option>
-                </select>
-                <span>data</span>
-              </div>
+            {/* Tab pills */}
+            <div className="flex gap-1 -mb-px">
+              {([
+                { key: 'popular', label: 'Terpopuler', icon: <Flame className="w-3.5 h-3.5" /> },
+                { key: 'newest', label: 'Terbaru', icon: <Clock className="w-3.5 h-3.5" /> },
+                { key: 'new', label: 'Baru Masuk', icon: <Zap className="w-3.5 h-3.5" /> },
+              ] as const).map(tab => (
+                <button key={tab.key} onClick={() => setActiveDocTab(tab.key)}
+                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-t-xl text-xs font-bold border-b-2 transition-all ${activeDocTab === tab.key
+                      ? 'border-[#0D5C35] text-[#0D5C35] dark:text-emerald-400 dark:border-emerald-400 bg-emerald-50/50 dark:bg-emerald-900/10'
+                      : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                    }`}>
+                  {tab.icon} {tab.label}
+                  {tab.key === 'new' && statsData.newCount > 0 && (
+                    <span className="ml-0.5 bg-amber-400 text-amber-900 text-[9px] font-black px-1.5 py-0.5 rounded-full">{statsData.newCount}</span>
+                  )}
+                </button>
+              ))}
             </div>
           </div>
 
-          <table className="w-full text-left text-sm table-fixed">
-            <thead className="bg-slate-50 dark:bg-[#1a3021] text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
-              <tr>
-                <th className="px-4 py-4 w-10 text-center hidden sm:table-cell">#</th>
-                <th className="px-4 py-4">Judul Dokumen / Informasi</th>
-                <th className="px-4 py-4 w-28 text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-              {isLoadingData
-                ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
-                : currentTableDocs.length > 0
-                  ? currentTableDocs.map((doc, i) => (
-                    <tr key={doc.id} className="hover:bg-slate-50 dark:hover:bg-[#1a3021]/50 transition-colors group bg-white dark:bg-transparent">
-                      <td className="px-4 py-4 text-center text-slate-400 dark:text-slate-500 font-medium hidden sm:table-cell">{indexOfFirstItem + i + 1}</td>
-                      <td className="px-4 py-4 min-w-0">
-                        <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border border-slate-200 dark:border-slate-600 group-hover:bg-[#0D5C35] group-hover:text-white group-hover:border-[#0D5C35] transition-colors whitespace-nowrap">
+          {/* Cards grid */}
+          <div className="p-6">
+            {isLoadingData ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="rounded-2xl border border-slate-100 dark:border-slate-700 p-5 animate-pulse bg-slate-50 dark:bg-[#1a3021]">
+                    <div className="h-3 w-16 bg-slate-200 dark:bg-slate-600 rounded mb-3" />
+                    <div className="h-4 w-full bg-slate-200 dark:bg-slate-600 rounded mb-2" />
+                    <div className="h-4 w-3/4 bg-slate-200 dark:bg-slate-600 rounded mb-4" />
+                    <div className="h-3 w-20 bg-slate-100 dark:bg-slate-700 rounded" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              (() => {
+                const list = activeDocTab === 'popular'
+                  ? showcaseDocs.popular
+                  : activeDocTab === 'newest'
+                    ? showcaseDocs.newest
+                    : showcaseDocs.newDocs;
+
+                if (list.length === 0) {
+                  return (
+                    <div className="py-16 text-center">
+                      <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-slate-50 dark:bg-slate-800 mb-3">
+                        <FileText className="w-7 h-7 text-slate-300 dark:text-slate-600" />
+                      </div>
+                      <p className="text-slate-400 dark:text-slate-500 font-medium text-sm">Belum ada dokumen di tab ini.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {list.map((doc, i) => {
+                      const catColors: Record<string, string> = {
+                        'psp': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
+                        'penjualan': 'bg-amber-100   text-amber-800   dark:bg-amber-900/30   dark:text-amber-300',
+                        'sewa': 'bg-blue-100    text-blue-800    dark:bg-blue-900/30    dark:text-blue-300',
+                        'penghapusan': 'bg-rose-100    text-rose-800    dark:bg-rose-900/30    dark:text-rose-300',
+                        'pinjam-pakai': 'bg-indigo-100  text-indigo-800  dark:bg-indigo-900/30  dark:text-indigo-300',
+                        'penggunaan-sementara': 'bg-purple-100  text-purple-800  dark:bg-purple-900/30  dark:text-purple-300',
+                        'alih-status': 'bg-teal-100    text-teal-800    dark:bg-teal-900/30    dark:text-teal-300',
+                        'hibah': 'bg-orange-100  text-orange-800  dark:bg-orange-900/30  dark:text-orange-300',
+                      };
+                      const catCls = catColors[doc.category] ?? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
+                      return (
+                        <div key={doc.id}
+                          onClick={() => handleDocClick(doc.id)}
+                          style={{ animationDelay: `${i * 50}ms` }}
+                          className="group relative bg-slate-50 dark:bg-[#0f1f16] hover:bg-white dark:hover:bg-[#162918] border border-slate-100 dark:border-slate-700/60 hover:border-[#0D5C35]/25 dark:hover:border-[#D4AF37]/20 rounded-2xl p-5 cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
+                          {/* Rank badge for popular */}
+                          {activeDocTab === 'popular' && i < 3 && (
+                            <div className={`absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${i === 0 ? 'bg-[#D4AF37] text-slate-900' : i === 1 ? 'bg-slate-300 dark:bg-slate-600 text-slate-700 dark:text-slate-200' : 'bg-orange-200 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300'
+                              }`}>#{i + 1}</div>
+                          )}
+                          {/* New badge */}
+                          {isNewDocument(doc.updatedAt) && activeDocTab !== 'new' && (
+                            <span className="absolute top-3 right-3 px-1.5 py-0.5 bg-amber-400 text-amber-900 text-[9px] font-black rounded-full animate-pulse">NEW</span>
+                          )}
+                          {/* Category */}
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider mb-3 ${catCls}`}>
                             {doc.category.replace(/-/g, ' ')}
                           </span>
-                          {isNewDocument(doc.updatedAt) && (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-700/30 animate-pulse">Baru</span>
-                          )}
-                          {(() => { try { const bm: string[] = JSON.parse(localStorage.getItem('pkn-bookmarks') || '[]'); return bm.includes(doc.id); } catch { return false; } })() && (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#D4AF37]/15 text-[#8a7020] dark:text-[#D4AF37] border border-[#D4AF37]/30">🔖 Favorit</span>
-                          )}
+                          {/* Title */}
+                          <h4 className="font-bold text-slate-800 dark:text-slate-100 group-hover:text-[#0D5C35] dark:group-hover:text-emerald-400 transition-colors text-sm leading-snug line-clamp-2 mb-3">
+                            {doc.title}
+                          </h4>
+                          {/* Description */}
+                          <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-2 leading-relaxed mb-4">{doc.description}</p>
+                          {/* Footer stats */}
+                          <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                            <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{doc.views || 0} views</span>
+                            <span className="flex items-center gap-1 text-[#0D5C35] dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                              Baca <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                            </span>
+                          </div>
                         </div>
-                        <h4 className="text-slate-900 dark:text-slate-100 font-bold text-sm md:text-base mb-1 group-hover:text-[#0D5C35] dark:group-hover:text-emerald-400 transition-colors line-clamp-2">{doc.title}</h4>
-                        <p className="text-slate-400 dark:text-slate-500 text-xs">Update: {formatDate(doc.updatedAt)}</p>
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <button onClick={() => handleDocClick(doc.id)}
-                          className="inline-flex items-center px-3 py-2 bg-[#00A3C8] text-white rounded-lg font-bold shadow-md hover:bg-[#008CAE] hover:-translate-y-0.5 transition-all text-xs whitespace-nowrap">
-                          <Eye className="w-3 h-3 mr-1" /> Lihat
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                  : (
-                    <tr>
-                      <td colSpan={3} className="px-6 py-10 text-center text-slate-400 italic bg-slate-50/30 dark:bg-transparent">
-                        Tidak ada dokumen{activeSearch ? ` untuk "${activeSearch}"` : ''}{selectedCategoryFilter !== 'all' ? ` di kategori "${categories.find(c => c.id === selectedCategoryFilter)?.title}"` : ''}.
-                      </td>
-                    </tr>
-                  )
-              }
-            </tbody>
-          </table>
+                      );
+                    })}
+                  </div>
+                );
+              })()
+            )}
+          </div>
+        </div>
+      </FadeInSection>
 
-          <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-slate-500 dark:text-slate-400 bg-slate-50/30 dark:bg-[#1a3021]/30">
-            <div>Menampilkan {currentTableDocs.length > 0 ? indexOfFirstItem + 1 : 0}–{Math.min(indexOfLastItem, filteredTableDocs.length)} dari {filteredTableDocs.length} data</div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}
-                className="p-2 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                <ChevronLeft className="w-4 h-4" />
+      {/* ══════════════════════════════════════════════════════════
+           CTA BANNER — Jelajahi semua dokumen
+      ══════════════════════════════════════════════════════════ */}
+      <FadeInSection delay="delay-300">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0D5C35] via-[#0A492A] to-[#062B18] p-8 md:p-10 shadow-xl">
+          {/* Decorative blobs */}
+          <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/5 pointer-events-none" />
+          <div className="absolute -bottom-8 -left-8 w-36 h-36 rounded-full bg-[#D4AF37]/10 pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full bg-emerald-500/5 blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
+            <div className="text-center md:text-left">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 border border-white/15 rounded-full text-xs font-bold text-white/70 uppercase tracking-wider mb-3">
+                <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" /> Knowledge Base Lengkap
+              </div>
+              <h3 className="text-2xl md:text-3xl font-black text-white mb-2 tracking-tight leading-tight">
+                {documents.length} Dokumen Siap<br className="hidden md:block" /> Diakses Kapan Saja
+              </h3>
+              <p className="text-white/60 text-sm max-w-md leading-relaxed">
+                Cari, filter, dan telusuri seluruh SOP, regulasi, dan panduan layanan BMN dengan pencarian pintar.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 flex-shrink-0">
+              <button
+                onClick={() => navigate('/search')}
+                className="group flex items-center justify-center gap-2.5 px-8 py-4 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 rounded-2xl font-black text-sm shadow-lg shadow-[#D4AF37]/30 hover:shadow-[#D4AF37]/50 hover:-translate-y-0.5 transition-all duration-300">
+                <Search className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                Jelajahi Semua Dokumen
               </button>
-              <span className="px-3 font-bold text-slate-700 dark:text-slate-200">Halaman {currentPage} / {totalPages || 1}</span>
-              <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0}
-                className="p-2 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                <ChevronRight className="w-4 h-4" />
+              <button
+                onClick={() => navigate('/bookmarks')}
+                className="flex items-center justify-center gap-2.5 px-6 py-4 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-2xl font-bold text-sm transition-all hover:-translate-y-0.5">
+                <Bookmark className="w-4 h-4" />
+                Dokumen Favorit
               </button>
             </div>
           </div>
-        </section>
+        </div>
       </FadeInSection>
     </div>
   );
@@ -941,7 +1024,7 @@ const App: React.FC = () => {
                     </button>
                   ))}
                   <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 text-center">
-                    <span className="text-xs text-slate-400">Tekan <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded font-mono text-slate-600">Enter</kbd> untuk cari semua hasil</span>
+                    <span className="text-xs text-slate-400">Tekan <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded font-mono text-slate-600">Enter</kbd> untuk buka halaman pencarian</span>
                   </div>
                 </div>
               )}
