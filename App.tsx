@@ -211,7 +211,7 @@ const App: React.FC = () => {
     { id: 'penggunaan-sementara', title: 'PENGGUNAAN SEMENTARA', description: 'Penggunaan BMN dalam jangka waktu tertentu', icon: <Timer className="w-8 h-8" />, color: 'bg-purple-50 text-purple-700' },
     { id: 'alih-status', title: 'ALIH STATUS', description: 'Alih Status Penggunaan Barang Milik Negara', icon: <RefreshCw className="w-8 h-8" />, color: 'bg-teal-50   text-teal-700' },
     { id: 'hibah', title: 'HIBAH', description: 'Prosedur Hibah Barang Milik Negara', icon: <Gift className="w-8 h-8" />, color: 'bg-orange-50 text-orange-700' },
-    { id: 'user-siman', title: 'USER SIMAN', description: 'Panduan Layanan Akun dan Role SIMAN V2', icon: <Users className="w-8 h-8" />, color: 'bg-slate-50  text-slate-700' },
+    { id: 'user-siman', title: 'USER SIMAN', description: 'Panduan Layanan Akun dan Role SIMAN V2', icon: <Users className="w-8 h-8" />, color: 'bg-cyan-50  text-cyan-700' },
   ];
 
   /* ── Firebase ── */
@@ -551,7 +551,7 @@ const App: React.FC = () => {
                         'penggunaan-sementara': 'bg-purple-100  text-purple-800  dark:bg-purple-900/30  dark:text-purple-300',
                         'alih-status': 'bg-teal-100    text-teal-800    dark:bg-teal-900/30    dark:text-teal-300',
                         'hibah': 'bg-orange-100  text-orange-800  dark:bg-orange-900/30  dark:text-orange-300',
-                        'user-siman': 'bg-slate-100   text-slate-700   dark:bg-slate-700/30   dark:text-slate-300',
+                        'user-siman': 'bg-cyan-100   text-cyan-800   dark:bg-cyan-900/30   dark:text-cyan-300',
                       };
                       const catCls = catColors[doc.category] ?? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
                       return (
@@ -1076,7 +1076,7 @@ const App: React.FC = () => {
             {/* Pencarian Populer */}
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <span className="text-white/60 text-xs sm:text-sm font-medium py-1">Pencarian Populer:</span>
-              {['Sewa BMN', 'Lelang', 'Penghapusan', 'Hibah'].map(tag => (
+              {['User SIMAN', 'Sewa BMN', 'Penghapusan', 'Hibah'].map(tag => (
                 <button key={tag} onClick={() => handlePopularTag(tag)}
                   className="bg-white/10 hover:bg-white/25 text-white text-xs px-3 py-1 rounded-full transition-all border border-white/10 hover:border-white/30 hover:scale-105"
                   title="Klik untuk mengisi kotak pencarian">{tag}</button>
