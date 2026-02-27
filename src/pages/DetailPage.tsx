@@ -12,7 +12,7 @@ import {
   Eye, ThumbsUp, ThumbsDown, Share2, Check, Home, ChevronRight,
   Maximize2, X, PlayCircle, Sparkles, ArrowRight, Bookmark,
   BookmarkCheck, Printer, BookOpen, ArrowUp, Clock, Copy,
-  MessageCircle, Tag, Search as SearchIcon,
+  MessageCircle, Tag, Search as SearchIcon, User,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import toast, { Toaster } from 'react-hot-toast';
@@ -93,6 +93,7 @@ interface ContentData {
   likes?: number;
   dislikes?: number;
   tags?: string[];
+  updatedBy?: string;
 }
 
 /* ─── HELPER: Warna kategori ──────────────────────────────────── */
@@ -528,6 +529,11 @@ const DetailPage: React.FC = () => {
                 <span className="text-slate-400 dark:text-slate-500 text-xs font-medium bg-white dark:bg-slate-700 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-600 shadow-sm flex items-center gap-1.5">
                   <Calendar className="w-3 h-3" /> {dateStr}
                 </span>
+                {data.updatedBy && (
+                  <span className="text-[#0D5C35] dark:text-emerald-400 text-xs font-bold bg-[#EAF2EE] dark:bg-emerald-900/20 px-3 py-1.5 rounded-full border border-[#0D5C35]/15 dark:border-emerald-700/30 shadow-sm flex items-center gap-1.5">
+                    <User className="w-3 h-3" /> {data.updatedBy.split('@')[0]}
+                  </span>
+                )}
                 <span className="text-slate-400 dark:text-slate-500 text-xs font-medium bg-white dark:bg-slate-700 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-600 shadow-sm flex items-center gap-1.5">
                   <Eye className="w-3 h-3" /> {data.views || 0} Views
                 </span>

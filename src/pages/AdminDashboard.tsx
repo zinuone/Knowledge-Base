@@ -31,7 +31,7 @@ import toast, { Toaster } from 'react-hot-toast';
 interface ContentData {
     id: string; title: string; category: string; description: string;
     content: string; imageBase64?: string; pdfUrl?: string; videoUrl?: string;
-    views?: number; likes?: number; updatedAt?: any; tags?: string[];
+    views?: number; likes?: number; updatedAt?: any; tags?: string[]; updatedBy?: string;
 }
 interface FAQData { id: string; question: string; answer: string; }
 interface GuideData { id: string; content: string; updatedAt?: any; }
@@ -100,12 +100,15 @@ const FormatToolbar = ({
 );
 
 /* ─── GUIDE CARD ──────────────────────────────────────────────── */
-const GuideCard = ({
-    item, index, onEdit, onDelete, formatTime,
-}: {
-    item: GuideData; index: number;
-    onEdit: () => void; onDelete: () => void;
+interface GuideCardProps {
+    item: GuideData;
+    index: number;
+    onEdit: () => void;
+    onDelete: () => void;
     formatTime: (ts: any) => string;
+}
+const GuideCard: React.FC<GuideCardProps> = ({
+    item, index, onEdit, onDelete, formatTime,
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const lineCount = (item.content || '').split('\n').length;
@@ -369,9 +372,10 @@ const AdminDashboard: React.FC = () => {
                 : [];
             const { tagsRaw, ...rest } = formData;
             const payload = { ...rest, tags };
-            const p = editingId
-                ? updateDoc(doc(db, 'knowledge-base', editingId), { ...payload, updatedAt: serverTimestamp() })
-                : addDoc(collection(db, 'knowledge-base'), { ...payload, updatedAt: serverTimestamp(), views: 0, likes: 0, dislikes: 0 });
+            const updatedBy = auth.currentUser?.email ?? 'admin';
+            const p: Promise<void> = editingId
+                ? updateDoc(doc(db, 'knowledge-base', editingId), { ...payload, updatedAt: serverTimestamp(), updatedBy })
+                : addDoc(collection(db, 'knowledge-base'), { ...payload, updatedAt: serverTimestamp(), updatedBy, views: 0, likes: 0, dislikes: 0 }).then(() => {});
             await toast.promise(p, { loading: 'Menyimpan SOP…', success: 'SOP berhasil disimpan!', error: 'Gagal menyimpan SOP.' });
             setIsDirty(false);
             setIsModalOpen(false);
@@ -381,9 +385,9 @@ const AdminDashboard: React.FC = () => {
     const handleSaveFaq = async (e: React.FormEvent) => {
         e.preventDefault(); setIsSaving(true);
         try {
-            const p = editingId
+            const p: Promise<void> = editingId
                 ? updateDoc(doc(db, 'faqs', editingId), { ...faqForm, createdAt: serverTimestamp() })
-                : addDoc(collection(db, 'faqs'), { ...faqForm, createdAt: serverTimestamp() });
+                : addDoc(collection(db, 'faqs'), { ...faqForm, createdAt: serverTimestamp() }).then(() => {});
             await toast.promise(p, { loading: 'Menyimpan FAQ…', success: 'FAQ berhasil disimpan!', error: 'Gagal menyimpan FAQ.' });
             setIsDirty(false);
             setIsFaqModalOpen(false);
@@ -393,9 +397,9 @@ const AdminDashboard: React.FC = () => {
     const handleSaveGuide = async (e: React.FormEvent) => {
         e.preventDefault(); setIsSaving(true);
         try {
-            const p = editingId
+            const p: Promise<void> = editingId
                 ? updateDoc(doc(db, 'guides', editingId), { ...guideForm, updatedAt: serverTimestamp() })
-                : addDoc(collection(db, 'guides'), { ...guideForm, updatedAt: serverTimestamp() });
+                : addDoc(collection(db, 'guides'), { ...guideForm, updatedAt: serverTimestamp() }).then(() => {});
             await toast.promise(p, { loading: 'Menyimpan Panduan…', success: 'Panduan berhasil disimpan!', error: 'Gagal menyimpan Panduan.' });
             setIsDirty(false);
             setIsGuideModalOpen(false);
@@ -766,9 +770,17 @@ const AdminDashboard: React.FC = () => {
                                                     <tr key={item.id} className="hover:bg-slate-50/70 dark:hover:bg-[#1a3021]/50 transition-colors">
                                                         <td className="px-5 py-4">
                                                             <p className="font-bold text-slate-800 dark:text-slate-100 mb-1 leading-snug">{item.title}</p>
-                                                            <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+                                                            <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 flex-wrap">
                                                                 <ClockIcon className="w-3 h-3" />
                                                                 <span>{formatTime(item.updatedAt)}</span>
+                                                                {item.updatedBy && (
+                                                                    <>
+                                                                        <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+                                                                        <span className="flex items-center gap-1 text-[10px] bg-[#0D5C35]/10 dark:bg-emerald-900/20 text-[#0D5C35] dark:text-emerald-400 px-1.5 py-0.5 rounded-md font-bold border border-[#0D5C35]/15 dark:border-emerald-700/30">
+                                                                            <User className="w-2.5 h-2.5" />{item.updatedBy.split('@')[0]}
+                                                                        </span>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         </td>
                                                         <td className="px-5 py-4">

@@ -5,7 +5,7 @@ import { collection, query, where, documentId, getDocs } from 'firebase/firestor
 import { db } from '../firebase';
 import {
     ArrowLeft, Bookmark, BookmarkX, Home, FileText,
-    ArrowRight, Trash2, Sparkles, ChevronRight, Sun, Moon, Search,
+    ArrowRight, Trash2, Sparkles, ChevronRight, Sun, Moon, Search, Info, AlertTriangle,
 } from 'lucide-react';
 
 /* ─── CSS ─────────────────────────────────────────────────────── */
@@ -193,6 +193,23 @@ const BookmarksPage: React.FC = () => {
                         </button>
                     </div>
                 )}
+
+                {/* ── Disclaimer: Data tersimpan lokal ── */}
+                <div className="mb-6 flex items-start gap-3 px-4 py-3.5 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/30 rounded-2xl">
+                    <div className="flex-shrink-0 w-8 h-8 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center mt-0.5">
+                        <Info className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <p className="text-sm font-black text-amber-800 dark:text-amber-300 mb-0.5 flex items-center gap-1.5">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            Tersimpan di Perangkat Ini
+                        </p>
+                        <p className="text-xs text-amber-700/80 dark:text-amber-400/70 leading-relaxed">
+                            Daftar favorit disimpan di <strong>browser perangkat ini saja</strong> — tidak akan muncul jika Anda membuka dari HP atau browser lain.
+                            Untuk akses permanen, catat ID dokumen atau gunakan tombol <strong>Cetak/PDF</strong> di halaman artikel.
+                        </p>
+                    </div>
+                </div>
 
                 {/* Loading */}
                 {loading && (

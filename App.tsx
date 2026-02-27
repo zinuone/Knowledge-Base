@@ -13,6 +13,7 @@ import {
   MapPin, ExternalLink, ChevronDown,
   Sparkles, Building2, BarChart3, Layers, MessageSquare, TrendingUp,
   ArrowRight, Moon, Sun, SlidersHorizontal, Bookmark,
+  Divide,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import KnowledgeCard from './src/components/KnowledgeCard';
@@ -722,11 +723,23 @@ const App: React.FC = () => {
   const SectionFAQ = () => (
     <div className="max-w-6xl mx-auto">
       <div className="text-center mb-10">
-        <span className="inline-flex items-center gap-2 px-4 py-1.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-full text-xs font-bold uppercase tracking-widest border border-amber-200 dark:border-amber-700/30 mb-4">
-          <HelpCircle className="w-3.5 h-3.5" /> Pusat Bantuan
-        </span>
-        <h2 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight mb-2">Pertanyaan yang Sering Diajukan</h2>
-        <p className="text-slate-500 dark:text-slate-400 max-w-lg mx-auto">Temukan jawaban atas pertanyaan umum seputar layanan BMN KPKNL Kendari</p>
+        <div>
+          <h2 className="flex items-center justify-center gap-3 sm:gap-4 text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight mb-2 group cursor-default">
+            <div className="shrink-0 relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-amber-100 to-orange-50 dark:from-amber-900/40 dark:to-orange-900/20 border border-amber-200 dark:border-amber-700/50 shadow-sm group-hover:shadow-md group-hover:-translate-y-1 transition-all duration-300">
+              <HelpCircle className="w-5 h-5 sm:w-7 sm:h-7 text-amber-500 dark:text-amber-400 group-hover:rotate-12 transition-transform duration-300" />
+              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 sm:h-3.5 sm:w-3.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 bg-amber-500 border-2 border-white dark:border-[#0d1a12]"></span>
+              </span>
+            </div>
+            <span className="text-left leading-tight">
+              Pertanyaan yang Sering Diajukan
+            </span>
+          </h2>
+          <p className="text-slate-500 dark:text-slate-400 max-w-lg mx-auto text-sm sm:text-base px-4 mt-3">
+            Temukan jawaban atas pertanyaan umum seputar layanan BMN KPKNL Kendari
+          </p>
+        </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
         <div className="lg:col-span-2 lg:sticky lg:top-24 space-y-4">
@@ -778,21 +791,30 @@ const App: React.FC = () => {
   ══════════════════════════════════════════════════════════════ */
   const SectionPanduan = () => (
     <div className="max-w-4xl mx-auto">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8 group cursor-default">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-gradient-to-br from-[#0D5C35] to-[#0A492A] text-white rounded-2xl shadow-lg shadow-emerald-900/20">
-            <BookOpen className="w-7 h-7" />
+          <div className="shrink-0 relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-100 to-green-50 dark:from-emerald-900/40 dark:to-green-900/20 border border-emerald-200 dark:border-emerald-700/50 shadow-sm group-hover:shadow-md group-hover:-translate-y-1 transition-all duration-300">
+            <BookOpen className="w-5 h-5 sm:w-7 sm:h-7 text-[#0D5C35] dark:text-emerald-400 group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-300" />
+            <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 sm:h-3.5 sm:w-3.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 bg-emerald-500 border-2 border-white dark:border-[#0d1a12]"></span>
+            </span>
           </div>
           <div>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">Panduan Pengguna</h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm">Petunjuk penggunaan layanan KPKNL Kendari</p>
+            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight group-hover:text-[#0D5C35] dark:group-hover:text-emerald-400 transition-colors duration-300">
+              Panduan Pengguna
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">
+              Petunjuk penggunaan layanan KPKNL Kendari
+            </p>
           </div>
         </div>
         {guides.length > 0 && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-[#0D5C35] dark:text-emerald-400 rounded-full text-xs font-bold border border-emerald-200 dark:border-emerald-700/30">
+          <span className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-[#0D5C35] dark:text-emerald-400 rounded-full text-xs font-bold border border-emerald-200 dark:border-emerald-700/30">
             <Layers className="w-3.5 h-3.5" /> {guides.length} panduan tersedia
           </span>
         )}
+
       </div>
       {guides.length > 0 ? (
         <div className="space-y-6">

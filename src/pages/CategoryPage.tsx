@@ -5,7 +5,7 @@ import { db } from '../firebase';
 import {
     ArrowLeft, FileText, Hammer, Key, Trash2, Clock, Users,
     Timer, RefreshCw, Gift, ArrowRight, ArrowUp, Home,
-    ChevronRight, Layers, Search, X, ArrowUpDown,
+    ChevronRight, ChevronLeft, Layers, Search, X, ArrowUpDown,
 } from 'lucide-react';
 import { SkeletonCategoryGrid } from '../components/SkeletonLoader';
 
@@ -55,6 +55,8 @@ const CategoryPage: React.FC = () => {
     const [isScrolled, setIsScrolled] = useState(false);
     const [searchLocal, setSearchLocal] = useState('');
     const [sortBy, setSortBy] = useState<SortKey>('default');
+    const [currentPage, setCurrentPage] = useState(1);
+    const DOCS_PER_PAGE = 9;
 
     /* ── Dark Mode: baca dari localStorage ── */
     useEffect(() => {
@@ -108,6 +110,9 @@ const CategoryPage: React.FC = () => {
         return () => window.removeEventListener('scroll', onScroll);
     }, [categoryId]);
 
+    /* ── Reset halaman saat filter/sort berubah ── */
+    useEffect(() => { setCurrentPage(1); }, [searchLocal, sortBy, categoryId]);
+
     /* ── Filter lokal ── */
     const filteredDocs = searchLocal.trim()
         ? documents.filter(d =>
@@ -126,6 +131,9 @@ const CategoryPage: React.FC = () => {
             default: return arr;
         }
     })();
+
+    const totalPages = Math.ceil(sortedDocs.length / DOCS_PER_PAGE);
+    const paginatedDocs = sortedDocs.slice((currentPage - 1) * DOCS_PER_PAGE, currentPage * DOCS_PER_PAGE);
 
     return (
         <div className="min-h-screen bg-[#F4F7F5] dark:bg-[#0d1a12] font-sans pb-24 relative transition-colors duration-300">
@@ -245,8 +253,9 @@ const CategoryPage: React.FC = () => {
                 {loading ? (
                     <SkeletonCategoryGrid />
                 ) : sortedDocs.length > 0 ? (
+                    <>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-7">
-                        {sortedDocs.map((doc, i) => (
+                        {paginatedDocs.map((doc, i) => (
                             <div key={doc.id} onClick={() => navigate(`/detail/${doc.id}`)}
                                 className="cat-card bg-white dark:bg-[#162918] rounded-3xl p-6 md:p-8 border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-2xl hover:-translate-y-2 cursor-pointer transition-all duration-350 group flex flex-col h-full"
                                 style={{ animationDelay: `${i * 70}ms` }}>
@@ -276,6 +285,51 @@ const CategoryPage: React.FC = () => {
                             </div>
                         ))}
                     </div>
+
+                    {/* ── Pagination ── */}
+                    {totalPages > 1 && (
+                        <div className="mt-10 flex flex-col items-center gap-3">
+                            <div className="flex items-center gap-2 flex-wrap justify-center">
+                                <button
+                                    onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                    disabled={currentPage === 1}
+                                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold bg-white dark:bg-[#162918] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#0D5C35]/40 hover:text-[#0D5C35] dark:hover:text-emerald-400 disabled:opacity-35 disabled:cursor-not-allowed transition-all shadow-sm">
+                                    <ChevronLeft className="w-4 h-4" /> Sebelumnya
+                                </button>
+                                <div className="flex items-center gap-1.5">
+                                    {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                                        let page: number;
+                                        if (totalPages <= 7) page = i + 1;
+                                        else if (currentPage <= 4) page = i + 1;
+                                        else if (currentPage >= totalPages - 3) page = totalPages - 6 + i;
+                                        else page = currentPage - 3 + i;
+                                        return (
+                                            <button key={page}
+                                                onClick={() => { setCurrentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                                className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${currentPage === page
+                                                    ? 'bg-[#0D5C35] text-white shadow-lg shadow-emerald-200/50 dark:shadow-emerald-900/30 scale-110'
+                                                    : 'bg-white dark:bg-[#162918] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#0D5C35]/40 hover:text-[#0D5C35] dark:hover:text-emerald-400'
+                                                }`}>
+                                                {page}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <button
+                                    onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                    disabled={currentPage === totalPages}
+                                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold bg-white dark:bg-[#162918] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#0D5C35]/40 hover:text-[#0D5C35] dark:hover:text-emerald-400 disabled:opacity-35 disabled:cursor-not-allowed transition-all shadow-sm">
+                                    Berikutnya <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+                                Halaman <span className="font-black text-slate-700 dark:text-slate-200">{currentPage}</span> dari <span className="font-black text-slate-700 dark:text-slate-200">{totalPages}</span>
+                                <span className="mx-1.5 opacity-40">·</span>
+                                {sortedDocs.length} dokumen total
+                            </p>
+                        </div>
+                    )}
+                    </>
                 ) : (
                     <div className="text-center py-20 md:py-24 bg-white dark:bg-[#162918] rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700 shadow-sm max-w-2xl mx-auto animate-in fade-in zoom-in-95 duration-500">
                         <div className={`mx-auto w-20 h-20 mb-6 rounded-2xl flex items-center justify-center opacity-50 ${meta.bg} ${meta.color} ${meta.darkBg} ${meta.darkColor}`}>

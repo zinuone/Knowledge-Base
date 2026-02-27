@@ -119,6 +119,14 @@ const SearchPage: React.FC = () => {
         setFilterCat(cat);
     }, [searchParams]);
 
+    /* ── Live-search debounce 400 ms ── */
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setActiveQuery(inputVal.trim());
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [inputVal]);
+
     const doSearch = useCallback((q: string, cat: string) => {
         const p: Record<string, string> = {};
         if (q) p.q = q;
@@ -206,7 +214,10 @@ const SearchPage: React.FC = () => {
                     <form onSubmit={handleSubmit} className="relative">
                         <div className="flex gap-2">
                             <div className="relative flex-1">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                                {inputVal !== activeQuery && inputVal.length > 0
+                                ? <span className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center"><span className="w-4 h-4 border-2 border-[#0D5C35] border-t-transparent rounded-full animate-spin" /></span>
+                                : <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                            }
                                 <input
                                     type="text"
                                     autoFocus

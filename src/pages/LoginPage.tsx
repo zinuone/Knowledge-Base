@@ -1,15 +1,4 @@
 // File: src/pages/LoginPage.tsx
-// ─── FITUR LOGIN ──────────────────────────────────────────────────────────────
-//  ✅ Show / Hide Password (Eye / EyeOff toggle)
-//  ✅ Caps Lock Detection + peringatan
-//  ✅ Remember Me (simpan email ke localStorage)
-//  ✅ Login Attempt Counter → lockout 30 detik setelah 5 kali gagal
-//  ✅ Pesan error spesifik per kode Firebase
-//  ✅ Dark Mode (baca dari localStorage 'pkn-theme', dengan toggle)
-//  ✅ Reset Password via email
-//  ✅ Mobile-first — full screen form di mobile, split panel di desktop
-//  ✅ Auto-focus & auto-fill email dari "Ingat Email"
-// ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
