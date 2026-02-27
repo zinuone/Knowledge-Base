@@ -5,7 +5,7 @@ import { db } from './src/firebase';
 import { Helmet } from 'react-helmet-async';
 import toast, { Toaster } from 'react-hot-toast';
 import {
-  Search, FileText, Hammer, Key, Trash2, Clock, RefreshCw,
+  Search, FileText, Hammer, Key, Trash2, Clock, RefreshCw, Users,
   Info, Phone, BookOpen, Mail, ArrowUp, Timer, HelpCircle, LogIn,
   Menu, X, ChevronLeft, ChevronRight, Eye, Grid, Zap, Flame,
   Instagram, Globe, Filter,
@@ -211,6 +211,7 @@ const App: React.FC = () => {
     { id: 'penggunaan-sementara', title: 'PENGGUNAAN SEMENTARA', description: 'Penggunaan BMN dalam jangka waktu tertentu', icon: <Timer className="w-8 h-8" />, color: 'bg-purple-50 text-purple-700' },
     { id: 'alih-status', title: 'ALIH STATUS', description: 'Alih Status Penggunaan Barang Milik Negara', icon: <RefreshCw className="w-8 h-8" />, color: 'bg-teal-50   text-teal-700' },
     { id: 'hibah', title: 'HIBAH', description: 'Prosedur Hibah Barang Milik Negara', icon: <Gift className="w-8 h-8" />, color: 'bg-orange-50 text-orange-700' },
+    { id: 'user-siman', title: 'USER SIMAN', description: 'Panduan Layanan Akun dan Role SIMAN V2', icon: <Users className="w-8 h-8" />, color: 'bg-slate-50  text-slate-700' },
   ];
 
   /* ── Firebase ── */
@@ -550,6 +551,7 @@ const App: React.FC = () => {
                         'penggunaan-sementara': 'bg-purple-100  text-purple-800  dark:bg-purple-900/30  dark:text-purple-300',
                         'alih-status': 'bg-teal-100    text-teal-800    dark:bg-teal-900/30    dark:text-teal-300',
                         'hibah': 'bg-orange-100  text-orange-800  dark:bg-orange-900/30  dark:text-orange-300',
+                        'user-siman': 'bg-slate-100   text-slate-700   dark:bg-slate-700/30   dark:text-slate-300',
                       };
                       const catCls = catColors[doc.category] ?? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
                       return (

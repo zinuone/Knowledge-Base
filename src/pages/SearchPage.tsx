@@ -37,7 +37,7 @@ interface Doc {
 }
 
 /* ─── HELPERS ───────────────────────────────────────────────────── */
-const CATEGORIES = ['psp', 'sewa', 'penjualan', 'penghapusan', 'pinjam-pakai', 'penggunaan-sementara', 'alih-status', 'hibah'];
+const CATEGORIES = ['psp', 'sewa', 'penjualan', 'penghapusan', 'pinjam-pakai', 'penggunaan-sementara', 'alih-status', 'hibah', 'user-siman'];
 
 const getCategoryStyle = (cat: string) => {
     const map: Record<string, string> = {
@@ -49,6 +49,7 @@ const getCategoryStyle = (cat: string) => {
         'penggunaan-sementara': 'bg-purple-100  text-purple-800  border-purple-200  dark:bg-purple-900/30  dark:text-purple-300',
         'alih-status': 'bg-teal-100    text-teal-800    border-teal-200    dark:bg-teal-900/30    dark:text-teal-300',
         'hibah': 'bg-orange-100  text-orange-800  border-orange-200  dark:bg-orange-900/30  dark:text-orange-300',
+        'user-siman': 'bg-slate-100   text-slate-800   border-slate-200   dark:bg-slate-700   dark:text-slate-300',
     };
     return map[cat] ?? 'bg-slate-100 text-slate-800 border-slate-200';
 };

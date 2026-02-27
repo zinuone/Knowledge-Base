@@ -47,10 +47,11 @@ const getCategoryColor = (cat: string) => {
         'penggunaan-sementara': 'bg-purple-100  text-purple-800  border-purple-200',
         'alih-status': 'bg-teal-100    text-teal-800    border-teal-200',
         'hibah': 'bg-orange-100  text-orange-800  border-orange-200',
+        'user-siman': 'bg-cyan-100 text-cyan-800 border-cyan-200',
     };
     return map[cat] ?? 'bg-slate-100 text-slate-800 border-slate-200';
 };
-const CHART_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#f97316'];
+const CHART_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#f97316', '#00FFFF'];
 
 /* ─── FORMAT TOOLBAR ──────────────────────────────────────────── */
 const FormatToolbar = ({
@@ -730,7 +731,7 @@ const AdminDashboard: React.FC = () => {
                                                 <select className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 dark:bg-[#0f1f16] dark:text-slate-200 focus:ring-2 focus:ring-[#0D5C35] outline-none text-sm font-medium appearance-none cursor-pointer"
                                                     value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setSopPage(1); }}>
                                                     <option value="all">Semua Kategori</option>
-                                                    {['psp', 'sewa', 'penjualan', 'penghapusan', 'pinjam-pakai', 'penggunaan-sementara', 'alih-status', 'hibah'].map(c => (
+                                                    {['psp', 'sewa', 'penjualan', 'penghapusan', 'pinjam-pakai', 'penggunaan-sementara', 'alih-status', 'hibah', 'user-siman'].map(c => (
                                                         <option key={c} value={c}>{c.toUpperCase().replace(/-/g, ' ')}</option>
                                                     ))}
                                                 </select>
@@ -998,7 +999,7 @@ const AdminDashboard: React.FC = () => {
                                         <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kategori</label>
                                         <select className="w-full p-3.5 border border-slate-200 dark:border-slate-600 dark:bg-[#0f1f16] dark:text-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D5C35] outline-none font-bold text-slate-700 bg-slate-50 focus:bg-white cursor-pointer"
                                             value={formData.category} onChange={e => { setFormData(p => ({ ...p, category: e.target.value })); setIsDirty(true); }}>
-                                            {['psp', 'sewa', 'penjualan', 'penghapusan', 'pinjam-pakai', 'penggunaan-sementara', 'alih-status', 'hibah'].map(c => (
+                                            {['psp', 'sewa', 'penjualan', 'penghapusan', 'pinjam-pakai', 'penggunaan-sementara', 'alih-status', 'hibah', 'user-siman'].map(c => (
                                                 <option key={c} value={c}>{c.toUpperCase().replace(/-/g, ' ')}</option>
                                             ))}
                                         </select>

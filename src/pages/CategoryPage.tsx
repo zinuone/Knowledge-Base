@@ -1,10 +1,9 @@
-// File: src/pages/CategoryPage.tsx
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
-    ArrowLeft, FileText, Hammer, Key, Trash2, Clock,
+    ArrowLeft, FileText, Hammer, Key, Trash2, Clock, Users,
     Timer, RefreshCw, Gift, ArrowRight, ArrowUp, Home,
     ChevronRight, Layers, Search, X, ArrowUpDown,
 } from 'lucide-react';
@@ -81,6 +80,7 @@ const CategoryPage: React.FC = () => {
             'penggunaan-sementara': { icon: <Timer className="w-8 h-8" />, color: 'text-purple-600', bg: 'bg-purple-100', darkBg: 'dark:bg-purple-900/30', darkColor: 'dark:text-purple-400', gradient: 'from-purple-500 to-violet-600', hoverBg: 'group-hover:bg-purple-600', hoverText: 'group-hover:text-white' },
             'alih-status': { icon: <RefreshCw className="w-8 h-8" />, color: 'text-teal-600', bg: 'bg-teal-100', darkBg: 'dark:bg-teal-900/30', darkColor: 'dark:text-teal-400', gradient: 'from-teal-500 to-cyan-600', hoverBg: 'group-hover:bg-teal-600', hoverText: 'group-hover:text-white' },
             'hibah': { icon: <Gift className="w-8 h-8" />, color: 'text-orange-600', bg: 'bg-orange-100', darkBg: 'dark:bg-orange-900/30', darkColor: 'dark:text-orange-400', gradient: 'from-orange-500 to-red-500', hoverBg: 'group-hover:bg-orange-600', hoverText: 'group-hover:text-white' },
+            'user-siman': { icon: <Users className="w-8 h-8" />, color: 'text-cyan-600', bg: 'bg-cyan-100', darkBg: 'dark:bg-cyan-900/30', darkColor: 'dark:text-cyan-400', gradient: 'from-cyan-500 to-blue-600', hoverBg: 'group-hover:bg-cyan-600', hoverText: 'group-hover:text-white' },
         };
         return map[catId ?? ''] ?? {
             icon: <FileText className="w-8 h-8" />, color: 'text-[#0D5C35]', bg: 'bg-[#EAF2EE]',
