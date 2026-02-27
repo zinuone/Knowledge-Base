@@ -524,7 +524,7 @@ const App: React.FC = () => {
               <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full ${s.bg} opacity-60 ring-pulse pointer-events-none`} style={{ animationDelay: `${i * 0.5}s` }} />
               <div className={`absolute -bottom-6 -left-6 w-16 h-16 rounded-full ${s.bg} opacity-30 pointer-events-none`} />
               {/* Ghost number */}
-              <div className={`absolute right-3 bottom-1 text-6xl font-black ${s.accent} opacity-[0.07] leading-none select-none pointer-events-none`}>{i === 0 ? '∞' : i === 1 ? '★' : i === 2 ? '◆' : '♥'}</div>
+              <div className={`absolute right-3 bottom-1 text-6xl font-black ${s.accent} opacity-[0.07] leading-none select-none pointer-events-none`}>{i === 0 ? '' : i === 1 ? '' : i === 2 ? '' : ''}</div>
               <div className={`${s.bg} ${s.accent} p-3 rounded-xl flex-shrink-0 group-hover:scale-110 transition-transform duration-300 shadow-sm relative z-10`}>{s.icon}</div>
               <div className="min-w-0 relative z-10">
                 <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider truncate">{s.label}</p>
