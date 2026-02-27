@@ -68,7 +68,7 @@ const CategoryPage: React.FC = () => {
 
     const getCategoryMeta = (catId?: string) => {
         const map: Record<string, {
-            icon: JSX.Element; color: string; bg: string;
+            icon: React.ReactElement; color: string; bg: string;
             gradient: string; hoverBg: string; hoverText: string;
             darkBg: string; darkColor: string;
         }> = {

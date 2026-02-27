@@ -429,7 +429,7 @@ const DetailPage: React.FC = () => {
         <div className="max-w-4xl mx-auto px-4 sm:px-5 py-4 flex items-center justify-between gap-3 md:gap-4">
           <div className="flex items-center gap-2 md:gap-3 min-w-0">
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => { if (window.history.length > 2) { navigate(-1); } else { navigate('/'); } }}
               className="flex-shrink-0 p-2 hover:bg-white/20 rounded-full transition"
               aria-label="Kembali">
               <ArrowLeft className="w-5 h-5" />

@@ -7,7 +7,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import {
   Search, FileText, Hammer, Key, Trash2, Clock, RefreshCw, Users,
   Info, Phone, BookOpen, Mail, ArrowUp, Timer, HelpCircle, LogIn,
-  Menu, X, ChevronLeft, ChevronRight, Eye, Grid, Zap, Flame,
+  Menu, X, ChevronLeft, ChevronRight, Eye, Grid, Zap, Flame, Command,
   Instagram, Globe, Filter,
   Youtube, Scale, Gift,
   MapPin, ExternalLink, ChevronDown,
@@ -89,6 +89,38 @@ const HERO_ANIM_CSS = `
 .dark-toggle:hover .sun-icon  { animation: sunSpin 0.7s ease-in-out; }
 .dark-toggle:hover .moon-icon { animation: moonBob 0.5s ease-in-out; }
 
+/* ── Section separator ── */
+@keyframes dividerPulse {
+  0%,100% { opacity: 0.35; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.25); }
+}
+.sep-dot { animation: dividerPulse 2.4s ease-in-out infinite; }
+
+/* ── Ctrl+K pill ── */
+@keyframes kbdPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(212,175,55,0); }
+  50%      { box-shadow: 0 0 0 5px rgba(212,175,55,0.12); }
+}
+.kbd-pill { animation: kbdPulse 3.5s ease-in-out infinite; }
+
+/* ── Card hover glow ── */
+@keyframes cardGlow {
+  0%,100% { box-shadow: 0 0 0 0 rgba(13,92,53,0); }
+  50%      { box-shadow: 0 8px 32px -4px rgba(13,92,53,0.18); }
+}
+.stat-card-glow:hover { animation: cardGlow 1s ease-out forwards; }
+
+/* ── Ring spin ── */
+@keyframes ringPulse {
+  0%,100% { transform: scale(1); opacity: 0.5; }
+  50%      { transform: scale(1.08); opacity: 0.8; }
+}
+.ring-pulse { animation: ringPulse 3s ease-in-out infinite; }
+
+/* ── Premium showcase card accent ── */
+.showcase-card { transition: all 0.25s cubic-bezier(0.4,0,0.2,1); }
+.showcase-card:hover { transform: translateY(-4px); }
+
 @keyframes tabSlide {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -123,7 +155,7 @@ const FadeInSection: React.FC<{ children: React.ReactNode; delay?: string }> = (
 };
 
 /* ─── TIPE DATA ───────────────────────────────────────────────── */
-interface ContentData { id: string; title: string; category: string; description: string; updatedAt?: any; }
+interface ContentData { id: string; title: string; category: string; description: string; updatedAt?: any; views?: number; likes?: number; dislikes?: number; tags?: string[]; content?: string; }
 interface FAQData { id: string; question: string; answer: string; }
 interface GuideData { id: string; content: string; }
 interface HistoryItem { id: string; title: string; category: string; description: string; visitedAt: number; }
@@ -189,6 +221,7 @@ const App: React.FC = () => {
   });
   const [activeDocTab, setActiveDocTab] = useState<'popular' | 'newest' | 'new'>('popular');
   const prevDocIdsRef = useRef<Set<string> | null>(null);
+  const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(-1);
 
   /* ── Dark Mode ── */
   const [isDark, setIsDark] = useState(() => {
@@ -304,8 +337,21 @@ const App: React.FC = () => {
   const handleClearSearch = () => {
     setSearchQuery('');
     setShowSuggestions(false);
+    setSelectedSuggestionIdx(-1);
     searchInputRef.current?.focus();
   };
+
+  /* ── Ctrl+K global shortcut ── */
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        navigate('/search');
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [navigate]);
 
   const formatDate = (ts: any) => {
     if (!ts) return '-';
@@ -335,7 +381,7 @@ const App: React.FC = () => {
      SECTION: HOME
   ══════════════════════════════════════════════════════════════ */
   const SectionHome = () => (
-    <div className="space-y-4">
+    <div className="space-y-10">
       <section className={`transition-all duration-1000 delay-300 ease-out ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
         <div className="flex items-center space-x-3 mb-8 pl-4 border-l-4 border-[#D4AF37]">
           <Grid className="w-5 h-5 text-[#D4AF37]" />
@@ -374,13 +420,16 @@ const App: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {!isLoaded
             ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
-            : categories.map((cat, i) => (
-              <div key={cat.id} onClick={() => handleCategoryClick(cat.id)}
-                className="cursor-pointer transition-transform hover:scale-105 active:scale-95 h-full"
-                style={{ animationDelay: `${i * 80}ms` }}>
-                <KnowledgeCard title={cat.title} description={cat.description} icon={cat.icon} colorClass={cat.color} />
-              </div>
-            ))}
+            : categories.map((cat, i) => {
+              const docCount = documents.filter(d => d.category === cat.id).length;
+              return (
+                <div key={cat.id} onClick={() => handleCategoryClick(cat.id)}
+                  className="cursor-pointer transition-transform hover:scale-105 active:scale-95 h-full"
+                  style={{ animationDelay: `${i * 80}ms` }}>
+                  <KnowledgeCard title={cat.title} description={cat.description} icon={cat.icon} colorClass={cat.color} docCount={docCount} />
+                </div>
+              );
+            })}
         </div>
 
         {/* ── Terakhir Dibaca ── */}
@@ -417,6 +466,17 @@ const App: React.FC = () => {
           </div>
         )}
       </section>
+
+      {/* ── Separator ── */}
+      <div className="relative flex items-center gap-4 py-2">
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent" />
+        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-[#162918] border border-slate-200 dark:border-slate-700 shadow-sm">
+          <span className="sep-dot w-1.5 h-1.5 rounded-full bg-[#D4AF37]" style={{ animationDelay: '0ms' }} />
+          <span className="sep-dot w-1.5 h-1.5 rounded-full bg-[#0D5C35]" style={{ animationDelay: '500ms' }} />
+          <span className="sep-dot w-1.5 h-1.5 rounded-full bg-[#D4AF37]" style={{ animationDelay: '1000ms' }} />
+        </div>
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent" />
+      </div>
 
       {/* ══════════════════════════════════════════════════════════
            STATS BAR
@@ -457,16 +517,32 @@ const App: React.FC = () => {
               border: 'border-purple-100 dark:border-purple-800/30',
             },
           ].map((s, i) => (
-            <div key={i} className={`bg-white dark:bg-[#162918] rounded-2xl border ${s.border} p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5`}>
-              <div className={`${s.bg} ${s.accent} p-3 rounded-xl flex-shrink-0`}>{s.icon}</div>
-              <div className="min-w-0">
+            <div key={i}
+              className={`relative overflow-hidden bg-white dark:bg-[#162918] rounded-2xl border ${s.border} p-5 flex items-center gap-4 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 group stat-pop`}
+              style={{ animationDelay: `${i * 90}ms` }}>
+              {/* Decorative ring */}
+              <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full ${s.bg} opacity-60 ring-pulse pointer-events-none`} style={{ animationDelay: `${i * 0.5}s` }} />
+              <div className={`absolute -bottom-6 -left-6 w-16 h-16 rounded-full ${s.bg} opacity-30 pointer-events-none`} />
+              {/* Ghost number */}
+              <div className={`absolute right-3 bottom-1 text-6xl font-black ${s.accent} opacity-[0.07] leading-none select-none pointer-events-none`}>{i === 0 ? '∞' : i === 1 ? '★' : i === 2 ? '◆' : '♥'}</div>
+              <div className={`${s.bg} ${s.accent} p-3 rounded-xl flex-shrink-0 group-hover:scale-110 transition-transform duration-300 shadow-sm relative z-10`}>{s.icon}</div>
+              <div className="min-w-0 relative z-10">
                 <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider truncate">{s.label}</p>
-                <p className={`text-2xl font-black ${s.accent} leading-tight`}>{isLoadingData ? '—' : s.value}</p>
+                <p className={`text-2xl font-black ${s.accent} leading-tight tracking-tight`}>{isLoadingData ? '—' : s.value}</p>
               </div>
             </div>
           ))}
         </div>
       </FadeInSection>
+
+      {/* ── Separator ── */}
+      <div className="relative flex items-center gap-4">
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent" />
+        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] px-3 whitespace-nowrap">
+          Temukan Dokumen
+        </span>
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent" />
+      </div>
 
       {/* ══════════════════════════════════════════════════════════
            DOCUMENT SHOWCASE — Terpopuler / Terbaru / Baru
@@ -495,8 +571,8 @@ const App: React.FC = () => {
               ] as const).map(tab => (
                 <button key={tab.key} onClick={() => setActiveDocTab(tab.key)}
                   className={`flex items-center gap-1.5 px-4 py-2.5 rounded-t-xl text-xs font-bold border-b-2 transition-all ${activeDocTab === tab.key
-                      ? 'border-[#0D5C35] text-[#0D5C35] dark:text-emerald-400 dark:border-emerald-400 bg-emerald-50/50 dark:bg-emerald-900/10'
-                      : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                    ? 'border-[#0D5C35] text-[#0D5C35] dark:text-emerald-400 dark:border-emerald-400 bg-emerald-50/50 dark:bg-emerald-900/10'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                     }`}>
                   {tab.icon} {tab.label}
                   {tab.key === 'new' && statsData.newCount > 0 && (
@@ -558,7 +634,9 @@ const App: React.FC = () => {
                         <div key={doc.id}
                           onClick={() => handleDocClick(doc.id)}
                           style={{ animationDelay: `${i * 50}ms` }}
-                          className="group relative bg-slate-50 dark:bg-[#0f1f16] hover:bg-white dark:hover:bg-[#162918] border border-slate-100 dark:border-slate-700/60 hover:border-[#0D5C35]/25 dark:hover:border-[#D4AF37]/20 rounded-2xl p-5 cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
+                          className="showcase-card group relative bg-white dark:bg-[#0f1f16] hover:bg-white dark:hover:bg-[#162918] border border-slate-100 dark:border-slate-700/60 hover:border-[#0D5C35]/20 dark:hover:border-emerald-700/30 rounded-2xl p-5 cursor-pointer overflow-hidden hover:shadow-xl">
+                          {/* Left accent bar */}
+                          <div className="absolute left-0 top-4 bottom-4 w-0.5 rounded-full bg-gradient-to-b from-[#D4AF37] via-[#0D5C35] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                           {/* Rank badge for popular */}
                           {activeDocTab === 'popular' && i < 3 && (
                             <div className={`absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${i === 0 ? 'bg-[#D4AF37] text-slate-900' : i === 1 ? 'bg-slate-300 dark:bg-slate-600 text-slate-700 dark:text-slate-200' : 'bg-orange-200 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300'
@@ -581,8 +659,8 @@ const App: React.FC = () => {
                           {/* Footer stats */}
                           <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 dark:text-slate-500">
                             <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{doc.views || 0} views</span>
-                            <span className="flex items-center gap-1 text-[#0D5C35] dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                              Baca <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                            <span className="flex items-center gap-1 text-[#0D5C35] dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-1 group-hover:translate-x-0">
+                              Baca <ArrowRight className="w-3 h-3" />
                             </span>
                           </div>
                         </div>
@@ -673,7 +751,7 @@ const App: React.FC = () => {
               <div>
                 <p className="font-bold text-slate-800 dark:text-slate-100 text-sm mb-1">Tidak menemukan jawaban?</p>
                 <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-3">Hubungi kami langsung melalui Konsultasi Online untuk mendapatkan bantuan lebih lanjut.</p>
-                <a href="#" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 transition-colors">
+                <a href="https://www.djkn.kemenkeu.go.id/kpknl-kendari/kontak" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 transition-colors">
                   <Phone className="w-3.5 h-3.5" /> Konsul Online <ArrowRight className="w-3 h-3" />
                 </a>
               </div>
@@ -747,7 +825,7 @@ const App: React.FC = () => {
   const SectionCTA = () => {
     const ctaStats = [
       { label: 'Total Dokumen', value: documents.length, icon: <FileText className="w-6 h-6" />, color: 'from-emerald-500 to-teal-600' },
-      { label: 'Kategori Aktif', value: categories.length, icon: <Layers className="w-6 h-6" />, color: 'from-blue-500 to-indigo-600' },
+      { label: 'Total Kunjungan', value: documents.reduce((a, d) => a + (d.views || 0), 0).toLocaleString('id-ID'), icon: <Eye className="w-6 h-6" />, color: 'from-blue-500 to-indigo-600' },
       { label: 'FAQ Tersedia', value: faqs.length, icon: <MessageSquare className="w-6 h-6" />, color: 'from-amber-500 to-orange-600' },
       { label: 'Panduan Lengkap', value: guides.length, icon: <BookOpen className="w-6 h-6" />, color: 'from-rose-500 to-pink-600' },
     ];
@@ -785,7 +863,7 @@ const App: React.FC = () => {
               </p>
             </div>
             <div className="flex flex-col items-center gap-4 flex-shrink-0">
-              <a href="#" target="_blank" rel="noopener noreferrer"
+              <a href="https://www.djkn.kemenkeu.go.id/kpknl-kendari/kontak" target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-3 px-8 py-4 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 font-black rounded-2xl shadow-[0_0_24px_rgba(212,175,55,0.4)] hover:shadow-[0_0_30px_rgba(212,175,55,0.6)] hover:-translate-y-1 transition-all duration-300 whitespace-nowrap">
                 <div className="relative">
                   <Phone className="w-5 h-5" />
@@ -850,6 +928,13 @@ const App: React.FC = () => {
                   <button key={item.id} onClick={() => scrollToSection(item.id)} className="text-white/90 hover:text-[#D4AF37] transition-colors">{item.label}</button>
                 ))}
               </div>
+              <button onClick={() => navigate('/search')}
+                className="flex items-center gap-1.5 text-white/80 hover:text-[#D4AF37] transition-colors text-sm font-semibold uppercase tracking-wider relative group"
+                title="Pencarian (Ctrl+K)">
+                <Search className="w-4 h-4" />
+                {/* Ctrl+K tooltip */}
+                <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-bold bg-slate-800 text-white/80 px-2 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Ctrl+K</span>
+              </button>
               <button onClick={() => navigate('/bookmarks')}
                 className="flex items-center gap-1.5 text-white/80 hover:text-[#D4AF37] transition-colors text-sm font-semibold uppercase tracking-wider"
                 title="Dokumen Favorit">
@@ -907,6 +992,10 @@ const App: React.FC = () => {
                 </button>
               ))}
               <div className="mt-2 pt-2 border-t border-white/10">
+                <button onClick={() => { setIsMenuOpen(false); navigate('/search'); }}
+                  className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white/90 font-semibold flex items-center gap-3 transition-all">
+                  <Search className="w-4 h-4 opacity-70" /> Pencarian
+                </button>
                 <button onClick={() => { setIsMenuOpen(false); navigate('/bookmarks'); }}
                   className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-[#D4AF37] font-semibold flex items-center gap-3 transition-all">
                   <Bookmark className="w-4 h-4 opacity-70" /> Dokumen Favorit
@@ -948,9 +1037,17 @@ const App: React.FC = () => {
         </div>
 
         <div className={`max-w-4xl mx-auto text-center relative z-10 transition-all duration-1000 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-white/80 text-xs font-semibold uppercase tracking-wider mb-6">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            Sistem Informasi Terpadu — KPKNL Kendari
+          <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-white/80 text-xs font-semibold uppercase tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Sistem Informasi Terpadu — KPKNL Kendari
+            </div>
+            {!isLoadingData && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#D4AF37]/20 border border-[#D4AF37]/30 rounded-full text-[#D4AF37] text-xs font-bold">
+                <Eye className="w-3 h-3" />
+                {statsData.views.toLocaleString('id-ID')} total kunjungan
+              </div>
+            )}
           </div>
 
           <h1 className="text-white text-4xl md:text-5xl font-extrabold mb-5 tracking-tight leading-tight">
@@ -979,7 +1076,19 @@ const App: React.FC = () => {
                   placeholder={selectedCategoryFilter !== 'all' ? `Cari di ${categories.find(c => c.id === selectedCategoryFilter)?.title}...` : 'Cari SOP atau Layanan...'}
                   value={searchQuery}
                   onChange={e => { setSearchQuery(e.target.value); setShowSuggestions(e.target.value.trim().length > 0); }}
-                  onKeyDown={e => { if (e.key === 'Enter') handleSearchAction(); if (e.key === 'Escape') setShowSuggestions(false); }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      if (selectedSuggestionIdx >= 0 && liveSuggestions[selectedSuggestionIdx]) {
+                        handleSuggestionClick(liveSuggestions[selectedSuggestionIdx]);
+                        setSelectedSuggestionIdx(-1);
+                      } else {
+                        handleSearchAction();
+                      }
+                    }
+                    if (e.key === 'Escape') { setShowSuggestions(false); setSelectedSuggestionIdx(-1); }
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedSuggestionIdx(i => Math.min(i + 1, liveSuggestions.length - 1)); }
+                    if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedSuggestionIdx(i => Math.max(i - 1, -1)); }
+                  }}
                   onFocus={() => { if (searchQuery.trim()) setShowSuggestions(true); }}
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                 />
@@ -1012,17 +1121,17 @@ const App: React.FC = () => {
                     <span className="text-xs text-slate-400">{liveSuggestions.length} hasil</span>
                   </div>
                   {liveSuggestions.map((doc, i) => (
-                    <button key={doc.id} onMouseDown={() => handleSuggestionClick(doc)}
-                      className="suggestion-item w-full text-left px-4 py-3 hover:bg-emerald-50 transition-colors border-b border-slate-50 last:border-0 flex items-start gap-3 group"
+                    <button key={doc.id} onMouseDown={() => { handleSuggestionClick(doc); setSelectedSuggestionIdx(-1); }}
+                      className={`suggestion-item w-full text-left px-4 py-3 transition-colors border-b border-slate-50 last:border-0 flex items-start gap-3 group ${selectedSuggestionIdx === i ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'hover:bg-emerald-50 dark:hover:bg-emerald-900/10'}`}
                       style={{ animationDelay: `${i * 40}ms` }}>
-                      <div className="p-1.5 bg-slate-100 group-hover:bg-[#0D5C35] rounded-lg flex-shrink-0 transition-colors mt-0.5">
-                        <Search className="w-3 h-3 text-slate-400 group-hover:text-white transition-colors" />
+                      <div className={`p-1.5 rounded-lg flex-shrink-0 transition-colors mt-0.5 ${selectedSuggestionIdx === i ? 'bg-[#0D5C35] text-white' : 'bg-slate-100 group-hover:bg-[#0D5C35]'}`}>
+                        <Search className={`w-3 h-3 transition-colors ${selectedSuggestionIdx === i ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
                       </div>
                       <div className="min-w-0">
-                        <div className="font-semibold text-slate-800 text-sm group-hover:text-[#0D5C35] transition-colors line-clamp-1">{doc.title}</div>
+                        <div className={`font-semibold text-sm line-clamp-1 transition-colors ${selectedSuggestionIdx === i ? 'text-[#0D5C35] dark:text-emerald-400' : 'text-slate-800 dark:text-slate-200 group-hover:text-[#0D5C35]'}`}>{doc.title}</div>
                         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{doc.category.replace(/-/g, ' ')}</div>
                       </div>
-                      <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#0D5C35] flex-shrink-0 ml-auto mt-1 transition-colors" />
+                      <ArrowRight className={`w-4 h-4 flex-shrink-0 ml-auto mt-1 transition-colors ${selectedSuggestionIdx === i ? 'text-[#0D5C35]' : 'text-slate-300 group-hover:text-[#0D5C35]'}`} />
                     </button>
                   ))}
                   <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 text-center">
@@ -1083,8 +1192,19 @@ const App: React.FC = () => {
               ))}
             </div>
 
+            {/* Ctrl+K hint */}
+            <div className="mt-3 flex justify-center">
+              <button onClick={() => navigate('/search')}
+                className="kbd-pill inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/8 border border-white/15 text-white/45 hover:text-white/80 hover:bg-white/15 transition-all text-[11px] font-medium">
+                <Command className="w-3 h-3" />
+                <span>K</span>
+                <span className="text-white/25 mx-0.5">·</span>
+                <span>Buka pencarian lengkap</span>
+              </button>
+            </div>
+
             <div className="mt-10">
-              <a href="#" target="_blank" rel="noopener noreferrer"
+              <a href="https://www.djkn.kemenkeu.go.id/kpknl-kendari/kontak" target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center px-8 py-4 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 font-black rounded-full shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:shadow-[0_0_30px_rgba(212,175,55,0.6)] hover:-translate-y-1 transition-all duration-300">
                 <Phone className="w-5 h-5 mr-3 animate-pulse" />
                 DAFTAR KONSUL ONLINE
@@ -1096,14 +1216,45 @@ const App: React.FC = () => {
       </div>
 
       {/* ── MAIN CONTENT ── */}
-      <main className="flex-grow max-w-7xl mx-auto px-4 -mt-16 relative z-10 w-full pb-24 space-y-20">
-        <div id="beranda"><SectionHome /></div>
+      <main className="flex-grow max-w-7xl mx-auto px-4 -mt-16 relative z-10 w-full pb-24">
+        <div id="beranda" className="mb-20"><SectionHome /></div>
+
+        {/* ── Premium section divider ── */}
         <FadeInSection>
-          <div id="faq" className="scroll-mt-24"><SectionFAQ /></div>
+          <div className="relative flex items-center gap-6 mb-16">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-600 to-transparent" />
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-200 dark:shadow-amber-900/30">
+                <HelpCircle className="w-4 h-4 text-white" />
+              </div>
+              <span className="font-black text-slate-700 dark:text-slate-200 uppercase tracking-[0.15em] text-xs">FAQ & Bantuan</span>
+            </div>
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-600 to-transparent" />
+          </div>
         </FadeInSection>
+
+        <FadeInSection>
+          <div id="faq" className="scroll-mt-24 mb-20"><SectionFAQ /></div>
+        </FadeInSection>
+
+        {/* ── Premium section divider ── */}
+        <FadeInSection>
+          <div className="relative flex items-center gap-6 mb-16">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-600 to-transparent" />
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#0D5C35] to-[#0A492A] flex items-center justify-center shadow-lg shadow-emerald-200 dark:shadow-emerald-900/30">
+                <BookOpen className="w-4 h-4 text-white" />
+              </div>
+              <span className="font-black text-slate-700 dark:text-slate-200 uppercase tracking-[0.15em] text-xs">Panduan Pengguna</span>
+            </div>
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-600 to-transparent" />
+          </div>
+        </FadeInSection>
+
         <FadeInSection delay="delay-100">
-          <div id="panduan" className="scroll-mt-24"><SectionPanduan /></div>
+          <div id="panduan" className="scroll-mt-24 mb-20"><SectionPanduan /></div>
         </FadeInSection>
+
         <FadeInSection delay="delay-150">
           <SectionCTA />
         </FadeInSection>
@@ -1157,7 +1308,7 @@ const App: React.FC = () => {
                 <span className="h-px flex-1 bg-white/10" /><span>Tautan Resmi</span><span className="h-px flex-1 bg-white/10" />
               </h4>
               <ul className="space-y-3">
-                {[{ label: 'Website DJKN', href: 'https://www.djkn.kemenkeu.go.id/kpknl-kendari' }, { label: 'Portal Lelang', href: 'https://lelang.go.id/' }, { label: 'SIMAK BMN', href: '#' }, { label: 'Kemenkeu RI', href: 'https://www.kemenkeu.go.id' }].map(link => (
+                {[{ label: 'Website DJKN', href: 'https://www.djkn.kemenkeu.go.id/kpknl-kendari' }, { label: 'Portal Lelang', href: 'https://lelang.go.id/' }, { label: 'SIMAK BMN', href: 'https://simak-bmn.kemenkeu.go.id' }, { label: 'Kemenkeu RI', href: 'https://www.kemenkeu.go.id' }].map(link => (
                   <li key={link.label}>
                     <a href={link.href} target="_blank" rel="noopener noreferrer" className="text-emerald-100/70 hover:text-[#D4AF37] text-sm transition-colors flex items-center gap-2 group">
                       <ExternalLink className="w-3.5 h-3.5 flex-shrink-0 opacity-60 group-hover:opacity-100" />{link.label}

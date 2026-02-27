@@ -5,7 +5,7 @@ import { collection, query, where, documentId, getDocs } from 'firebase/firestor
 import { db } from '../firebase';
 import {
     ArrowLeft, Bookmark, BookmarkX, Home, FileText,
-    ArrowRight, Trash2, Sparkles, ChevronRight,
+    ArrowRight, Trash2, Sparkles, ChevronRight, Sun, Moon, Search,
 } from 'lucide-react';
 
 /* ─── CSS ─────────────────────────────────────────────────────── */
@@ -54,6 +54,9 @@ interface BookmarkDoc {
 const BookmarksPage: React.FC = () => {
     const navigate = useNavigate();
     const [docs, setDocs] = useState<BookmarkDoc[]>([]);
+    const [isDark, setIsDark] = useState(() => {
+        try { return localStorage.getItem('pkn-theme') === 'dark'; } catch { return false; }
+    });
     const [loading, setLoading] = useState(true);
     const [bookmarkIds, setBookmarkIds] = useState<string[]>(() => {
         try { return JSON.parse(localStorage.getItem('pkn-bookmarks') || '[]'); } catch { return []; }
@@ -61,11 +64,9 @@ const BookmarksPage: React.FC = () => {
 
     /* ── Dark Mode ── */
     useEffect(() => {
-        try {
-            const isDark = localStorage.getItem('pkn-theme') === 'dark';
-            document.documentElement.classList.toggle('dark', isDark);
-        } catch { }
-    }, []);
+        document.documentElement.classList.toggle('dark', isDark);
+        try { localStorage.setItem('pkn-theme', isDark ? 'dark' : 'light'); } catch { }
+    }, [isDark]);
 
     /* ── Fetch documents ── */
     useEffect(() => {
@@ -135,10 +136,22 @@ const BookmarksPage: React.FC = () => {
                         <span className="text-white/80 font-bold">Dokumen Favorit</span>
                     </nav>
 
-                    <button onClick={() => navigate('/')}
-                        className="mb-5 inline-flex items-center gap-2 text-emerald-100/80 hover:text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full transition-all text-sm font-bold border border-white/10">
-                        <ArrowLeft className="w-4 h-4" /> Kembali ke Beranda
-                    </button>
+                    <div className="mb-5 flex items-center gap-3 flex-wrap">
+                        <button onClick={() => navigate('/')}
+                            className="inline-flex items-center gap-2 text-emerald-100/80 hover:text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full transition-all text-sm font-bold border border-white/10">
+                            <ArrowLeft className="w-4 h-4" /> Kembali ke Beranda
+                        </button>
+                        <button onClick={() => navigate('/search')}
+                            className="inline-flex items-center gap-2 text-emerald-100/60 hover:text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full transition-all text-sm font-bold border border-white/10">
+                            <Search className="w-4 h-4" /> Cari Dokumen
+                        </button>
+                        <button
+                            onClick={() => setIsDark(p => !p)}
+                            className="ml-auto p-2.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition-all"
+                            title={isDark ? 'Mode Terang' : 'Mode Gelap'}>
+                            {isDark ? <Sun className="w-4 h-4 text-[#D4AF37]" /> : <Moon className="w-4 h-4 text-white/80" />}
+                        </button>
+                    </div>
 
                     <div className="flex items-start justify-between gap-4">
                         <div>
