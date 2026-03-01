@@ -8,6 +8,7 @@ import {
     ChevronRight, ChevronLeft, Layers, Search, X, ArrowUpDown,
 } from 'lucide-react';
 import { SkeletonCategoryGrid } from '../components/SkeletonLoader';
+import { Helmet } from 'react-helmet-async';
 
 /* ─── Animasi ─────────────────────────────────────────────────── */
 const PAGE_CSS = `
@@ -94,6 +95,33 @@ const CategoryPage: React.FC = () => {
 
     const meta = getCategoryMeta(categoryId);
 
+    /* ── Label & deskripsi per kategori untuk Helmet SEO ── */
+    const categoryLabelMap: Record<string, string> = {
+        'psp':                  'PSP (Penetapan Status Penggunaan)',
+        'penjualan':            'Penjualan BMN',
+        'sewa':                 'Sewa BMN',
+        'penghapusan':          'Penghapusan BMN',
+        'pinjam-pakai':         'Pinjam Pakai BMN',
+        'penggunaan-sementara': 'Penggunaan Sementara BMN',
+        'alih-status':          'Alih Status BMN',
+        'hibah':                'Hibah BMN',
+        'user-siman':           'Panduan Pengguna SIMAN',
+    };
+    const categoryDescMap: Record<string, string> = {
+        'psp':                  'SOP dan panduan Penetapan Status Penggunaan (PSP) Barang Milik Negara di KPKNL Kendari.',
+        'penjualan':            'SOP dan panduan proses penjualan Barang Milik Negara (BMN) di KPKNL Kendari.',
+        'sewa':                 'SOP dan panduan sewa Barang Milik Negara (BMN) di KPKNL Kendari.',
+        'penghapusan':          'SOP dan panduan penghapusan Barang Milik Negara (BMN) dari daftar inventaris.',
+        'pinjam-pakai':         'SOP dan panduan pinjam pakai Barang Milik Negara (BMN) di KPKNL Kendari.',
+        'penggunaan-sementara': 'SOP dan panduan penggunaan sementara Barang Milik Negara (BMN).',
+        'alih-status':          'SOP dan panduan alih status Barang Milik Negara (BMN) di KPKNL Kendari.',
+        'hibah':                'SOP dan panduan hibah Barang Milik Negara (BMN) di KPKNL Kendari.',
+        'user-siman':           'Panduan penggunaan aplikasi SIMAN untuk pengelola Barang Milik Negara.',
+    };
+    const seoTitle = categoryLabelMap[categoryId ?? ''] ?? categoryTitle;
+    const seoDesc  = categoryDescMap[categoryId ?? '']
+        ?? `Dokumen SOP dan panduan ${categoryTitle} — Knowledge Base KPKNL Kendari.`;
+
     useEffect(() => {
         const fetchDocs = async () => {
             if (!categoryId) return;
@@ -137,6 +165,14 @@ const CategoryPage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-[#F4F7F5] dark:bg-[#0d1a12] font-sans pb-24 relative transition-colors duration-300">
+            <Helmet>
+                <title>{seoTitle} — Knowledge Base KPKNL Kendari</title>
+                <meta name="description" content={seoDesc} />
+                <meta property="og:title" content={`${seoTitle} — Knowledge Base KPKNL Kendari`} />
+                <meta property="og:description" content={seoDesc} />
+                <meta property="og:type" content="website" />
+            </Helmet>
+
             <style dangerouslySetInnerHTML={{ __html: PAGE_CSS }} />
 
             {/* ── HERO HEADER ── */}

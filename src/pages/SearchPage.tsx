@@ -1,7 +1,8 @@
 // File: src/pages/SearchPage.tsx
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { Helmet } from 'react-helmet-async';
+import { collection, getDocs, query, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
     Search, X, Home, ChevronRight, Eye, Calendar, Tag,
@@ -94,6 +95,9 @@ const SearchPage: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const RESULTS_PER_PAGE = 10;
 
+    /* ── Search Analytics: ref untuk mencegah log duplikat ── */
+    const lastLoggedQueryRef = useRef<string>('');
+
     /* Dark mode sync */
     useEffect(() => {
         try { document.documentElement.classList.toggle('dark', localStorage.getItem('pkn-theme') === 'dark'); } catch { }
@@ -131,6 +135,7 @@ const SearchPage: React.FC = () => {
 
     /* Reset halaman saat query/filter/sort berubah */
     useEffect(() => { setCurrentPage(1); }, [activeQuery, filterCat, sortBy]);
+
 
     const doSearch = useCallback((q: string, cat: string) => {
         const p: Record<string, string> = {};
@@ -183,12 +188,44 @@ const SearchPage: React.FC = () => {
 
     const hasQuery = activeQuery || filterCat !== 'all';
 
+    /* ── Search Analytics: simpan query ke Firestore saat aktif ──
+       POSISI PENTING: harus setelah `results` useMemo karena useEffect
+       membaca results.length. Menaruhnya sebelum deklarasi results
+       menyebabkan "used before declaration" error di TypeScript.
+       Fire-and-forget: error diabaikan agar tidak ganggu UX. ── */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => {
+        if (!activeQuery.trim() || activeQuery === lastLoggedQueryRef.current) return;
+        lastLoggedQueryRef.current = activeQuery;
+        addDoc(collection(db, 'search-logs'), {
+            query:        activeQuery.trim(),
+            resultsCount: results.length,
+            timestamp:    serverTimestamp(),
+        }).catch(() => { /* silent — jangan ganggu UX */ });
+    }, [activeQuery, results]);
+
     const totalPages = Math.ceil(results.length / RESULTS_PER_PAGE);
     const paginatedResults = results.slice((currentPage - 1) * RESULTS_PER_PAGE, currentPage * RESULTS_PER_PAGE);
 
     /* ── RENDER ── */
     return (
         <div className="min-h-screen bg-[#F4F7F5] dark:bg-[#0d1a12] font-sans transition-colors duration-300">
+            <Helmet>
+                <title>
+                    {activeQuery
+                        ? `Pencarian: "${activeQuery}" — Knowledge Base KPKNL Kendari`
+                        : 'Pencarian Dokumen — Knowledge Base KPKNL Kendari'
+                    }
+                </title>
+                <meta
+                    name="description"
+                    content={activeQuery
+                        ? `${results.length} hasil pencarian untuk "${activeQuery}" di Knowledge Base KPKNL Kendari.`
+                        : 'Cari SOP, regulasi, dan panduan pengelolaan BMN di Knowledge Base KPKNL Kendari.'
+                    }
+                />
+            </Helmet>
+
             <style dangerouslySetInnerHTML={{ __html: PAGE_CSS }} />
 
             {/* ── HERO / SEARCH BAR ── */}

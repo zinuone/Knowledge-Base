@@ -12,7 +12,7 @@ import {
   Youtube, Scale, Gift,
   MapPin, ExternalLink, ChevronDown,
   Sparkles, Building2, BarChart3, Layers, MessageSquare, TrendingUp,
-  ArrowRight, Moon, Sun, SlidersHorizontal, Bookmark,
+  ArrowRight, Moon, Sun, SlidersHorizontal, Bookmark, Download,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import KnowledgeCard from './src/components/KnowledgeCard';
@@ -204,6 +204,15 @@ const FAQAccordionItem: React.FC<{ faq: FAQData; index: number; isDark: boolean 
 /* ═══════════════════════════════════════════════════════════════
    APP COMPONENT
 ═══════════════════════════════════════════════════════════════ */
+/* ─── PWA: TypeScript interface untuk beforeinstallprompt event ──
+   Browser tidak menyertakan tipe ini di lib.dom.d.ts standar,
+   sehingga kita deklarasikan sendiri di sini.              ── */
+interface BeforeInstallPromptEvent extends Event {
+  readonly platforms: string[];
+  readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+  prompt(): Promise<void>;
+}
+
 const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
@@ -233,6 +242,14 @@ const App: React.FC = () => {
     document.documentElement.classList.toggle('dark', isDark);
     try { localStorage.setItem('pkn-theme', isDark ? 'dark' : 'light'); } catch { }
   }, [isDark]);
+
+  /* ── PWA Install Prompt ──────────────────────────────────────
+     installPrompt  : event yang di-capture dari beforeinstallprompt
+                      (null = tidak tersedia / sudah di-install)
+     pwaInstalled   : true setelah event 'appinstalled' terpicu,
+                      mencegah tombol muncul lagi di sesi yang sama   */
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [pwaInstalled,  setPwaInstalled]  = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
@@ -354,6 +371,41 @@ const App: React.FC = () => {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [navigate]);
+
+  /* ── PWA Install: event listeners ────────────────────────────
+     beforeinstallprompt : Chrome/Edge menyimpannya agar kita bisa
+       trigger kapan saja (tidak perlu langsung saat event muncul).
+     appinstalled        : terpicu setelah instalasi selesai —
+       bersihkan state supaya tombol hilang.                   ── */
+  useEffect(() => {
+    const onBeforeInstall = (e: Event) => {
+      e.preventDefault();                                   // cegah prompt otomatis
+      setInstallPrompt(e as BeforeInstallPromptEvent);      // simpan untuk nanti
+    };
+    const onAppInstalled = () => {
+      setInstallPrompt(null);
+      setPwaInstalled(true);
+      toast.success('✅ Aplikasi berhasil diinstal!', {
+        duration: 4000,
+        style: { borderRadius: '12px', background: '#0D5C35', color: '#fff', fontWeight: 700 },
+      });
+    };
+    window.addEventListener('beforeinstallprompt', onBeforeInstall);
+    window.addEventListener('appinstalled',        onAppInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+      window.removeEventListener('appinstalled',        onAppInstalled);
+    };
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setInstallPrompt(null);
+    }
+  };
 
   const formatDate = (ts: any) => {
     if (!ts) return '-';
@@ -963,6 +1015,20 @@ const App: React.FC = () => {
                 title="Dokumen Favorit">
                 <Bookmark className="w-4 h-4" />
               </button>
+
+              {/* PWA Install — hanya muncul kalau browser mendukung & belum di-install */}
+              {installPrompt && !pwaInstalled && (
+                <button
+                  onClick={handleInstall}
+                  title="Install Aplikasi"
+                  className="relative flex items-center gap-1.5 text-white/80 hover:text-[#D4AF37] transition-colors text-sm font-semibold uppercase tracking-wider group"
+                >
+                  <Download className="w-4 h-4" />
+                  {/* Pulse dot — penanda visual bahwa ada aksi tersedia */}
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#D4AF37] animate-pulse" />
+                </button>
+              )}
+
               {/* Dark mode toggle */}
               <button
                 onClick={() => setIsDark(p => !p)}
@@ -1023,6 +1089,20 @@ const App: React.FC = () => {
                   className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-[#D4AF37] font-semibold flex items-center gap-3 transition-all">
                   <Bookmark className="w-4 h-4 opacity-70" /> Dokumen Favorit
                 </button>
+
+                {/* PWA Install di mobile menu */}
+                {installPrompt && !pwaInstalled && (
+                  <button
+                    onClick={() => { setMenuOpen(false); handleInstall(); }}
+                    className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white/90 font-semibold flex items-center gap-3 transition-all"
+                  >
+                    <div className="relative">
+                      <Download className="w-4 h-4 opacity-70" />
+                      <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse" />
+                    </div>
+                    Install Aplikasi
+                  </button>
+                )}
               </div>
               <div className="mt-1 pt-2 border-t border-white/10">
                 <button onClick={() => navigate('/login')}

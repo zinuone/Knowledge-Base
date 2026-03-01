@@ -27,6 +27,48 @@ import {
 import * as XLSX from 'xlsx';
 import toast, { Toaster } from 'react-hot-toast';
 
+/* ─────────────────────────────────────────────────────────────────
+   compressImage — kompresi gambar client-side menggunakan Canvas API
+   ─────────────────────────────────────────────────────────────────
+   Pendekatan: HTML5 Canvas drawImage + toDataURL(jpeg, quality)
+   - Resize: max 800×800 px, mempertahankan aspect ratio
+   - Format output: JPEG 75% quality
+   - Hasil khas: 800 KB → 60–120 KB  (tergantung konten gambar)
+   - Tidak ada library eksternal — murni browser Web API
+   - Mengembalikan Promise<string> berupa data URL base64
+───────────────────────────────────────────────────────────────── */
+const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const MAX_PX = 800;
+        const img    = new window.Image();
+        const url    = URL.createObjectURL(file);
+
+        img.onload = () => {
+            URL.revokeObjectURL(url); // bebaskan memori setelah load
+
+            let w = img.width;
+            let h = img.height;
+
+            /* Scale down kalau melebihi MAX_PX di salah satu sisi */
+            if (w > MAX_PX || h > MAX_PX) {
+                if (w >= h) { h = Math.round((h / w) * MAX_PX); w = MAX_PX; }
+                else         { w = Math.round((w / h) * MAX_PX); h = MAX_PX; }
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width  = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) { reject(new Error('Canvas 2D context tidak tersedia')); return; }
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.75));
+        };
+
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Gagal memuat gambar')); };
+        img.src = url;
+    });
+};
+
 /* ─── TIPE DATA ───────────────────────────────────────────────── */
 interface ContentData {
     id: string; title: string; category: string; description: string;
@@ -422,13 +464,37 @@ const AdminDashboard: React.FC = () => {
         } catch (_) { } finally { setIsSaving(false); }
     };
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        if (file.size > 800000) { toast.error('Maksimal ukuran gambar 800KB'); return; }
-        const reader = new FileReader();
-        reader.onloadend = () => { setFormData(p => ({ ...p, imageBase64: reader.result as string })); setIsDirty(true); };
-        reader.readAsDataURL(file);
+
+        /* Tolak file non-gambar */
+        if (!file.type.startsWith('image/')) {
+            toast.error('⚠️ File harus berupa gambar (JPG, PNG, WEBP, dll.)');
+            return;
+        }
+
+        /* Batas awal: file asli > 10 MB kemungkinan besar bermasalah */
+        if (file.size > 10 * 1024 * 1024) {
+            toast.error('⚠️ Ukuran file terlalu besar (maks 10 MB sebelum kompresi).');
+            return;
+        }
+
+        const toastId = toast.loading('🗜️ Mengompresi gambar…');
+        try {
+            const compressed = await compressImage(file);
+
+            /* Estimasi ukuran hasil (base64 ~4/3 dari byte asli) */
+            const estimatedKb = Math.round((compressed.length * 3) / (4 * 1024));
+            toast.success(
+                `✅ Gambar dikompres — ±${estimatedKb} KB`,
+                { id: toastId }
+            );
+            setFormData(p => ({ ...p, imageBase64: compressed }));
+            setIsDirty(true);
+        } catch {
+            toast.error('⚠️ Gagal memproses gambar. Coba file lain.', { id: toastId });
+        }
     };
 
     const insertFormat = (target: 'sop' | 'faq' | 'guide', tag: string) => {
@@ -1068,6 +1134,26 @@ const AdminDashboard: React.FC = () => {
                                         <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Gambar / Diagram <span className="text-slate-400 normal-case font-normal">(Opsional)</span></label>
                                         <input type="file" accept="image/*" onChange={handleImageUpload}
                                             className="block w-full text-sm text-slate-500 file:mr-3 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer border border-slate-200 dark:border-slate-600 rounded-xl bg-slate-50 dark:bg-[#0f1f16]" />
+
+                                        {/* ── Preview gambar hasil kompresi ── */}
+                                        {formData.imageBase64 && (
+                                            <div className="mt-2.5 relative group/img rounded-xl overflow-hidden border border-slate-200 dark:border-slate-600">
+                                                <img
+                                                    src={formData.imageBase64}
+                                                    alt="Preview"
+                                                    className="w-full h-32 object-cover"
+                                                />
+                                                {/* Tombol hapus gambar */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setFormData(p => ({ ...p, imageBase64: '' })); setIsDirty(true); }}
+                                                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity shadow-md hover:bg-rose-600"
+                                                    title="Hapus gambar"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Link Video Tutorial <span className="text-slate-400 normal-case font-normal">(Opsional)</span></label>
