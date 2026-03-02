@@ -6,9 +6,10 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
+import { Helmet } from 'react-helmet-async';
 import {
     collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot,
-    serverTimestamp, query, orderBy
+    serverTimestamp, query, orderBy, limit
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import ReactMarkdown from 'react-markdown';
@@ -18,7 +19,7 @@ import {
     AlertTriangle, X, List as ListIcon, Type, Hash, Search, Filter, RefreshCw,
     Menu, ChevronRight, Home, ChevronDown, ChevronUp, Calendar, BookMarked,
     Moon, Sun, ChevronLeft, User, Clock as ClockIcon, AlertCircle,
-    Tag, Italic, Code, Minus, Link as LinkIcon, Columns, Bold,
+    Tag, Italic, Code, Minus, Link as LinkIcon, Columns, Bold, Activity,
 } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -77,6 +78,7 @@ interface ContentData {
 }
 interface FAQData { id: string; question: string; answer: string; }
 interface GuideData { id: string; content: string; updatedAt?: any; }
+interface SearchLog { id: string; query: string; resultCount: number; createdAt: any; }
 
 /* ─── HELPERS ─────────────────────────────────────────────────── */
 const getCategoryColor = (cat: string) => {
@@ -207,7 +209,7 @@ const GuideCard: React.FC<GuideCardProps> = ({
 ══════════════════════════════════════════════════════════════ */
 const AdminDashboard: React.FC = () => {
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'overview' | 'sop' | 'faq' | 'guide'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'sop' | 'faq' | 'guide' | 'analytics'>('overview');
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     /* ── Dark Mode ── */
@@ -222,6 +224,7 @@ const AdminDashboard: React.FC = () => {
     const [contents, setContents] = useState<ContentData[]>([]);
     const [faqs, setFaqs] = useState<FAQData[]>([]);
     const [guides, setGuides] = useState<GuideData[]>([]);
+    const [searchLogs, setSearchLogs] = useState<SearchLog[]>([]);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('all');
@@ -272,11 +275,26 @@ const AdminDashboard: React.FC = () => {
         const qSop = query(collection(db, 'knowledge-base'), orderBy('updatedAt', 'desc'));
         const qFaq = query(collection(db, 'faqs'), orderBy('createdAt', 'desc'));
         const qGuide = query(collection(db, 'guides'), orderBy('updatedAt', 'desc'));
+        const qLogs = query(collection(db, 'search-logs'), orderBy('createdAt', 'desc'), limit(200));
         const u1 = onSnapshot(qSop, s => setContents(s.docs.map(d => ({ id: d.id, ...d.data() })) as ContentData[]));
         const u2 = onSnapshot(qFaq, s => setFaqs(s.docs.map(d => ({ id: d.id, ...d.data() })) as FAQData[]));
         const u3 = onSnapshot(qGuide, s => setGuides(s.docs.map(d => ({ id: d.id, ...d.data() })) as GuideData[]));
-        return () => { u1(); u2(); u3(); };
+        const u4 = onSnapshot(qLogs, s => setSearchLogs(s.docs.map(d => ({ id: d.id, ...d.data() })) as SearchLog[]));
+        return () => { u1(); u2(); u3(); u4(); };
     }, []);
+
+    /* ── Beforeunload: cegah hilangnya data saat tab/browser ditutup ──
+       Aktif hanya saat isDirty = true (ada form yang belum disimpan).   */
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (isDirty) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [isDirty]);
 
     /* ── Stats ── */
     const stats = useMemo(() => {
@@ -320,6 +338,39 @@ const AdminDashboard: React.FC = () => {
 
         return { totalViews, totalLikes, topViewed, pieData, trendData, catViewsData };
     }, [contents]);
+
+    /* ── Stats Analytics: agregasi search-logs ── */
+    const searchStats = useMemo(() => {
+        if (!searchLogs.length) return { topQueries: [], totalSearches: 0, uniqueQueries: 0, avgResults: 0 };
+
+        const totalSearches = searchLogs.length;
+        const queryCount: Record<string, { count: number; totalResults: number }> = {};
+        searchLogs.forEach(log => {
+            const q = (log.query || '').toLowerCase().trim();
+            if (!q) return;
+            if (!queryCount[q]) queryCount[q] = { count: 0, totalResults: 0 };
+            queryCount[q].count += 1;
+            queryCount[q].totalResults += (log.resultCount || 0);
+        });
+        const topQueries = Object.entries(queryCount)
+            .map(([query, { count, totalResults }]) => ({
+                query,
+                count,
+                avgResults: Math.round(totalResults / count),
+            }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+
+        const totalResults = searchLogs.reduce((s, l) => s + (l.resultCount || 0), 0);
+        const avgResults = totalSearches > 0 ? Math.round(totalResults / totalSearches) : 0;
+
+        return {
+            topQueries,
+            totalSearches,
+            uniqueQueries: Object.keys(queryCount).length,
+            avgResults,
+        };
+    }, [searchLogs]);
 
     const filteredContents = useMemo(() =>
         contents.filter(i => {
@@ -529,6 +580,7 @@ const AdminDashboard: React.FC = () => {
         { id: 'sop' as const, label: 'Data SOP', icon: <LayoutList className="w-5 h-5" />, badge: contents.length },
         { id: 'faq' as const, label: 'Data FAQ', icon: <HelpCircle className="w-5 h-5" />, badge: faqs.length },
         { id: 'guide' as const, label: 'Data Panduan', icon: <BookOpen className="w-5 h-5" />, badge: guides.length },
+        { id: 'analytics' as const, label: 'Analitik Pencarian', icon: <Activity className="w-5 h-5" />, badge: searchLogs.length > 0 ? searchLogs.length : null },
     ];
 
     const handleTabChange = (id: typeof activeTab) => { setActiveTab(id); setSidebarOpen(false); };
@@ -538,6 +590,10 @@ const AdminDashboard: React.FC = () => {
     ══════════════════════════════════════════════════════════════ */
     return (
         <div className="min-h-screen bg-[#F0F4F2] dark:bg-[#0d1a12] font-sans flex flex-col transition-colors duration-300">
+            <Helmet>
+                <title>Admin Panel | Knowledge Base KPKNL Kendari</title>
+                <meta name="robots" content="noindex, nofollow" />
+            </Helmet>
             <Toaster position="top-right" toastOptions={{ style: { borderRadius: '12px', fontWeight: 600 } }} />
 
             {/* ── TOP BAR ── */}
@@ -1032,6 +1088,127 @@ const AdminDashboard: React.FC = () => {
                                             <Plus className="w-4 h-4" /> Buat Panduan Pertama
                                         </button>
                                     </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* ── TAB: ANALITIK PENCARIAN ── */}
+                        {activeTab === 'analytics' && (
+                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                {/* Header */}
+                                <div>
+                                    <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Analitik Pencarian</h2>
+                                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Data kueri yang dicari pengguna di halaman Pencarian</p>
+                                </div>
+
+                                {searchLogs.length === 0 ? (
+                                    /* ── Empty state ── */
+                                    <div className="bg-white dark:bg-[#162918] py-24 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-center">
+                                        <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
+                                            <Search className="w-10 h-10 text-blue-300 dark:text-blue-500" />
+                                        </div>
+                                        <p className="text-slate-600 dark:text-slate-300 font-bold text-lg mb-1">Belum ada data pencarian</p>
+                                        <p className="text-slate-400 dark:text-slate-500 text-sm px-8 max-w-sm mx-auto">Data akan muncul di sini secara otomatis saat pengguna melakukan pencarian di halaman publik.</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {/* ── Kartu Statistik Ringkas ── */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                            {[
+                                                { label: 'Total Pencarian', val: searchStats.totalSearches, icon: <Search className="w-6 h-6" />, bg: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400', border: 'border-blue-100 dark:border-blue-900/30' },
+                                                { label: 'Kueri Unik', val: searchStats.uniqueQueries, icon: <Activity className="w-6 h-6" />, bg: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400', border: 'border-emerald-100 dark:border-emerald-900/30' },
+                                                { label: 'Rata-rata Hasil', val: searchStats.avgResults, icon: <FileText className="w-6 h-6" />, bg: 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400', border: 'border-amber-100 dark:border-amber-900/30' },
+                                                { label: 'Pencarian Terbaru', val: searchLogs[0]?.query ? `"${searchLogs[0].query}"` : '—', icon: <TrendingUp className="w-6 h-6" />, bg: 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400', border: 'border-purple-100 dark:border-purple-900/30' },
+                                            ].map(s => (
+                                                <div key={s.label} className={`bg-white dark:bg-[#162918] p-5 rounded-2xl shadow-sm border ${s.border} flex items-center gap-4`}>
+                                                    <div className={`p-3 rounded-xl flex-shrink-0 ${s.bg}`}>{s.icon}</div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider">{s.label}</p>
+                                                        <p className="text-xl font-black text-slate-800 dark:text-slate-100 truncate">{s.val}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* ── Grafik Top 10 Kueri ── */}
+                                        {searchStats.topQueries.length > 0 && (
+                                            <div className="bg-white dark:bg-[#162918] p-6 md:p-7 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
+                                                <div className="mb-5">
+                                                    <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2.5 text-sm md:text-base">
+                                                        <TrendingUp className="w-5 h-5 text-[#0D5C35] flex-shrink-0" /> Kueri Paling Sering Dicari (Top 10)
+                                                    </h3>
+                                                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 ml-7">Berdasarkan {searchLogs.length} pencarian terakhir</p>
+                                                </div>
+                                                <div className="h-72 w-full">
+                                                    <ResponsiveContainer width="100%" height="100%">
+                                                        <BarChart
+                                                            data={searchStats.topQueries.map(q => ({ name: q.query.length > 20 ? q.query.slice(0, 20) + '…' : q.query, count: q.count, avgResults: q.avgResults }))}
+                                                            layout="vertical"
+                                                            margin={{ top: 4, right: 40, left: 10, bottom: 4 }}
+                                                        >
+                                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={isDark ? '#2d4a35' : '#f1f5f9'} />
+                                                            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10, fill: isDark ? '#94a3b8' : '#64748b' }} axisLine={false} tickLine={false} />
+                                                            <YAxis dataKey="name" type="category" width={130} tick={{ fontSize: 10, fontWeight: 600, fill: isDark ? '#94a3b8' : '#64748b' }} axisLine={false} tickLine={false} />
+                                                            <Tooltip
+                                                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.2)', background: isDark ? '#162918' : '#fff', color: isDark ? '#f1f5f9' : '#1e293b', fontSize: '12px' }}
+                                                                formatter={(value: any, name: string) => [value, name === 'count' ? 'Jumlah Pencarian' : 'Rata-rata Hasil']}
+                                                            />
+                                                            <Bar dataKey="count" fill="#0D5C35" radius={[0, 6, 6, 0]} barSize={18} />
+                                                        </BarChart>
+                                                    </ResponsiveContainer>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* ── Tabel Riwayat Pencarian Terbaru ── */}
+                                        <div className="bg-white dark:bg-[#162918] rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                                            <div className="p-5 md:p-6 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between gap-3">
+                                                <div>
+                                                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm md:text-base flex items-center gap-2.5">
+                                                        <ClockIcon className="w-4 h-4 text-slate-400 flex-shrink-0" /> Riwayat Pencarian Terbaru
+                                                    </h3>
+                                                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 ml-6">Menampilkan 200 pencarian terakhir secara real-time</p>
+                                                </div>
+                                                <span className="flex-shrink-0 text-[10px] font-black px-2.5 py-1 rounded-full bg-[#0D5C35]/10 dark:bg-emerald-900/20 text-[#0D5C35] dark:text-emerald-400 border border-[#0D5C35]/15 dark:border-emerald-700/30">
+                                                    {searchLogs.length} log
+                                                </span>
+                                            </div>
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-left border-collapse" style={{ minWidth: '480px' }}>
+                                                    <thead className="bg-slate-50 dark:bg-[#1a3021] text-slate-500 dark:text-slate-400 text-xs uppercase font-black tracking-wider border-b border-slate-200 dark:border-slate-700">
+                                                        <tr>
+                                                            <th className="px-5 py-3.5">Kueri Pencarian</th>
+                                                            <th className="px-5 py-3.5 text-center w-36">Jumlah Hasil</th>
+                                                            <th className="px-5 py-3.5 text-right w-44">Waktu</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                                                        {searchLogs.map(log => (
+                                                            <tr key={log.id} className="hover:bg-slate-50/70 dark:hover:bg-[#1a3021]/50 transition-colors">
+                                                                <td className="px-5 py-3.5">
+                                                                    <div className="flex items-center gap-2.5">
+                                                                        <Search className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 flex-shrink-0" />
+                                                                        <span className="font-medium text-slate-700 dark:text-slate-200 text-sm">{log.query || <span className="text-slate-300 dark:text-slate-600 italic">—</span>}</span>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-5 py-3.5 text-center">
+                                                                    <span className={`inline-flex items-center justify-center min-w-[2rem] px-2.5 py-1 rounded-lg text-xs font-bold border
+                                                                        ${(log.resultCount || 0) === 0
+                                                                            ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-800/30'
+                                                                            : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800/30'}`}>
+                                                                        {log.resultCount || 0}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-5 py-3.5 text-right text-xs text-slate-400 dark:text-slate-500 font-medium">
+                                                                    {formatTimeDetailed(log.createdAt)}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </>
                                 )}
                             </div>
                         )}

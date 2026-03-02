@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, Search, ArrowLeft, FileText, RefreshCw } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
 
 const PAGE_CSS = `
 @keyframes floatUp {
@@ -42,6 +43,10 @@ const NotFoundPage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-[#F4F7F5] dark:bg-[#0d1a12] font-sans flex flex-col transition-colors duration-300 relative overflow-hidden">
+            <Helmet>
+                <title>404 - Halaman Tidak Ditemukan | Knowledge Base KPKNL Kendari</title>
+                <meta name="robots" content="noindex" />
+            </Helmet>
             <style dangerouslySetInnerHTML={{ __html: PAGE_CSS }} />
 
             {/* Background blobs */}

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase';
+import { Helmet } from 'react-helmet-async';
 import {
     Lock, Mail, ArrowLeft, AlertCircle, Loader2, CheckCircle2,
     Shield, FileText, BarChart3, BookOpen, Eye, EyeOff,
@@ -268,6 +269,10 @@ const LoginPage: React.FC = () => {
     ══════════════════════════════════════════════════════════ */
     return (
         <div className="min-h-screen flex font-sans bg-white dark:bg-[#0d1a12] transition-colors duration-300">
+            <Helmet>
+                <title>Login Admin | Knowledge Base KPKNL Kendari</title>
+                <meta name="robots" content="noindex, nofollow" />
+            </Helmet>
             <style dangerouslySetInnerHTML={{ __html: LOGIN_CSS }} />
 
             {/* ══════════════════════════════════════════════════════

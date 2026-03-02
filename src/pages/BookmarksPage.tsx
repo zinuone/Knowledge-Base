@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, where, documentId, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import { Helmet } from 'react-helmet-async';
 import {
     ArrowLeft, Bookmark, BookmarkX, Home, FileText,
     ArrowRight, Trash2, Sparkles, ChevronRight, Sun, Moon, Search, Info, AlertTriangle,
@@ -116,6 +117,10 @@ const BookmarksPage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-[#F4F7F5] dark:bg-[#0d1a12] font-sans pb-24 transition-colors duration-300">
+            <Helmet>
+                <title>Dokumen Favorit | Knowledge Base KPKNL Kendari</title>
+                <meta name="description" content="Kumpulan dokumen yang Anda tandai untuk akses cepat ke informasi yang paling sering dibutuhkan." />
+            </Helmet>
             <style dangerouslySetInnerHTML={{ __html: PAGE_CSS }} />
 
             {/* ── HERO HEADER ── */}

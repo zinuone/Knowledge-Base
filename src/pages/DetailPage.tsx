@@ -1,5 +1,5 @@
 // File: src/pages/DetailPage.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   doc, getDoc, updateDoc, increment,
@@ -12,7 +12,7 @@ import {
   Eye, ThumbsUp, ThumbsDown, Share2, Check, Home, ChevronRight,
   Maximize2, X, PlayCircle, Sparkles, ArrowRight, Bookmark,
   BookmarkCheck, Printer, BookOpen, ArrowUp, Clock, Copy,
-  MessageCircle, Tag, Search as SearchIcon, User,
+  MessageCircle, Tag, User,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import toast, { Toaster } from 'react-hot-toast';
@@ -53,12 +53,8 @@ const PAGE_CSS = `
   margin-right: auto;
 }
 
-/* ── Enhanced Print / PDF Styles ── */
 @media print {
-  @page {
-    margin: 18mm 15mm;
-    size: A4;
-  }
+  @page { margin: 18mm 15mm; size: A4; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { background: white !important; color: #1e293b !important; font-family: 'Plus Jakarta Sans', Arial, sans-serif !important; }
   .no-print { display: none !important; }
@@ -99,15 +95,15 @@ interface ContentData {
 /* ─── HELPER: Warna kategori ──────────────────────────────────── */
 const getCategoryStyle = (cat: string) => {
   const map: Record<string, string> = {
-    'psp': 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700/30',
-    'penjualan': 'bg-amber-100   text-amber-800   border-amber-200   dark:bg-amber-900/30   dark:text-amber-300   dark:border-amber-700/30',
-    'sewa': 'bg-blue-100    text-blue-800    border-blue-200    dark:bg-blue-900/30    dark:text-blue-300    dark:border-blue-700/30',
-    'penghapusan': 'bg-rose-100    text-rose-800    border-rose-200    dark:bg-rose-900/30    dark:text-rose-300    dark:border-rose-700/30',
-    'pinjam-pakai': 'bg-indigo-100  text-indigo-800  border-indigo-200  dark:bg-indigo-900/30  dark:text-indigo-300  dark:border-indigo-700/30',
+    'psp':                  'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700/30',
+    'penjualan':            'bg-amber-100   text-amber-800   border-amber-200   dark:bg-amber-900/30   dark:text-amber-300   dark:border-amber-700/30',
+    'sewa':                 'bg-blue-100    text-blue-800    border-blue-200    dark:bg-blue-900/30    dark:text-blue-300    dark:border-blue-700/30',
+    'penghapusan':          'bg-rose-100    text-rose-800    border-rose-200    dark:bg-rose-900/30    dark:text-rose-300    dark:border-rose-700/30',
+    'pinjam-pakai':         'bg-indigo-100  text-indigo-800  border-indigo-200  dark:bg-indigo-900/30  dark:text-indigo-300  dark:border-indigo-700/30',
     'penggunaan-sementara': 'bg-purple-100  text-purple-800  border-purple-200  dark:bg-purple-900/30  dark:text-purple-300  dark:border-purple-700/30',
-    'alih-status': 'bg-teal-100    text-teal-800    border-teal-200    dark:bg-teal-900/30    dark:text-teal-300    dark:border-teal-700/30',
-    'hibah': 'bg-orange-100  text-orange-800  border-orange-200  dark:bg-orange-900/30  dark:text-orange-300  dark:border-orange-700/30',
-    'user-siman': 'bg-cyan-100 text-cyan-800 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-300 dark:border-cyan-700/30',
+    'alih-status':          'bg-teal-100    text-teal-800    border-teal-200    dark:bg-teal-900/30    dark:text-teal-300    dark:border-teal-700/30',
+    'hibah':                'bg-orange-100  text-orange-800  border-orange-200  dark:bg-orange-900/30  dark:text-orange-300  dark:border-orange-700/30',
+    'user-siman':           'bg-cyan-100 text-cyan-800 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-300 dark:border-cyan-700/30',
   };
   return map[cat] ?? 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600';
 };
@@ -118,12 +114,12 @@ const getEmbedUrl = (url: string): string | null => {
   try {
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
       const m = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/);
-      const id = m && m[2].length === 11 ? m[2] : null;
-      if (id) return `https://www.youtube.com/embed/${id}`;
+      const vidId = m && m[2].length === 11 ? m[2] : null;
+      if (vidId) return 'https://www.youtube.com/embed/' + vidId;
     }
     if (url.includes('drive.google.com/file/d/')) {
       const m = url.match(/\/d\/(.+?)\//);
-      if (m) return `https://drive.google.com/file/d/${m[1]}/preview`;
+      if (m) return 'https://drive.google.com/file/d/' + m[1] + '/preview';
     }
   } catch { }
   return url;
@@ -150,7 +146,16 @@ const DetailPage: React.FC = () => {
   const [isReadingMode, setIsReadingMode] = useState(false);
   const [copyTooltip, setCopyTooltip] = useState<{ x: number; y: number } | null>(null);
 
-  /* ── Dark Mode: baca dari localStorage ── */
+  /* ── Reading Progress: debounce timer ref ── */
+  const scrollSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /* ── AI Ringkasan ── */
+  const [aiSummary, setAiSummary] = useState('');
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const [showAI, setShowAI] = useState(false);
+
+  /* ── Dark Mode ── */
   useEffect(() => {
     try {
       const isDark = localStorage.getItem('pkn-theme') === 'dark';
@@ -173,7 +178,7 @@ const DetailPage: React.FC = () => {
     setHasVoted(false);
     setVoteType(null);
     try {
-      const saved = localStorage.getItem(`pkn-vote-${id}`);
+      const saved = localStorage.getItem('pkn-vote-' + id);
       if (saved === 'like' || saved === 'dislike') {
         setHasVoted(true);
         setVoteType(saved);
@@ -181,16 +186,29 @@ const DetailPage: React.FC = () => {
     } catch { }
   }, [id]);
 
-  /* Scroll progress bar */
+  /* ── Scroll progress + Reading Progress save ──
+     Posisi scroll disimpan ke localStorage dengan key pkn-scroll-{id}.
+     Debounce 600ms mencegah localStorage write berlebihan.             */
   useEffect(() => {
     const onScroll = () => {
+      const scrollTop = document.documentElement.scrollTop;
       const total = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-      setScrollProgress(total > 0 ? document.documentElement.scrollTop / total : 0);
-      setIsScrolled(document.documentElement.scrollTop > 120);
+      setScrollProgress(total > 0 ? scrollTop / total : 0);
+      setIsScrolled(scrollTop > 120);
+
+      if (id) {
+        if (scrollSaveTimerRef.current) clearTimeout(scrollSaveTimerRef.current);
+        scrollSaveTimerRef.current = setTimeout(() => {
+          try { localStorage.setItem('pkn-scroll-' + id, String(scrollTop)); } catch { }
+        }, 600);
+      }
     };
     window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (scrollSaveTimerRef.current) clearTimeout(scrollSaveTimerRef.current);
+    };
+  }, [id]);
 
   /* ── Close copy tooltip on outside click ── */
   useEffect(() => {
@@ -199,12 +217,11 @@ const DetailPage: React.FC = () => {
     return () => document.removeEventListener('mousedown', close);
   }, []);
 
-  /* Fetch data */
+  /* ── Fetch data ── */
   useEffect(() => {
     const fetchData = async () => {
       if (!id) return;
       setLoading(true);
-      window.scrollTo(0, 0);
       try {
         const docRef = doc(db, 'knowledge-base', id);
         const docSnap = await getDoc(docRef);
@@ -212,50 +229,145 @@ const DetailPage: React.FC = () => {
           const mainData = { id: docSnap.id, ...docSnap.data() } as ContentData;
           setData(mainData);
 
-          /* ── Simpan ke riwayat terakhir dibaca ── */
+          /* Simpan ke riwayat terakhir dibaca */
           try {
             const hist = JSON.parse(localStorage.getItem('pkn-history') || '[]');
-            const entry = { id: mainData.id, title: mainData.title, category: mainData.category, description: mainData.description, visitedAt: Date.now() };
+            const entry = {
+              id: mainData.id,
+              title: mainData.title,
+              category: mainData.category,
+              description: mainData.description,
+              visitedAt: Date.now(),
+            };
             const updated = [entry, ...hist.filter((h: any) => h.id !== mainData.id)].slice(0, 5);
             localStorage.setItem('pkn-history', JSON.stringify(updated));
           } catch { }
 
           /* Hitung view (sekali per session) */
-          const sessionKey = `viewed_${id}`;
+          const sessionKey = 'viewed_' + id;
           if (!sessionStorage.getItem(sessionKey)) {
             await updateDoc(docRef, { views: increment(1) });
             sessionStorage.setItem(sessionKey, 'true');
           }
 
           /* Dokumen terkait */
-          const rq = query(collection(db, 'knowledge-base'), where('category', '==', mainData.category), limit(4));
+          const rq = query(
+            collection(db, 'knowledge-base'),
+            where('category', '==', mainData.category),
+            limit(4)
+          );
           const rSnap = await getDocs(rq);
-          setRelatedDocs(rSnap.docs.map(d => ({ id: d.id, ...d.data() } as ContentData)).filter(i => i.id !== id).slice(0, 3));
+          setRelatedDocs(
+            rSnap.docs
+              .map(d => ({ id: d.id, ...d.data() } as ContentData))
+              .filter(item => item.id !== id)
+              .slice(0, 3)
+          );
         }
       } catch (e) { console.error(e); }
-      finally { setLoading(false); }
+      finally {
+        setLoading(false);
+        /* Restore posisi baca, atau scroll ke atas kalau belum ada */
+        try {
+          const saved = localStorage.getItem('pkn-scroll-' + id);
+          if (saved && parseInt(saved) > 120) {
+            requestAnimationFrame(() => {
+              setTimeout(() => {
+                window.scrollTo({ top: parseInt(saved), behavior: 'instant' as ScrollBehavior });
+              }, 120);
+            });
+          } else {
+            window.scrollTo(0, 0);
+          }
+        } catch { window.scrollTo(0, 0); }
+      }
     };
     fetchData();
   }, [id]);
 
-  /* Voting */
+  /* ── Voting ── */
   const handleVote = async (type: 'like' | 'dislike') => {
     if (!id || hasVoted) return;
     const toastId = toast.loading('Mengirim masukan...');
     try {
       await updateDoc(doc(db, 'knowledge-base', id), {
-        [type === 'like' ? 'likes' : 'dislikes']: increment(1)
+        [type === 'like' ? 'likes' : 'dislikes']: increment(1),
       });
       setHasVoted(true);
       setVoteType(type);
-      try { localStorage.setItem(`pkn-vote-${id}`, type); } catch { }
+      try { localStorage.setItem('pkn-vote-' + id, type); } catch { }
       toast.success('Terima kasih atas masukan Anda!', { id: toastId });
     } catch {
       toast.error('Gagal mengirim masukan.', { id: toastId });
     }
   };
 
-  /* Share */
+  /* ── AI Ringkasan via Gemini ─────────────────────────────────────
+     SETUP: tambahkan ke .env.local dan Vercel Environment Variables:
+       VITE_GEMINI_API_KEY=your_key_from_aistudio.google.com
+     Model: Gemini 1.5 Flash (cepat, gratis tier tersedia).          */
+  const handleAISummary = useCallback(async () => {
+    if (isLoadingAI) return;
+
+    /* Toggle: kalau sudah ada ringkasan, sembunyikan/tampilkan */
+    if (aiSummary && !aiError) {
+      setShowAI(prev => !prev);
+      return;
+    }
+
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey || apiKey === 'PLACEHOLDER' || apiKey.trim() === '') {
+      setAiError('API key belum dikonfigurasi. Tambahkan VITE_GEMINI_API_KEY ke .env.local');
+      setShowAI(true);
+      return;
+    }
+
+    setIsLoadingAI(true);
+    setAiError('');
+    setShowAI(true);
+
+    try {
+      const contentSnippet = (data?.content || '').slice(0, 3500);
+      const prompt =
+        'Kamu adalah asisten ahli pengelolaan Barang Milik Negara (BMN) di KPKNL Kendari.\n\n' +
+        'Ringkas dokumen SOP berikut dalam 3 poin utama menggunakan bahasa Indonesia yang jelas, singkat, dan profesional.\n\n' +
+        'Format jawaban WAJIB:\n' +
+        '• [Poin 1 — ringkasan poin utama pertama]\n' +
+        '• [Poin 2 — ringkasan poin utama kedua]\n' +
+        '• [Poin 3 — ringkasan poin utama ketiga]\n\n' +
+        'Judul dokumen: ' + (data?.title || '') + '\n' +
+        'Isi dokumen:\n' + contentSnippet;
+
+      const response = await fetch(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.3, maxOutputTokens: 512 },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error((errData as any)?.error?.message || 'HTTP ' + response.status);
+      }
+
+      const result = await response.json();
+      const text: string = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (!text) throw new Error('Respons AI kosong.');
+      setAiSummary(text.trim());
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal menghubungi Gemini API.';
+      setAiError(msg);
+    } finally {
+      setIsLoadingAI(false);
+    }
+  }, [data, isLoadingAI, aiSummary, aiError]);
+
+  /* ── Share ── */
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
     setIsCopied(true);
@@ -266,14 +378,18 @@ const DetailPage: React.FC = () => {
     setTimeout(() => setIsCopied(false), 2500);
   };
 
-  /* Share via WhatsApp */
+  /* ── Share via WhatsApp ── */
   const handleShareWA = () => {
     if (!data) return;
-    const text = `📄 *${data.title}*\n\n${data.description}\n\n🔗 Baca selengkapnya:\n${window.location.href}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    const text =
+      '📄 *' + data.title + '*\n\n' +
+      data.description + '\n\n' +
+      '🔗 Baca selengkapnya:\n' +
+      window.location.href;
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
   };
 
-  /* Bookmark */
+  /* ── Bookmark ── */
   const handleBookmark = () => {
     if (!id || !data) return;
     try {
@@ -291,10 +407,10 @@ const DetailPage: React.FC = () => {
     } catch { }
   };
 
-  /* Print / Ekspor PDF */
+  /* ── Print ── */
   const handlePrint = () => { window.print(); };
 
-  /* Copy selected text */
+  /* ── Copy selected text ── */
   const handleCopySelection = () => {
     const text = window.getSelection()?.toString() || '';
     if (text) {
@@ -327,7 +443,9 @@ const DetailPage: React.FC = () => {
         <div className="bg-gradient-to-r from-[#0D5C35] to-[#0A492A] text-white p-5 shadow-lg">
           <div className="max-w-4xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/10 rounded-full"><ArrowLeft className="w-5 h-5 text-white/60" /></div>
+              <div className="p-2 bg-white/10 rounded-full">
+                <ArrowLeft className="w-5 h-5 text-white/60" />
+              </div>
               <div className="h-5 w-32 bg-white/10 rounded-lg animate-pulse" />
             </div>
             <div className="h-8 w-24 bg-white/10 rounded-lg animate-pulse" />
@@ -348,8 +466,13 @@ const DetailPage: React.FC = () => {
           <FileText className="w-14 h-14 text-rose-300 dark:text-rose-500 mx-auto" />
         </div>
         <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100">Data Tidak Ditemukan</h2>
-        <p className="text-slate-500 dark:text-slate-400 max-w-sm">Dokumen yang Anda cari tidak tersedia atau telah dihapus.</p>
-        <button onClick={() => navigate('/')} className="px-8 py-3 bg-[#0D5C35] text-white rounded-xl font-bold shadow-lg hover:-translate-y-0.5 transition-all">
+        <p className="text-slate-500 dark:text-slate-400 max-w-sm">
+          Dokumen yang Anda cari tidak tersedia atau telah dihapus.
+        </p>
+        <button
+          onClick={() => navigate('/')}
+          className="px-8 py-3 bg-[#0D5C35] text-white rounded-xl font-bold shadow-lg hover:-translate-y-0.5 transition-all"
+        >
           Kembali ke Beranda
         </button>
       </div>
@@ -357,7 +480,9 @@ const DetailPage: React.FC = () => {
   }
 
   const dateStr = data.updatedAt
-    ? new Date(data.updatedAt.seconds * 1000).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+    ? new Date(data.updatedAt.seconds * 1000).toLocaleDateString('id-ID', {
+        day: 'numeric', month: 'long', year: 'numeric',
+      })
     : 'Baru saja';
   const categoryStyle = getCategoryStyle(data.category);
   const isNewDoc = data.updatedAt
@@ -365,48 +490,57 @@ const DetailPage: React.FC = () => {
     : false;
   const readingTime = Math.max(1, Math.ceil((data.content || '').split(/\s+/).length / 200));
 
+  /* ═══════════════════════ RENDER ═══════════════════════════════ */
   return (
     <div className="min-h-screen bg-[#F4F7F5] dark:bg-[#0d1a12] pb-24 font-sans relative transition-colors duration-300">
-      {/* ── SEO DINAMIS ── */}
+
+      {/* SEO */}
       <Helmet>
         <title>{data.title} | Knowledge Base KPKNL Kendari</title>
         <meta name="description" content={data.description} />
-        <meta property="og:title" content={`${data.title} — KPKNL Kendari`} />
+        <meta property="og:title" content={data.title + ' — KPKNL Kendari'} />
         <meta property="og:description" content={data.description} />
         <meta property="og:type" content="article" />
         <meta property="og:locale" content="id_ID" />
         <meta name="robots" content="index, follow" />
-        <meta name="keywords" content={`KPKNL Kendari, ${data.category.replace(/-/g, ' ')}, BMN, ${data.title}`} />
+        <meta name="keywords" content={'KPKNL Kendari, ' + data.category.replace(/-/g, ' ') + ', BMN, ' + data.title} />
       </Helmet>
       <style dangerouslySetInnerHTML={{ __html: PAGE_CSS }} />
       <Toaster position="top-center" toastOptions={{ style: { borderRadius: '12px', fontWeight: 600 } }} />
 
-      {/* ── Copy Tooltip ── */}
+      {/* Copy Tooltip */}
       {copyTooltip && (
         <div
           className="copy-tooltip fixed z-[100] bg-slate-800 dark:bg-slate-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl flex items-center gap-1.5 cursor-pointer hover:bg-[#0D5C35] transition-colors border border-white/10 select-none"
-          style={{ left: `${Math.min(copyTooltip.x, window.innerWidth - 130)}px`, top: `${copyTooltip.y - 48}px`, transform: 'translateX(-50%)' }}
-          onMouseDown={(e) => e.preventDefault()}
+          style={{
+            left: Math.min(copyTooltip.x, window.innerWidth - 130) + 'px',
+            top: (copyTooltip.y - 48) + 'px',
+            transform: 'translateX(-50%)',
+          }}
+          onMouseDown={e => e.preventDefault()}
           onClick={handleCopySelection}
         >
           <Copy className="w-3 h-3" /> Salin teks
-          {/* Arrow */}
           <span className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-slate-800 dark:border-t-slate-700" />
         </div>
       )}
 
-      {/* ── Scroll to Top ── */}
+      {/* Scroll to Top */}
       <button
         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         aria-label="Kembali ke atas"
-        className={`no-print fixed bottom-7 right-7 z-50 p-3.5 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all duration-300 group ${isScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
+        className={
+          'no-print fixed bottom-7 right-7 z-50 p-3.5 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all duration-300 group ' +
+          (isScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none')
+        }
+      >
         <ArrowUp className="w-5 h-5 group-hover:-translate-y-0.5 transition-transform" />
       </button>
 
       {/* Progress bar */}
       <div
         className="fixed top-0 left-0 h-1.5 bg-[#D4AF37] z-[60] transition-all duration-100 ease-out progress-glow"
-        style={{ width: `${scrollProgress * 100}%` }}
+        style={{ width: (scrollProgress * 100) + '%' }}
       />
 
       {/* Lightbox gambar */}
@@ -418,10 +552,15 @@ const DetailPage: React.FC = () => {
           <button className="absolute top-5 right-5 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2.5 rounded-full transition-all">
             <X className="w-6 h-6" />
           </button>
-          <img src={data.imageBase64} alt="Full Preview"
+          <img
+            src={data.imageBase64}
+            alt="Full Preview"
             className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl"
-            onClick={e => e.stopPropagation()} />
-          <p className="absolute bottom-5 text-white/50 text-sm font-medium">Klik di luar gambar untuk menutup</p>
+            onClick={e => e.stopPropagation()}
+          />
+          <p className="absolute bottom-5 text-white/50 text-sm font-medium">
+            Klik di luar gambar untuk menutup
+          </p>
         </div>
       )}
 
@@ -432,45 +571,63 @@ const DetailPage: React.FC = () => {
             <button
               onClick={() => { if (window.history.length > 2) { navigate(-1); } else { navigate('/'); } }}
               className="flex-shrink-0 p-2 hover:bg-white/20 rounded-full transition"
-              aria-label="Kembali">
+              aria-label="Kembali"
+            >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className={`transition-all duration-300 min-w-0 overflow-hidden ${isScrolled ? 'opacity-100 max-w-[200px] sm:max-w-xs' : 'opacity-0 max-w-0'}`}>
+            <div className={'transition-all duration-300 min-w-0 overflow-hidden ' + (isScrolled ? 'opacity-100 max-w-[200px] sm:max-w-xs' : 'opacity-0 max-w-0')}>
               <p className="font-bold text-sm truncate text-white/90">{data.title}</p>
             </div>
-            <div className={`transition-all duration-300 ${isScrolled ? 'opacity-0 hidden' : 'opacity-100'}`}>
+            <div className={'transition-all duration-300 ' + (isScrolled ? 'opacity-0 hidden' : 'opacity-100')}>
               <h1 className="text-sm md:text-base font-bold text-white/90">Knowledge Base</h1>
             </div>
           </div>
-          <button onClick={handleShare}
-            className="flex-shrink-0 flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 md:px-3.5 py-2 rounded-xl transition-all text-xs font-bold border border-white/15">
+
+          {/* Share */}
+          <button
+            onClick={handleShare}
+            className="flex-shrink-0 flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 md:px-3.5 py-2 rounded-xl transition-all text-xs font-bold border border-white/15"
+          >
             {isCopied
               ? <><Check className="w-3.5 h-3.5 text-emerald-300" /><span className="hidden sm:inline">Tersalin!</span></>
               : <><Share2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Bagikan</span></>
             }
           </button>
-          {/* WhatsApp Share */}
-          <button onClick={handleShareWA}
+
+          {/* WhatsApp */}
+          <button
+            onClick={handleShareWA}
             className="flex-shrink-0 flex items-center gap-1.5 bg-[#25D366]/15 hover:bg-[#25D366]/30 border border-[#25D366]/30 px-3 md:px-3.5 py-2 rounded-xl transition-all text-xs font-bold text-white"
-            aria-label="Bagikan via WhatsApp">
+            aria-label="Bagikan via WhatsApp"
+          >
             <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
             <span className="hidden md:inline text-[#25D366]">WA</span>
           </button>
+
           {/* Bookmark */}
-          <button onClick={handleBookmark} aria-label={isBookmarked ? 'Hapus Bookmark' : 'Simpan Bookmark'}
-            className={`no-print flex-shrink-0 flex items-center gap-1.5 px-3 md:px-3.5 py-2 rounded-xl transition-all text-xs font-bold border
-              ${isBookmarked
-                ? 'bg-[#D4AF37] border-[#D4AF37]/60 text-slate-900 shadow-lg shadow-[#D4AF37]/25'
-                : 'bg-white/10 hover:bg-white/20 border-white/15'
-              } ${bookmarkAnim ? 'bookmark-pop' : ''}`}>
+          <button
+            onClick={handleBookmark}
+            aria-label={isBookmarked ? 'Hapus Bookmark' : 'Simpan Bookmark'}
+            className={
+              'no-print flex-shrink-0 flex items-center gap-1.5 px-3 md:px-3.5 py-2 rounded-xl transition-all text-xs font-bold border ' +
+              (isBookmarked
+                ? 'bg-[#D4AF37] border-[#D4AF37]/60 text-slate-900 shadow-lg shadow-[#D4AF37]/25 '
+                : 'bg-white/10 hover:bg-white/20 border-white/15 ') +
+              (bookmarkAnim ? 'bookmark-pop' : '')
+            }
+          >
             {isBookmarked
               ? <><BookmarkCheck className="w-3.5 h-3.5" /><span className="hidden sm:inline">Tersimpan</span></>
               : <><Bookmark className="w-3.5 h-3.5" /><span className="hidden sm:inline">Simpan</span></>
             }
           </button>
+
           {/* Print */}
-          <button onClick={handlePrint} aria-label="Cetak / Ekspor PDF"
-            className="no-print flex-shrink-0 hidden sm:flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 md:px-3.5 py-2 rounded-xl transition-all text-xs font-bold border border-white/15">
+          <button
+            onClick={handlePrint}
+            aria-label="Cetak / Ekspor PDF"
+            className="no-print flex-shrink-0 hidden sm:flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 md:px-3.5 py-2 rounded-xl transition-all text-xs font-bold border border-white/15"
+          >
             <Printer className="w-3.5 h-3.5" /><span className="hidden md:inline">Cetak</span>
           </button>
         </div>
@@ -483,26 +640,44 @@ const DetailPage: React.FC = () => {
         <div id="print-header" className="hidden print:flex flex-col mb-6">
           <div id="print-header-inner">
             <div>
-              <p className="text-[8pt] text-slate-400 uppercase tracking-widest font-bold mb-0.5">Kantor Pelayanan Kekayaan Negara dan Lelang Kendari</p>
-              <p className="text-[8pt] text-slate-400">Direktorat Jenderal Kekayaan Negara — Kementerian Keuangan RI</p>
+              <p className="text-[8pt] text-slate-400 uppercase tracking-widest font-bold mb-0.5">
+                Kantor Pelayanan Kekayaan Negara dan Lelang Kendari
+              </p>
+              <p className="text-[8pt] text-slate-400">
+                Direktorat Jenderal Kekayaan Negara — Kementerian Keuangan RI
+              </p>
             </div>
-            <p className="text-[8pt] text-slate-400 text-right">{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <p className="text-[8pt] text-slate-400 text-right">
+              {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
           </div>
-          <p className="print-meta mt-2">Kategori: {data.category.replace(/-/g, ' ').toUpperCase()} &nbsp;|&nbsp; {data.views || 0} Views &nbsp;|&nbsp; {readingTime} menit baca</p>
+          <p className="print-meta mt-2">
+            Kategori: {data.category.replace(/-/g, ' ').toUpperCase()} &nbsp;|&nbsp; {data.views || 0} Views &nbsp;|&nbsp; {readingTime} menit baca
+          </p>
         </div>
 
         {/* Breadcrumb */}
-        <nav aria-label="Breadcrumb"
-          className="flex items-center text-xs text-slate-500 dark:text-slate-400 mb-5 md:mb-6 gap-1.5 overflow-x-auto whitespace-nowrap pb-1">
-          <button onClick={() => navigate('/')} className="flex items-center gap-1 hover:text-[#0D5C35] dark:hover:text-emerald-400 transition-colors flex-shrink-0">
+        <nav
+          aria-label="Breadcrumb"
+          className="flex items-center text-xs text-slate-500 dark:text-slate-400 mb-5 md:mb-6 gap-1.5 overflow-x-auto whitespace-nowrap pb-1"
+        >
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-1 hover:text-[#0D5C35] dark:hover:text-emerald-400 transition-colors flex-shrink-0"
+          >
             <Home className="w-3.5 h-3.5" /> Beranda
           </button>
           <ChevronRight className="w-3 h-3 text-slate-300 dark:text-slate-600 flex-shrink-0" />
-          <button onClick={() => navigate(`/category/${data.category}`)} className="hover:text-[#0D5C35] dark:hover:text-emerald-400 font-bold uppercase transition-colors flex-shrink-0">
+          <button
+            onClick={() => navigate('/category/' + data.category)}
+            className="hover:text-[#0D5C35] dark:hover:text-emerald-400 font-bold uppercase transition-colors flex-shrink-0"
+          >
             {data.category.replace(/-/g, ' ')}
           </button>
           <ChevronRight className="w-3 h-3 text-slate-300 dark:text-slate-600 flex-shrink-0" />
-          <span className="text-slate-800 dark:text-slate-200 font-medium truncate max-w-[140px] sm:max-w-[200px] md:max-w-xs">{data.title}</span>
+          <span className="text-slate-800 dark:text-slate-200 font-medium truncate max-w-[140px] sm:max-w-[200px] md:max-w-xs">
+            {data.title}
+          </span>
         </nav>
 
         {/* Artikel card */}
@@ -513,11 +688,10 @@ const DetailPage: React.FC = () => {
             <div className="absolute -right-8 -top-8 opacity-[0.04] pointer-events-none select-none">
               <FileText className="w-72 h-72 text-[#0D5C35]" />
             </div>
-
             <div className="relative z-10">
               {/* Badge baris */}
               <div className="flex flex-wrap items-center gap-2 mb-5 md:mb-6">
-                <span className={`inline-flex items-center px-3 sm:px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border shadow-sm ${categoryStyle}`}>
+                <span className={'inline-flex items-center px-3 sm:px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border shadow-sm ' + categoryStyle}>
                   <span className="w-1.5 h-1.5 rounded-full bg-current mr-2 opacity-60" />
                   {data.category.replace(/-/g, ' ')}
                 </span>
@@ -540,15 +714,16 @@ const DetailPage: React.FC = () => {
                 <span className="text-slate-400 dark:text-slate-500 text-xs font-medium bg-white dark:bg-slate-700 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-600 shadow-sm flex items-center gap-1.5">
                   <Clock className="w-3 h-3" /> {readingTime} mnt baca
                 </span>
-                {/* Mode Baca toggle */}
                 <button
                   onClick={() => setIsReadingMode(m => !m)}
-                  className={`no-print inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border shadow-sm transition-all
-                    ${isReadingMode
+                  className={
+                    'no-print inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border shadow-sm transition-all ' +
+                    (isReadingMode
                       ? 'bg-[#0D5C35] text-white border-[#0D5C35] shadow-emerald-200 dark:shadow-emerald-900/30'
-                      : 'bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-100 dark:border-slate-600 hover:border-[#0D5C35]/40 hover:text-[#0D5C35]'
-                    }`}
-                  title={isReadingMode ? 'Nonaktifkan Mode Baca' : 'Aktifkan Mode Baca'}>
+                      : 'bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-100 dark:border-slate-600 hover:border-[#0D5C35]/40 hover:text-[#0D5C35]')
+                  }
+                  title={isReadingMode ? 'Nonaktifkan Mode Baca' : 'Aktifkan Mode Baca'}
+                >
                   <BookOpen className="w-3 h-3" />
                   {isReadingMode ? 'Mode Baca ✓' : 'Mode Baca'}
                 </button>
@@ -560,13 +735,14 @@ const DetailPage: React.FC = () => {
               <p className="text-base md:text-lg text-slate-500 dark:text-slate-400 font-medium max-w-2xl leading-relaxed">
                 {data.description}
               </p>
+
               {/* Tags */}
               {(data.tags || []).length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-4">
                   {(data.tags || []).map(tag => (
                     <button
                       key={tag}
-                      onClick={() => navigate(`/search?q=${encodeURIComponent(tag)}`)}
+                      onClick={() => navigate('/search?q=' + encodeURIComponent(tag))}
                       className="no-print inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-[#0D5C35] hover:text-white hover:border-[#0D5C35] transition-all"
                     >
                       <Tag className="w-3 h-3" />{tag}
@@ -578,38 +754,120 @@ const DetailPage: React.FC = () => {
           </div>
 
           {/* Body artikel */}
-          <div id="print-article" className={`px-6 sm:px-8 md:px-10 pt-7 pb-6 sm:pb-8 md:pb-10 ${isReadingMode ? 'reading-mode' : ''}`}>
-
+          <div
+            id="print-article"
+            className={'px-6 sm:px-8 md:px-10 pt-7 pb-6 sm:pb-8 md:pb-10 ' + (isReadingMode ? 'reading-mode' : '')}
+          >
             {/* Konten Markdown */}
-            <div className={`prose-content-wrap ${isReadingMode ? 'max-w-[68ch] mx-auto' : ''}`}>
-              <div className="
-              prose prose-slate dark:prose-invert max-w-none mb-10 md:mb-12
-              prose-headings:scroll-mt-24
-              prose-h2:text-xl sm:prose-h2:text-2xl prose-h2:font-extrabold prose-h2:text-slate-800 dark:prose-h2:text-slate-100
-                prose-h2:mt-8 md:prose-h2:mt-10 prose-h2:mb-4 md:prose-h2:mb-5
-                prose-h2:pb-3 md:prose-h2:pb-4 prose-h2:border-b-2 prose-h2:border-slate-100 dark:prose-h2:border-slate-700
-              prose-h3:text-base sm:prose-h3:text-lg prose-h3:font-bold prose-h3:text-[#0D5C35] dark:prose-h3:text-emerald-400
-                prose-h3:mt-6 md:prose-h3:mt-8 prose-h3:mb-3
-              prose-p:text-slate-600 dark:prose-p:text-slate-300 prose-p:leading-[1.85] prose-p:mb-4 prose-p:text-sm sm:prose-p:text-base
-              prose-li:marker:text-[#D4AF37] prose-li:marker:font-extrabold prose-li:pl-1
-                prose-li:text-slate-600 dark:prose-li:text-slate-300 prose-li:text-sm sm:prose-li:text-base
-              prose-strong:text-slate-900 dark:prose-strong:text-slate-100 prose-strong:font-bold
-                prose-strong:bg-[#EAF2EE] dark:prose-strong:bg-[#0D5C35]/20
-                prose-strong:text-[#0D5C35] dark:prose-strong:text-emerald-400
-                prose-strong:px-1.5 prose-strong:py-0.5 prose-strong:rounded-md
-              prose-blockquote:border-l-4 prose-blockquote:border-[#D4AF37]
-                prose-blockquote:bg-amber-50/50 dark:prose-blockquote:bg-amber-900/10
-                prose-blockquote:px-4 sm:prose-blockquote:px-5 prose-blockquote:py-3 prose-blockquote:rounded-r-xl
-                prose-blockquote:text-slate-600 dark:prose-blockquote:text-slate-400 prose-blockquote:not-italic
-            "
+            <div className={'prose-content-wrap ' + (isReadingMode ? 'max-w-[68ch] mx-auto' : '')}>
+              <div
+                className="prose prose-slate dark:prose-invert max-w-none mb-10 md:mb-12 prose-headings:scroll-mt-24 prose-h2:text-xl prose-h2:font-extrabold prose-h2:text-slate-800 dark:prose-h2:text-slate-100 prose-h2:mt-8 prose-h2:mb-4 prose-h2:pb-3 prose-h2:border-b-2 prose-h2:border-slate-100 dark:prose-h2:border-slate-700 prose-h3:text-base prose-h3:font-bold prose-h3:text-[#0D5C35] dark:prose-h3:text-emerald-400 prose-h3:mt-6 prose-h3:mb-3 prose-p:text-slate-600 dark:prose-p:text-slate-300 prose-p:leading-[1.85] prose-p:mb-4 prose-p:text-sm prose-li:marker:text-[#D4AF37] prose-li:marker:font-extrabold prose-li:pl-1 prose-li:text-slate-600 dark:prose-li:text-slate-300 prose-li:text-sm prose-strong:text-slate-900 dark:prose-strong:text-slate-100 prose-strong:font-bold prose-strong:bg-[#EAF2EE] dark:prose-strong:bg-[#0D5C35]/20 prose-strong:text-[#0D5C35] dark:prose-strong:text-emerald-400 prose-strong:px-1.5 prose-strong:py-0.5 prose-strong:rounded-md prose-blockquote:border-l-4 prose-blockquote:border-[#D4AF37] prose-blockquote:bg-amber-50/50 dark:prose-blockquote:bg-amber-900/10 prose-blockquote:px-4 prose-blockquote:py-3 prose-blockquote:rounded-r-xl prose-blockquote:text-slate-600 dark:prose-blockquote:text-slate-400 prose-blockquote:not-italic"
                 onMouseUp={handleTextSelect}
               >
                 <ReactMarkdown
-                  components={{ li: ({ node, ...props }) => <li className="pl-2 my-1" {...props} /> }}>
+                  components={{ li: ({ node, ...props }) => <li className="pl-2 my-1" {...props} /> }}
+                >
                   {data.content}
                 </ReactMarkdown>
               </div>
-            </div>{/* /prose-content-wrap */}
+            </div>
+
+            {/* ── AI RINGKASAN ─────────────────────────────────────────── */}
+            <div className="no-print mb-5 md:mb-6">
+              {/* Tombol trigger */}
+              <button
+                onClick={handleAISummary}
+                disabled={isLoadingAI}
+                className={
+                  'group flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 border ' +
+                  (showAI
+                    ? 'bg-[#0D5C35] text-white border-[#0D5C35] shadow-lg shadow-[#0D5C35]/20 '
+                    : 'bg-white dark:bg-[#162918] text-[#0D5C35] dark:text-emerald-400 border-[#0D5C35]/25 dark:border-emerald-700/40 hover:bg-[#0D5C35] hover:text-white hover:border-[#0D5C35] hover:shadow-lg hover:shadow-[#0D5C35]/20 ') +
+                  (isLoadingAI ? 'cursor-wait opacity-80' : '')
+                }
+              >
+                <Sparkles className={'w-4 h-4 transition-transform ' + (isLoadingAI ? 'animate-spin' : 'group-hover:rotate-12')} />
+                {isLoadingAI
+                  ? 'Meringkas...'
+                  : (aiSummary && !aiError)
+                    ? (showAI ? 'Sembunyikan Ringkasan' : '✨ Lihat Ringkasan AI')
+                    : '✨ Ringkas Dokumen'
+                }
+              </button>
+
+              {/* Card ringkasan */}
+              {showAI && (
+                <div className="mt-3 relative overflow-hidden rounded-2xl border border-[#0D5C35]/15 dark:border-emerald-800/30 bg-gradient-to-br from-[#EAF2EE] via-white to-emerald-50/30 dark:from-[#0D5C35]/12 dark:via-[#162918] dark:to-[#1a3021] p-5 md:p-6 shadow-sm">
+                  <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-[#D4AF37]/8 blur-2xl pointer-events-none" />
+
+                  {/* Header card */}
+                  <div className="flex items-center gap-2 mb-3 md:mb-4">
+                    <div className="w-7 h-7 rounded-lg bg-[#0D5C35]/10 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                      <Sparkles className="w-3.5 h-3.5 text-[#0D5C35] dark:text-emerald-400" />
+                    </div>
+                    <span className="text-xs font-black text-[#0D5C35] dark:text-emerald-400 uppercase tracking-widest">
+                      Ringkasan AI
+                    </span>
+                    <span className="ml-auto text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                      Gemini 1.5 Flash
+                    </span>
+                  </div>
+
+                  {/* Loading skeleton */}
+                  {isLoadingAI && (
+                    <div className="space-y-2.5 animate-pulse">
+                      <div className="h-3.5 bg-[#0D5C35]/10 dark:bg-emerald-900/30 rounded-lg w-full" />
+                      <div className="h-3.5 bg-[#0D5C35]/10 dark:bg-emerald-900/30 rounded-lg w-11/12" />
+                      <div className="h-3.5 bg-[#0D5C35]/10 dark:bg-emerald-900/30 rounded-lg w-10/12" />
+                      <div className="h-3.5 bg-[#0D5C35]/10 dark:bg-emerald-900/30 rounded-lg w-11/12" />
+                    </div>
+                  )}
+
+                  {/* Error state */}
+                  {aiError && !isLoadingAI && (
+                    <div className="flex items-start gap-2.5 text-rose-600 dark:text-rose-400">
+                      <span className="text-base flex-shrink-0 mt-0.5">⚠️</span>
+                      <div>
+                        <p className="text-sm font-bold mb-1">Gagal memuat ringkasan</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-mono break-words">{aiError}</p>
+                        <button
+                          onClick={() => { setAiError(''); setAiSummary(''); setShowAI(false); }}
+                          className="mt-2 text-xs font-bold text-[#0D5C35] dark:text-emerald-400 hover:underline"
+                        >
+                          Coba lagi
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Teks ringkasan */}
+                  {aiSummary && !isLoadingAI && !aiError && (
+                    <div className="space-y-2">
+                      {aiSummary.split('\n').filter(line => line.trim() !== '').map((line, idx) => (
+                        <p
+                          key={idx}
+                          className={
+                            'text-sm leading-relaxed ' +
+                            (line.startsWith('•') || line.startsWith('-')
+                              ? 'text-slate-700 dark:text-slate-300 pl-1'
+                              : 'text-slate-600 dark:text-slate-400')
+                          }
+                        >
+                          {line}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Disclaimer */}
+                  {aiSummary && !isLoadingAI && (
+                    <p className="mt-4 pt-3 border-t border-[#0D5C35]/10 dark:border-emerald-800/20 text-[10px] text-slate-400 dark:text-slate-500 italic">
+                      Ringkasan dibuat oleh AI dan mungkin tidak sepenuhnya akurat. Selalu merujuk ke dokumen asli.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* VOTE */}
             <div className="no-print relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#EAF2EE] via-white to-amber-50/40 dark:from-[#0D5C35]/10 dark:via-[#162918] dark:to-amber-900/5 border border-[#0D5C35]/12 dark:border-[#0D5C35]/20 p-5 md:p-7 mb-8 md:mb-10 shadow-sm">
@@ -619,32 +877,52 @@ const DetailPage: React.FC = () => {
                 <div className="text-center sm:text-left">
                   <div className="flex items-center gap-2 mb-1 justify-center sm:justify-start">
                     <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-                    <h4 className="font-black text-slate-800 dark:text-slate-100 text-sm md:text-base">Apakah informasi ini membantu?</h4>
+                    <h4 className="font-black text-slate-800 dark:text-slate-100 text-sm md:text-base">
+                      Apakah informasi ini membantu?
+                    </h4>
                   </div>
                   <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400">
                     {hasVoted
-                      ? voteType === 'like' ? '🎉 Terima kasih! Apresiasi Anda sangat berarti.' : '📝 Terima kasih! Kami akan terus memperbaiki konten.'
-                      : 'Bantu kami meningkatkan kualitas layanan KPKNL Kendari.'}
+                      ? voteType === 'like'
+                        ? '🎉 Terima kasih! Apresiasi Anda sangat berarti.'
+                        : '📝 Terima kasih! Kami akan terus memperbaiki konten.'
+                      : 'Bantu kami meningkatkan kualitas layanan KPKNL Kendari.'
+                    }
                   </p>
                 </div>
                 <div className="flex gap-3 flex-shrink-0">
-                  <button onClick={() => handleVote('like')} disabled={hasVoted} aria-label="Membantu"
-                    className={`flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl font-bold text-sm transition-all
-                      ${hasVoted && voteType === 'like'
+                  <button
+                    onClick={() => handleVote('like')}
+                    disabled={hasVoted}
+                    aria-label="Membantu"
+                    className={
+                      'flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl font-bold text-sm transition-all ' +
+                      (hasVoted && voteType === 'like'
                         ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 dark:shadow-emerald-900/30 cursor-default scale-105'
-                        : hasVoted ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
-                          : 'bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-700 hover:border-emerald-200 shadow-sm hover:shadow-md hover:-translate-y-0.5'
-                      }`}>
-                    <ThumbsUp className="w-4 h-4" /> <span className="hidden sm:inline">Ya, Membantu</span><span className="sm:hidden">Ya</span>
+                        : hasVoted
+                          ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
+                          : 'bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-700 hover:border-emerald-200 shadow-sm hover:shadow-md hover:-translate-y-0.5')
+                    }
+                  >
+                    <ThumbsUp className="w-4 h-4" />
+                    <span className="hidden sm:inline">Ya, Membantu</span>
+                    <span className="sm:hidden">Ya</span>
                   </button>
-                  <button onClick={() => handleVote('dislike')} disabled={hasVoted} aria-label="Tidak membantu"
-                    className={`flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl font-bold text-sm transition-all
-                      ${hasVoted && voteType === 'dislike'
+                  <button
+                    onClick={() => handleVote('dislike')}
+                    disabled={hasVoted}
+                    aria-label="Tidak membantu"
+                    className={
+                      'flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl font-bold text-sm transition-all ' +
+                      (hasVoted && voteType === 'dislike'
                         ? 'bg-rose-500 text-white shadow-lg shadow-rose-200 dark:shadow-rose-900/30 cursor-default scale-105'
-                        : hasVoted ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
-                          : 'bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-700 hover:border-rose-200 shadow-sm hover:shadow-md hover:-translate-y-0.5'
-                      }`}>
-                    <ThumbsDown className="w-4 h-4" /> <span className="hidden sm:inline">Tidak</span>
+                        : hasVoted
+                          ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
+                          : 'bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-700 hover:border-rose-200 shadow-sm hover:shadow-md hover:-translate-y-0.5')
+                    }
+                  >
+                    <ThumbsDown className="w-4 h-4" />
+                    <span className="hidden sm:inline">Tidak</span>
                   </button>
                 </div>
               </div>
@@ -660,13 +938,18 @@ const DetailPage: React.FC = () => {
                 <div
                   className="p-2 bg-slate-50 dark:bg-[#0f1f16] border-2 border-dashed border-slate-200 dark:border-slate-600 rounded-2xl cursor-zoom-in group relative overflow-hidden hover:border-[#0D5C35]/30 transition-colors"
                   onClick={() => setIsLightboxOpen(true)}
-                  title="Klik untuk memperbesar">
+                  title="Klik untuk memperbesar"
+                >
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center z-10">
                     <div className="bg-white/90 dark:bg-slate-800/90 p-3 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-lg translate-y-2 group-hover:translate-y-0">
                       <Maximize2 className="w-5 h-5 text-slate-700 dark:text-slate-200" />
                     </div>
                   </div>
-                  <img src={data.imageBase64} alt="Lampiran" className="w-full h-auto object-contain max-h-[600px] rounded-xl bg-white dark:bg-slate-800 shadow-sm" />
+                  <img
+                    src={data.imageBase64}
+                    alt="Lampiran"
+                    className="w-full h-auto object-contain max-h-[600px] rounded-xl bg-white dark:bg-slate-800 shadow-sm"
+                  />
                   <p className="text-center text-xs text-slate-400 dark:text-slate-500 mt-2 py-1 flex items-center justify-center gap-1">
                     <ImageIcon className="w-3 h-3" /> Klik untuk memperbesar
                   </p>
@@ -687,7 +970,8 @@ const DetailPage: React.FC = () => {
                     title="Video Tutorial"
                     className="w-full h-full absolute inset-0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen />
+                    allowFullScreen
+                  />
                 </div>
                 <p className="text-center text-xs text-slate-400 dark:text-slate-500 mt-3 flex items-center justify-center gap-1">
                   <PlayCircle className="w-3 h-3" /> Putar video langsung dari sistem
@@ -702,8 +986,12 @@ const DetailPage: React.FC = () => {
                   <span className="w-1 h-5 bg-rose-500 rounded-full" />
                   Dokumen Asli
                 </h3>
-                <a href={data.pdfUrl} target="_blank" rel="noopener noreferrer"
-                  className="group block w-full bg-white dark:bg-[#0f1f16] border border-rose-100 dark:border-rose-800/30 hover:border-rose-300 dark:hover:border-rose-600/40 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300">
+                <a
+                  href={data.pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group block w-full bg-white dark:bg-[#0f1f16] border border-rose-100 dark:border-rose-800/30 hover:border-rose-300 dark:hover:border-rose-600/40 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300"
+                >
                   <div className="flex items-center justify-between p-4 sm:p-5 bg-gradient-to-r from-rose-50 dark:from-rose-900/15 via-white dark:via-[#0f1f16] to-white dark:to-[#0f1f16]">
                     <div className="flex items-center gap-3 md:gap-4 min-w-0">
                       <div className="bg-white dark:bg-slate-700 p-2.5 md:p-3 rounded-xl shadow-sm text-rose-500 group-hover:scale-110 group-hover:shadow-md transition-all duration-300 flex-shrink-0">
@@ -713,7 +1001,9 @@ const DetailPage: React.FC = () => {
                         <div className="font-bold text-slate-800 dark:text-slate-100 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors text-sm md:text-base truncate">
                           Unduh Dokumen Lengkap (PDF)
                         </div>
-                        <div className="text-xs sm:text-sm text-slate-400 dark:text-slate-500">Klik untuk melihat file asli</div>
+                        <div className="text-xs sm:text-sm text-slate-400 dark:text-slate-500">
+                          Klik untuk melihat file asli
+                        </div>
                       </div>
                     </div>
                     <div className="hidden md:flex items-center gap-2 bg-rose-500 hover:bg-rose-600 text-white px-4 md:px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-rose-200 dark:shadow-rose-900/30 transition-all flex-shrink-0">
@@ -734,28 +1024,31 @@ const DetailPage: React.FC = () => {
           <div className="no-print mt-10 md:mt-14 mb-6">
             <div className="flex items-center gap-3 mb-5 md:mb-6">
               <div className="w-1 h-6 bg-[#0D5C35] rounded-full" />
-              <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100">Lihat Juga Informasi Terkait</h3>
-              <span className="text-xs font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">{relatedDocs.length}</span>
+              <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100">
+                Lihat Juga Informasi Terkait
+              </h3>
+              <span className="text-xs font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">
+                {relatedDocs.length}
+              </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-5">
               {relatedDocs.map((item, i) => (
-                <div key={item.id} onClick={() => navigate(`/detail/${item.id}`)}
+                <div
+                  key={item.id}
+                  onClick={() => navigate('/detail/' + item.id)}
                   className="bg-white dark:bg-[#162918] p-5 md:p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-xl hover:-translate-y-1.5 hover:border-[#D4AF37]/25 dark:hover:border-[#D4AF37]/20 cursor-pointer transition-all duration-300 group relative overflow-hidden"
-                  style={{ animationDelay: `${i * 80}ms` }}>
+                  style={{ animationDelay: i * 80 + 'ms' }}
+                >
                   <div className="absolute top-0 right-0 w-20 h-20 rounded-bl-full -mr-10 -mt-10 bg-[#D4AF37]/5 dark:bg-[#D4AF37]/8 group-hover:bg-[#D4AF37]/10 transition-colors" />
-
-                  <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider mb-3 border ${getCategoryStyle(item.category)}`}>
+                  <span className={'inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider mb-3 border ' + getCategoryStyle(item.category)}>
                     {item.category.replace(/-/g, ' ')}
                   </span>
-
                   <h4 className="font-bold text-slate-800 dark:text-slate-100 group-hover:text-[#0D5C35] dark:group-hover:text-emerald-400 transition-colors line-clamp-2 mb-2 text-sm leading-snug">
                     {item.title}
                   </h4>
-
                   <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-2 leading-relaxed mb-4">
                     {item.description}
                   </p>
-
                   <div className="flex items-center gap-1 text-xs font-bold text-[#0D5C35] dark:text-emerald-400 opacity-60 group-hover:opacity-100 transition-opacity">
                     <Bookmark className="w-3 h-3" />
                     <span>Baca dokumen</span>
