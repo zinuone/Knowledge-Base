@@ -505,7 +505,7 @@ const AdminDashboard: React.FC = () => {
             title: `Hapus ${count} Dokumen?`,
             message: `Anda akan menghapus ${count} dokumen sekaligus. Tindakan ini tidak dapat dibatalkan.`,
             onConfirm: async () => {
-                const promises = Array.from(selectedSopIds).map(id =>
+                const promises = ([...selectedSopIds] as string[]).map((id: string) =>
                     deleteDoc(doc(db, 'knowledge-base', id))
                 );
                 await toast.promise(Promise.all(promises), {

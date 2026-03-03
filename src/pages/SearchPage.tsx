@@ -196,15 +196,22 @@ const SearchPage: React.FC = () => {
        POSISI PENTING: harus setelah `results` useMemo karena useEffect
        membaca results.length. Menaruhnya sebelum deklarasi results
        menyebabkan "used before declaration" error di TypeScript.
-       Fire-and-forget: error diabaikan agar tidak ganggu UX. ── */
+       Fire-and-forget: error diabaikan agar tidak ganggu UX.
+       ─────────────────────────────────────────────────────────────
+       FIX: 'resultsCount' → 'resultCount' (tanpa 's') dan
+            'timestamp'    → 'createdAt'
+       Kedua field harus cocok dengan yang dibaca AdminDashboard:
+         - interface SearchLog membaca 'resultCount'
+         - query Firestore orderBy('createdAt', 'desc')
+    ── */
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         if (!activeQuery.trim() || activeQuery === lastLoggedQueryRef.current) return;
         lastLoggedQueryRef.current = activeQuery;
         addDoc(collection(db, 'search-logs'), {
-            query:        activeQuery.trim(),
-            resultsCount: results.length,
-            timestamp:    serverTimestamp(),
+            query:       activeQuery.trim(),
+            resultCount: results.length,    // ✅ FIX: was 'resultsCount' (typo dengan 's')
+            createdAt:   serverTimestamp(),  // ✅ FIX: was 'timestamp' (tidak cocok orderBy AdminDashboard)
         }).catch(() => { /* silent — jangan ganggu UX */ });
     }, [activeQuery, results]);
 
