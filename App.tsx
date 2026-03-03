@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from './src/firebase';
 import { Helmet } from 'react-helmet-async';
 import toast, { Toaster } from 'react-hot-toast';
@@ -204,6 +204,19 @@ const FAQAccordionItem: React.FC<{ faq: FAQData; index: number; isDark: boolean 
 /* ═══════════════════════════════════════════════════════════════
    APP COMPONENT
 ═══════════════════════════════════════════════════════════════ */
+/* [#2] Helper: ekstrak judul bermakna dari konten markdown panduan.
+   Prioritas: heading level 1-3 pertama → baris pertama tidak kosong → fallback "Panduan #N".
+   Ini menggantikan "Panduan #1", "Panduan #2" yang tidak informatif. */
+const extractGuideTitle = (content: string, idx: number): string => {
+  const lines = (content || '').split('\n');
+  for (const line of lines) {
+    const match = line.match(/^#{1,3}\s+(.+)/);
+    if (match) return match[1].trim();
+  }
+  const firstLine = lines.find(l => l.trim().length > 0)?.trim() || '';
+  if (firstLine) return firstLine.length > 70 ? firstLine.substring(0, 70) + '…' : firstLine;
+  return `Panduan #${idx + 1}`;
+};
 /* ─── PWA: TypeScript interface untuk beforeinstallprompt event ──
    Browser tidak menyertakan tipe ini di lib.dom.d.ts standar,
    sehingga kita deklarasikan sendiri di sini.              ── */
@@ -249,13 +262,13 @@ const App: React.FC = () => {
      pwaInstalled   : true setelah event 'appinstalled' terpicu,
                       mencegah tombol muncul lagi di sesi yang sama   */
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [pwaInstalled,  setPwaInstalled]  = useState(false);
+  const [pwaInstalled, setPwaInstalled] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
   const categories = [
-    { id: 'psp', title: 'PSP', description: 'Penggunaan, Pemanfaatan, Pemindahtanganan BMN', icon: <FileText className="w-8 h-8" />, color: 'bg-emerald-50 text-[#0D5C35]' },
+    { id: 'psp', title: 'PSP', description: 'Penetapan Status Penggunaan Barang Milik Negara', icon: <FileText className="w-8 h-8" />, color: 'bg-emerald-50 text-[#0D5C35]' },
     { id: 'penjualan', title: 'PENJUALAN', description: 'Pengelolaan Lelang dan Penjualan BMN', icon: <Hammer className="w-8 h-8" />, color: 'bg-amber-50  text-amber-700' },
     { id: 'sewa', title: 'SEWA', description: 'Mekanisme dan Prosedur Sewa BMN', icon: <Key className="w-8 h-8" />, color: 'bg-blue-50   text-blue-700' },
     { id: 'penghapusan', title: 'PENGHAPUSAN', description: 'Proses Penghapusan Barang Milik Negara', icon: <Trash2 className="w-8 h-8" />, color: 'bg-rose-50   text-rose-700' },
@@ -263,7 +276,7 @@ const App: React.FC = () => {
     { id: 'penggunaan-sementara', title: 'PENGGUNAAN SEMENTARA', description: 'Penggunaan BMN dalam jangka waktu tertentu', icon: <Timer className="w-8 h-8" />, color: 'bg-purple-50 text-purple-700' },
     { id: 'alih-status', title: 'ALIH STATUS', description: 'Alih Status Penggunaan Barang Milik Negara', icon: <RefreshCw className="w-8 h-8" />, color: 'bg-teal-50   text-teal-700' },
     { id: 'hibah', title: 'HIBAH', description: 'Prosedur Hibah Barang Milik Negara', icon: <Gift className="w-8 h-8" />, color: 'bg-orange-50 text-orange-700' },
-    { id: 'user-siman', title: 'USER SIMAN', description: 'Panduan Layanan Akun dan Role SIMAN V2', icon: <Users className="w-8 h-8" />, color: 'bg-cyan-50  text-cyan-700' },
+    { id: 'user-siman', title: 'PANDUAN SIMAN', description: 'Panduan Layanan Akun dan Role SIMAN V2', icon: <Users className="w-8 h-8" />, color: 'bg-cyan-50  text-cyan-700' },
   ];
 
   /* ── Firebase ── */
@@ -289,8 +302,11 @@ const App: React.FC = () => {
       setDocuments(newDocs);
       setIsLoadingData(false);
     });
-    const unsubFaq = onSnapshot(qFaq, snap => setFaqs(snap.docs.map(d => ({ id: d.id, ...d.data() })) as FAQData[]));
-    const unsubGuide = onSnapshot(qGuide, snap => setGuides(snap.docs.map(d => ({ id: d.id, ...d.data() })) as GuideData[]));
+    /* [#8] FAQ & Guide: ganti onSnapshot → getDocs (tidak perlu realtime).
+       Ini mengurangi Firestore listener aktif dari 3 menjadi 1 (hanya SOP).
+       SOP tetap onSnapshot karena dibutuhkan untuk notifikasi dokumen baru. */
+    getDocs(qFaq).then(snap => setFaqs(snap.docs.map(d => ({ id: d.id, ...d.data() })) as FAQData[]));
+    getDocs(qGuide).then(snap => setGuides(snap.docs.map(d => ({ id: d.id, ...d.data() })) as GuideData[]));
     /* Refresh history when user returns to this tab */
     const refreshHistory = () => {
       try { setRecentHistory(JSON.parse(localStorage.getItem('pkn-history') || '[]')); } catch { }
@@ -302,7 +318,7 @@ const App: React.FC = () => {
       setShowSuggestions(false);
     };
     window.addEventListener('scroll', onScroll);
-    return () => { unsubSop(); unsubFaq(); unsubGuide(); window.removeEventListener('scroll', onScroll); window.removeEventListener('focus', refreshHistory); };
+    return () => { unsubSop(); window.removeEventListener('scroll', onScroll); window.removeEventListener('focus', refreshHistory); };
   }, []); /* listener sekali pasang, ref selalu fresh */
 
   /* ── Pencarian ── */
@@ -391,10 +407,10 @@ const App: React.FC = () => {
       });
     };
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
-    window.addEventListener('appinstalled',        onAppInstalled);
+    window.addEventListener('appinstalled', onAppInstalled);
     return () => {
       window.removeEventListener('beforeinstallprompt', onBeforeInstall);
-      window.removeEventListener('appinstalled',        onAppInstalled);
+      window.removeEventListener('appinstalled', onAppInstalled);
     };
   }, []);
 
@@ -411,9 +427,13 @@ const App: React.FC = () => {
     if (!ts) return '-';
     return new Date(ts.seconds * 1000).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
+  /* [#1] FIX: Math.ceil diganti perbandingan ms langsung.
+     Sebelumnya: Math.ceil(0.003 hari) = 1 (5 menit dihitung "1 hari"),
+                 Math.ceil(7.000... hari) = 8 → dokumen 7 hari + 1 detik kehilangan badge.
+     Sekarang: window tepat 7 hari (604800000 ms), tidak ada rounding. */
   const isNewDocument = (ts: any) => {
     if (!ts) return false;
-    return Math.ceil(Math.abs(Date.now() - ts.seconds * 1000) / 86400000) <= 7;
+    return (Date.now() - ts.seconds * 1000) < 7 * 24 * 60 * 60 * 1000;
   };
 
   /* ── Showcase dokumen ── */
@@ -436,7 +456,7 @@ const App: React.FC = () => {
   ══════════════════════════════════════════════════════════════ */
   const SectionHome = () => (
     <div className="space-y-10">
-      <section className={`transition-all duration-1000 delay-300 ease-out ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+      <section id="kategori" className={`transition-all duration-1000 delay-300 ease-out ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
         <div className="flex items-center space-x-3 mb-8 pl-4 border-l-4 border-[#D4AF37]">
           <Grid className="w-5 h-5 text-[#D4AF37]" />
           <h3 className="font-black text-white text-lg uppercase tracking-widest drop-shadow-sm">Kategori Layanan</h3>
@@ -807,7 +827,11 @@ const App: React.FC = () => {
             <p className="text-emerald-100/80 text-sm leading-relaxed mb-4">Kumpulan jawaban resmi atas pertanyaan yang paling sering diajukan pengguna layanan KPKNL Kendari.</p>
             <div className="flex flex-wrap gap-2">
               {['Sewa BMN', 'Lelang', 'PSP', 'Hibah'].map(tag => (
-                <span key={tag} className="px-3 py-1 bg-white/10 rounded-full text-xs font-medium border border-white/10 text-white/80">{tag}</span>
+                <button key={tag}
+                  onClick={() => navigate(`/search?q=${encodeURIComponent(tag)}`)}
+                  className="px-3 py-1 bg-white/10 hover:bg-white/25 rounded-full text-xs font-medium border border-white/10 hover:border-white/30 text-white/80 hover:text-white transition-all cursor-pointer">
+                  {tag}
+                </button>
               ))}
             </div>
           </div>
@@ -875,7 +899,7 @@ const App: React.FC = () => {
             <div key={guide.id} className="group bg-white dark:bg-[#162918] rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm hover:shadow-md hover:border-[#0D5C35]/20 dark:hover:border-[#0D5C35]/40 transition-all duration-300">
               <div className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-[#EAF2EE] dark:from-[#0D5C35]/15 to-transparent border-b border-slate-100 dark:border-slate-700">
                 <span className="flex-shrink-0 w-8 h-8 rounded-full bg-[#0D5C35] text-white text-sm font-black flex items-center justify-center shadow-sm">{idx + 1}</span>
-                <span className="text-[#0D5C35] dark:text-emerald-400 text-xs font-bold uppercase tracking-widest">Panduan #{idx + 1}</span>
+                <span className="text-[#0D5C35] dark:text-emerald-400 text-xs font-bold uppercase tracking-widest">{extractGuideTitle(guide.content, idx)}</span>
               </div>
               <div className="px-6 py-5">
                 <div className="prose prose-slate dark:prose-invert max-w-none prose-sm prose-p:text-slate-600 dark:prose-p:text-slate-300 prose-p:leading-relaxed prose-li:marker:text-[#0D5C35] prose-strong:text-slate-800 dark:prose-strong:text-slate-100 prose-headings:text-slate-800 dark:prose-headings:text-slate-100 prose-headings:font-bold">
@@ -1397,7 +1421,7 @@ const App: React.FC = () => {
                 <span className="h-px flex-1 bg-white/10" /><span>Navigasi</span><span className="h-px flex-1 bg-white/10" />
               </h4>
               <ul className="space-y-3">
-                {[{ label: 'Beranda', id: 'beranda' }, { label: 'Kategori Layanan', id: 'beranda' }, { label: 'FAQ', id: 'faq' }, { label: 'Panduan', id: 'panduan' }, { label: 'Info & Statistik', id: 'info' }].map(item => (
+                {[{ label: 'Beranda', id: 'beranda' }, { label: 'Kategori Layanan', id: 'kategori' }, { label: 'FAQ', id: 'faq' }, { label: 'Panduan', id: 'panduan' }, { label: 'Kontak & Statistik', id: 'info' }].map(item => (
                   <li key={item.label}>
                     <button onClick={() => scrollToSection(item.id)} className="text-emerald-100/70 hover:text-[#D4AF37] text-sm transition-colors flex items-center gap-2 group">
                       <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 -ml-1 transition-all group-hover:translate-x-1" />{item.label}
