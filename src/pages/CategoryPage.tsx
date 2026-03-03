@@ -6,6 +6,7 @@ import {
     ArrowLeft, FileText, Hammer, Key, Trash2, Clock, Users,
     Timer, RefreshCw, Gift, ArrowRight, ArrowUp, Home,
     ChevronRight, ChevronLeft, Layers, Search, X, ArrowUpDown,
+    Moon, Sun,
 } from 'lucide-react';
 import { SkeletonCategoryGrid } from '../components/SkeletonLoader';
 import { Helmet } from 'react-helmet-async';
@@ -59,13 +60,14 @@ const CategoryPage: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const DOCS_PER_PAGE = 9;
 
-    /* ── Dark Mode: baca dari localStorage ── */
+    /* ── Dark Mode — state + reaktif (apply & simpan ke localStorage) ── */
+    const [isDark, setIsDark] = useState(() => {
+        try { return localStorage.getItem('pkn-theme') === 'dark'; } catch { return false; }
+    });
     useEffect(() => {
-        try {
-            const isDark = localStorage.getItem('pkn-theme') === 'dark';
-            document.documentElement.classList.toggle('dark', isDark);
-        } catch { }
-    }, []);
+        document.documentElement.classList.toggle('dark', isDark);
+        try { localStorage.setItem('pkn-theme', isDark ? 'dark' : 'light'); } catch { }
+    }, [isDark]);
 
     const categoryTitle = categoryId?.replace(/-/g, ' ').toUpperCase() ?? '';
 
@@ -192,6 +194,13 @@ const CategoryPage: React.FC = () => {
                         </button>
                         <ChevronRight className="w-3 h-3" />
                         <span className="text-white/80 font-bold truncate max-w-[200px] sm:max-w-none">{categoryTitle}</span>
+                        <button
+                            onClick={() => setIsDark(p => !p)}
+                            className="ml-auto p-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition-all flex-shrink-0"
+                            title={isDark ? 'Mode Terang' : 'Mode Gelap'}
+                            aria-label={isDark ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}>
+                            {isDark ? <Sun className="w-3.5 h-3.5 text-[#D4AF37]" /> : <Moon className="w-3.5 h-3.5 text-white/80" />}
+                        </button>
                     </nav>
 
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 md:gap-8">

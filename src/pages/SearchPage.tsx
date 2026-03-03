@@ -7,8 +7,8 @@ import { db } from '../firebase';
 import {
     Search, X, Home, ChevronRight, Eye, Calendar, Tag,
     FileText, Filter, ArrowLeft, SlidersHorizontal, Clock,
-    ArrowRight, Sparkles,
- ChevronLeft } from 'lucide-react';
+    ArrowRight, Sparkles, ChevronLeft, Moon, Sun,
+} from 'lucide-react';
 
 /* ─── CSS ──────────────────────────────────────────────────────── */
 const PAGE_CSS = `
@@ -98,10 +98,14 @@ const SearchPage: React.FC = () => {
     /* ── Search Analytics: ref untuk mencegah log duplikat ── */
     const lastLoggedQueryRef = useRef<string>('');
 
-    /* Dark mode sync */
+    /* Dark mode — state + reaktif (apply & simpan ke localStorage) */
+    const [isDark, setIsDark] = useState(() => {
+        try { return localStorage.getItem('pkn-theme') === 'dark'; } catch { return false; }
+    });
     useEffect(() => {
-        try { document.documentElement.classList.toggle('dark', localStorage.getItem('pkn-theme') === 'dark'); } catch { }
-    }, []);
+        document.documentElement.classList.toggle('dark', isDark);
+        try { localStorage.setItem('pkn-theme', isDark ? 'dark' : 'light'); } catch { }
+    }, [isDark]);
 
     /* Load all docs once */
     useEffect(() => {
@@ -243,6 +247,13 @@ const SearchPage: React.FC = () => {
                         </button>
                         <ChevronRight className="w-3 h-3" />
                         <span className="text-white/80 font-bold">Pencarian</span>
+                        <button
+                            onClick={() => setIsDark(p => !p)}
+                            className="ml-auto p-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition-all flex-shrink-0"
+                            title={isDark ? 'Mode Terang' : 'Mode Gelap'}
+                            aria-label={isDark ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}>
+                            {isDark ? <Sun className="w-3.5 h-3.5 text-[#D4AF37]" /> : <Moon className="w-3.5 h-3.5 text-white/80" />}
+                        </button>
                     </nav>
 
                     <div className="flex items-center gap-2 mb-2">

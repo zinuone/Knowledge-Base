@@ -3,6 +3,18 @@
 // Requires: npm install react-markdown  (likely already installed)
 // tailwind.config.js: darkMode: 'class'
 // ─────────────────────────────────────────────────────────────────────────────
+// ═══ RINGKASAN PERUBAHAN DARI VERSI SEBELUMNYA ═══════════════════════════════
+// [#1] FIX  — Analitik: backward-compat baca 'resultCount' & 'resultsCount'
+//             (SearchPage lama menyimpan 'resultsCount', versi baru 'resultCount')
+// [#2] FIX  — FAQ edit: ubah createdAt → updatedAt agar urutan FAQ tidak bergeser
+// [#3] SKIP — Gambar tetap base64 (Firebase Storage berbayar, base64 disengaja)
+// [#4] FIX  — Validasi ukuran file upload: batas diturunkan 10 MB → 5 MB
+// [#5] FIX  — Search logs limit dinaikkan 200 → 500
+// [#6] FEAT — Export Excel untuk FAQ dan Panduan (sebelumnya hanya SOP)
+// [#7] FEAT — Tombol Duplikat/Clone dokumen SOP
+// [#8] FEAT — Bulk Action: checkbox + hapus banyak dokumen SOP sekaligus
+// [#9] FEAT — Field Catatan Internal (internalNote) pada form & tabel SOP
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
@@ -16,10 +28,11 @@ import ReactMarkdown from 'react-markdown';
 import {
     LogOut, Plus, Trash2, FileText, HelpCircle, LayoutList, Edit, BookOpen, Quote,
     Eye, ThumbsUp, BarChart3, PieChart as PieChartIcon, TrendingUp, FileSpreadsheet,
-    AlertTriangle, X, List as ListIcon, Type, Hash, Search, Filter, RefreshCw,
+    AlertTriangle, X, List as ListIcon, Hash, Search, Filter, RefreshCw,
     Menu, ChevronRight, Home, ChevronDown, ChevronUp, Calendar, BookMarked,
     Moon, Sun, ChevronLeft, User, Clock as ClockIcon, AlertCircle,
     Tag, Italic, Code, Minus, Link as LinkIcon, Columns, Bold, Activity,
+    Copy, StickyNote,
 } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -75,10 +88,21 @@ interface ContentData {
     id: string; title: string; category: string; description: string;
     content: string; imageBase64?: string; pdfUrl?: string; videoUrl?: string;
     views?: number; likes?: number; updatedAt?: any; tags?: string[]; updatedBy?: string;
+    internalNote?: string; // [#9] catatan internal — hanya tampil di Admin Panel
 }
 interface FAQData { id: string; question: string; answer: string; }
 interface GuideData { id: string; content: string; updatedAt?: any; }
-interface SearchLog { id: string; query: string; resultCount: number; createdAt: any; }
+
+/* [#1] Backward-compat: SearchPage lama menyimpan 'resultsCount' (dengan 's'),
+   SearchPage baru menyimpan 'resultCount' (tanpa 's').
+   Interface mendefinisikan keduanya agar bisa dibaca dari Firestore. */
+interface SearchLog {
+    id: string;
+    query: string;
+    resultCount?: number;   // field baru (benar) — dari SearchPage versi terbaru
+    resultsCount?: number;  // field lama (typo)  — dari SearchPage versi lama
+    createdAt: any;
+}
 
 /* ─── HELPERS ─────────────────────────────────────────────────── */
 const getCategoryColor = (cat: string) => {
@@ -108,14 +132,14 @@ const FormatToolbar = ({
 }) => (
     <div className="flex flex-wrap gap-1 p-2 bg-slate-100 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600 items-center">
         {[
-            { tag: 'bold', title: 'Tebal', icon: <Bold className="w-3.5 h-3.5" /> },
-            { tag: 'italic', title: 'Miring', icon: <Italic className="w-3.5 h-3.5" /> },
-            { tag: 'code', title: 'Kode inline', icon: <Code className="w-3.5 h-3.5" /> },
-            { tag: 'list', title: 'Bullet list', icon: <ListIcon className="w-3.5 h-3.5" /> },
-            { tag: 'number', title: 'Numbered list', icon: <Hash className="w-3.5 h-3.5" /> },
-            { tag: 'quote', title: 'Kutipan', icon: <Quote className="w-3.5 h-3.5" /> },
-            { tag: 'link', title: 'Tautan', icon: <LinkIcon className="w-3.5 h-3.5" /> },
-            { tag: 'hr', title: 'Garis pemisah', icon: <Minus className="w-3.5 h-3.5" /> },
+            { tag: 'bold',   title: 'Tebal',         icon: <Bold    className="w-3.5 h-3.5" /> },
+            { tag: 'italic', title: 'Miring',         icon: <Italic  className="w-3.5 h-3.5" /> },
+            { tag: 'code',   title: 'Kode inline',    icon: <Code    className="w-3.5 h-3.5" /> },
+            { tag: 'list',   title: 'Bullet list',    icon: <ListIcon className="w-3.5 h-3.5" /> },
+            { tag: 'number', title: 'Numbered list',  icon: <Hash    className="w-3.5 h-3.5" /> },
+            { tag: 'quote',  title: 'Kutipan',        icon: <Quote   className="w-3.5 h-3.5" /> },
+            { tag: 'link',   title: 'Tautan',         icon: <LinkIcon className="w-3.5 h-3.5" /> },
+            { tag: 'hr',     title: 'Garis pemisah',  icon: <Minus   className="w-3.5 h-3.5" /> },
         ].map(b => (
             <button key={b.tag} type="button" onClick={() => onInsert(target, b.tag)}
                 className="p-1.5 hover:bg-white dark:hover:bg-slate-600 rounded-lg text-slate-600 dark:text-slate-300 transition-colors" title={b.title}>
@@ -151,14 +175,12 @@ interface GuideCardProps {
     onDelete: () => void;
     formatTime: (ts: any) => string;
 }
-const GuideCard: React.FC<GuideCardProps> = ({
-    item, index, onEdit, onDelete, formatTime,
-}) => {
+const GuideCard: React.FC<GuideCardProps> = ({ item, index, onEdit, onDelete, formatTime }) => {
     const [isExpanded, setIsExpanded] = useState(false);
-    const lineCount = (item.content || '').split('\n').length;
-    const charCount = (item.content || '').length;
-    const isLong = lineCount > 8 || charCount > 400;
-    const firstLine = (item.content || '').split('\n')[0].replace(/^#+\s*/, '').trim();
+    const lineCount  = (item.content || '').split('\n').length;
+    const charCount  = (item.content || '').length;
+    const isLong     = lineCount > 8 || charCount > 400;
+    const firstLine  = (item.content || '').split('\n')[0].replace(/^#+\s*/, '').trim();
 
     return (
         <div className="bg-white dark:bg-[#162918] rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
@@ -180,8 +202,8 @@ const GuideCard: React.FC<GuideCardProps> = ({
                     </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                    <button onClick={onEdit} className="p-2.5 text-amber-600 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-500 hover:text-white rounded-xl border border-amber-100 dark:border-amber-700/30 transition-all" title="Edit"><Edit className="w-4 h-4" /></button>
-                    <button onClick={onDelete} className="p-2.5 text-rose-600 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-500 hover:text-white rounded-xl border border-rose-100 dark:border-rose-700/30 transition-all" title="Hapus"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={onEdit}   className="p-2.5 text-amber-600 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-500 hover:text-white rounded-xl border border-amber-100 dark:border-amber-700/30 transition-all" title="Edit"><Edit className="w-4 h-4" /></button>
+                    <button onClick={onDelete} className="p-2.5 text-rose-600  bg-rose-50  dark:bg-rose-900/20  hover:bg-rose-500  hover:text-white rounded-xl border border-rose-100  dark:border-rose-700/30  transition-all" title="Hapus"><Trash2 className="w-4 h-4" /></button>
                 </div>
             </div>
             <div className="p-5 md:p-6">
@@ -196,7 +218,9 @@ const GuideCard: React.FC<GuideCardProps> = ({
                 {isLong && (
                     <button onClick={() => setIsExpanded(p => !p)}
                         className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 text-[#0D5C35] dark:text-emerald-400 text-xs font-bold rounded-xl bg-[#0D5C35]/5 dark:bg-[#0D5C35]/10 hover:bg-[#0D5C35]/10 dark:hover:bg-[#0D5C35]/20 border border-[#0D5C35]/10 dark:border-[#0D5C35]/20 transition-all">
-                        {isExpanded ? <><ChevronUp className="w-4 h-4" /> Sembunyikan</> : <><ChevronDown className="w-4 h-4" /> Tampilkan Selengkapnya</>}
+                        {isExpanded
+                            ? <><ChevronUp   className="w-4 h-4" /> Sembunyikan</>
+                            : <><ChevronDown className="w-4 h-4" /> Tampilkan Selengkapnya</>}
                     </button>
                 )}
             </div>
@@ -221,27 +245,30 @@ const AdminDashboard: React.FC = () => {
         try { localStorage.setItem('pkn-theme', isDark ? 'dark' : 'light'); } catch { }
     }, [isDark]);
 
-    const [contents, setContents] = useState<ContentData[]>([]);
-    const [faqs, setFaqs] = useState<FAQData[]>([]);
-    const [guides, setGuides] = useState<GuideData[]>([]);
+    const [contents,   setContents]   = useState<ContentData[]>([]);
+    const [faqs,       setFaqs]       = useState<FAQData[]>([]);
+    const [guides,     setGuides]     = useState<GuideData[]>([]);
     const [searchLogs, setSearchLogs] = useState<SearchLog[]>([]);
 
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filterCategory, setFilterCategory] = useState('all');
+    const [searchTerm,      setSearchTerm]      = useState('');
+    const [filterCategory,  setFilterCategory]  = useState('all');
 
     /* ── Pagination SOP ── */
-    const [sopPage, setSopPage] = useState(1);
+    const [sopPage,    setSopPage]    = useState(1);
     const [sopPerPage, setSopPerPage] = useState(10);
 
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
+    /* ── [#8] Bulk Selection SOP ── */
+    const [selectedSopIds, setSelectedSopIds] = useState<Set<string>>(new Set());
+
+    const [isModalOpen,      setIsModalOpen]      = useState(false);
+    const [isFaqModalOpen,   setIsFaqModalOpen]   = useState(false);
     const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
 
     /* ── Preview tab di modal SOP ── */
     const [sopModalTab, setSopModalTab] = useState<'editor' | 'preview'>('editor');
 
     /* ── Unsaved changes tracking ── */
-    const [isDirty, setIsDirty] = useState(false);
+    const [isDirty,           setIsDirty]           = useState(false);
     const [pendingCloseModal, setPendingCloseModal] = useState<'sop' | 'faq' | 'guide' | null>(null);
 
     const [confirmModal, setConfirmModal] = useState<{
@@ -249,21 +276,26 @@ const AdminDashboard: React.FC = () => {
         title: string; message: string; onConfirm: () => void;
     }>({ isOpen: false, type: 'delete', title: '', message: '', onConfirm: () => { } });
 
-    const [isSaving, setIsSaving] = useState(false);
-    const [editingId, setEditingId] = useState<string | null>(null);
+    const [isSaving,   setIsSaving]   = useState(false);
+    const [editingId,  setEditingId]  = useState<string | null>(null);
 
-    const emptyForm = { title: '', category: 'psp', description: '', content: '', imageBase64: '', pdfUrl: '', videoUrl: '', tagsRaw: '' };
-    const [formData, setFormData] = useState(emptyForm);
-    const [faqForm, setFaqForm] = useState({ question: '', answer: '' });
-    const [guideForm, setGuideForm] = useState({ content: '' });
+    /* [#9] internalNote ditambahkan ke emptyForm */
+    const emptyForm = {
+        title: '', category: 'psp', description: '', content: '',
+        imageBase64: '', pdfUrl: '', videoUrl: '', tagsRaw: '',
+        internalNote: '',
+    };
+    const [formData,   setFormData]   = useState(emptyForm);
+    const [faqForm,    setFaqForm]    = useState({ question: '', answer: '' });
+    const [guideForm,  setGuideForm]  = useState({ content: '' });
     const [isSplitView, setIsSplitView] = useState(false);
-    const [tagInput, setTagInput] = useState('');
+    const [tagInput,   setTagInput]   = useState('');
 
     /* ── Current admin user info ── */
-    const adminEmail = auth.currentUser?.email ?? 'Admin';
+    const adminEmail   = auth.currentUser?.email ?? 'Admin';
     const adminDisplay = adminEmail.split('@')[0];
 
-    /* ── Firebase ── */
+    /* ── Firebase time formatters ── */
     const formatTime = (ts: any) => ts?.seconds
         ? new Date(ts.seconds * 1000).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
         : '-';
@@ -271,15 +303,17 @@ const AdminDashboard: React.FC = () => {
         ? new Date(ts.seconds * 1000).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
         : '-';
 
+    /* ── Realtime listeners ── */
     useEffect(() => {
-        const qSop = query(collection(db, 'knowledge-base'), orderBy('updatedAt', 'desc'));
-        const qFaq = query(collection(db, 'faqs'), orderBy('createdAt', 'desc'));
-        const qGuide = query(collection(db, 'guides'), orderBy('updatedAt', 'desc'));
-        const qLogs = query(collection(db, 'search-logs'), orderBy('createdAt', 'desc'), limit(200));
-        const u1 = onSnapshot(qSop, s => setContents(s.docs.map(d => ({ id: d.id, ...d.data() })) as ContentData[]));
-        const u2 = onSnapshot(qFaq, s => setFaqs(s.docs.map(d => ({ id: d.id, ...d.data() })) as FAQData[]));
+        const qSop   = query(collection(db, 'knowledge-base'), orderBy('updatedAt', 'desc'));
+        const qFaq   = query(collection(db, 'faqs'),           orderBy('createdAt', 'desc'));
+        const qGuide = query(collection(db, 'guides'),         orderBy('updatedAt', 'desc'));
+        /* [#5] Limit dinaikkan 200 → 500 agar histori pencarian lebih lengkap */
+        const qLogs  = query(collection(db, 'search-logs'),    orderBy('createdAt', 'desc'), limit(500));
+        const u1 = onSnapshot(qSop,   s => setContents(s.docs.map(d => ({ id: d.id, ...d.data() })) as ContentData[]));
+        const u2 = onSnapshot(qFaq,   s => setFaqs(s.docs.map(d => ({ id: d.id, ...d.data() })) as FAQData[]));
         const u3 = onSnapshot(qGuide, s => setGuides(s.docs.map(d => ({ id: d.id, ...d.data() })) as GuideData[]));
-        const u4 = onSnapshot(qLogs, s => setSearchLogs(s.docs.map(d => ({ id: d.id, ...d.data() })) as SearchLog[]));
+        const u4 = onSnapshot(qLogs,  s => setSearchLogs(s.docs.map(d => ({ id: d.id, ...d.data() })) as SearchLog[]));
         return () => { u1(); u2(); u3(); u4(); };
     }, []);
 
@@ -287,20 +321,20 @@ const AdminDashboard: React.FC = () => {
        Aktif hanya saat isDirty = true (ada form yang belum disimpan).   */
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            if (isDirty) {
-                e.preventDefault();
-                e.returnValue = '';
-            }
+            if (isDirty) { e.preventDefault(); e.returnValue = ''; }
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [isDirty]);
 
-    /* ── Stats ── */
+    /* ── [#8] Bersihkan seleksi ketika filter/halaman berubah ── */
+    useEffect(() => { setSelectedSopIds(new Set()); }, [searchTerm, filterCategory, sopPage]);
+
+    /* ── Stats (Overview) ── */
     const stats = useMemo(() => {
         const totalViews = contents.reduce((a, c) => a + (c.views || 0), 0);
         const totalLikes = contents.reduce((a, c) => a + (c.likes || 0), 0);
-        const topViewed = [...contents]
+        const topViewed  = [...contents]
             .sort((a, b) => (b.views || 0) - (a.views || 0))
             .slice(0, 5)
             .map(i => {
@@ -313,8 +347,6 @@ const AdminDashboard: React.FC = () => {
             catDist[k] = (catDist[k] || 0) + 1;
         });
         const pieData = Object.entries(catDist).map(([name, value]) => ({ name, value }));
-
-        /* ── Trend: dokumen ditambah per 7 hari terakhir ── */
         const trendData = Array.from({ length: 7 }, (_, i) => {
             const d = new Date(); d.setDate(d.getDate() - (6 - i));
             const label = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
@@ -325,8 +357,6 @@ const AdminDashboard: React.FC = () => {
             }).length;
             return { hari: label, dokumen: count };
         });
-
-        /* ── Views per kategori ── */
         const catViews: Record<string, number> = {};
         contents.forEach(i => {
             const k = (i.category || 'psp').replace(/-/g, ' ').toUpperCase();
@@ -335,11 +365,10 @@ const AdminDashboard: React.FC = () => {
         const catViewsData = Object.entries(catViews)
             .map(([name, views]) => ({ name, views }))
             .sort((a, b) => b.views - a.views);
-
         return { totalViews, totalLikes, topViewed, pieData, trendData, catViewsData };
     }, [contents]);
 
-    /* ── Stats Analytics: agregasi search-logs ── */
+    /* ── Stats Analitik Pencarian ── */
     const searchStats = useMemo(() => {
         if (!searchLogs.length) return { topQueries: [], totalSearches: 0, uniqueQueries: 0, avgResults: 0 };
 
@@ -350,7 +379,8 @@ const AdminDashboard: React.FC = () => {
             if (!q) return;
             if (!queryCount[q]) queryCount[q] = { count: 0, totalResults: 0 };
             queryCount[q].count += 1;
-            queryCount[q].totalResults += (log.resultCount || 0);
+            /* [#1] Baca 'resultCount' (baru) ATAU 'resultsCount' (lama/typo) */
+            queryCount[q].totalResults += (log.resultCount ?? log.resultsCount ?? 0);
         });
         const topQueries = Object.entries(queryCount)
             .map(([query, { count, totalResults }]) => ({
@@ -361,15 +391,11 @@ const AdminDashboard: React.FC = () => {
             .sort((a, b) => b.count - a.count)
             .slice(0, 10);
 
-        const totalResults = searchLogs.reduce((s, l) => s + (l.resultCount || 0), 0);
-        const avgResults = totalSearches > 0 ? Math.round(totalResults / totalSearches) : 0;
+        /* [#1] Sama — baca kedua varian field untuk totalResults */
+        const totalResults = searchLogs.reduce((s, l) => s + (l.resultCount ?? l.resultsCount ?? 0), 0);
+        const avgResults   = totalSearches > 0 ? Math.round(totalResults / totalSearches) : 0;
 
-        return {
-            topQueries,
-            totalSearches,
-            uniqueQueries: Object.keys(queryCount).length,
-            avgResults,
-        };
+        return { topQueries, totalSearches, uniqueQueries: Object.keys(queryCount).length, avgResults };
     }, [searchLogs]);
 
     const filteredContents = useMemo(() =>
@@ -381,9 +407,9 @@ const AdminDashboard: React.FC = () => {
         }), [contents, searchTerm, filterCategory]);
 
     /* ── Pagination logic ── */
-    const sopTotalPages = Math.ceil(filteredContents.length / sopPerPage);
-    const sopIndexFirst = (sopPage - 1) * sopPerPage;
-    const sopIndexLast = sopIndexFirst + sopPerPage;
+    const sopTotalPages  = Math.ceil(filteredContents.length / sopPerPage);
+    const sopIndexFirst  = (sopPage - 1) * sopPerPage;
+    const sopIndexLast   = sopIndexFirst + sopPerPage;
     const currentSopPage = filteredContents.slice(sopIndexFirst, sopIndexLast);
 
     /* ── Unsaved changes helper ── */
@@ -395,20 +421,24 @@ const AdminDashboard: React.FC = () => {
                 message: 'Anda memiliki perubahan yang belum disimpan. Menutup form akan menghapus semua perubahan tersebut.',
                 onConfirm: () => {
                     setIsDirty(false);
-                    if (modal === 'sop') setIsModalOpen(false);
-                    if (modal === 'faq') setIsFaqModalOpen(false);
+                    if (modal === 'sop')   setIsModalOpen(false);
+                    if (modal === 'faq')   setIsFaqModalOpen(false);
                     if (modal === 'guide') setIsGuideModalOpen(false);
                     setConfirmModal(p => ({ ...p, isOpen: false }));
                 },
             });
         } else {
-            if (modal === 'sop') setIsModalOpen(false);
-            if (modal === 'faq') setIsFaqModalOpen(false);
+            if (modal === 'sop')   setIsModalOpen(false);
+            if (modal === 'faq')   setIsFaqModalOpen(false);
             if (modal === 'guide') setIsGuideModalOpen(false);
         }
     };
 
-    /* ── Handlers ── */
+    /* ══════════════════════════════════════════════════════════════
+       HANDLERS
+    ══════════════════════════════════════════════════════════════ */
+
+    /* Export SOP — tidak berubah */
     const handleExportExcel = () => {
         const data = contents.map((i, idx) => ({
             No: idx + 1, Judul: i.title,
@@ -422,9 +452,38 @@ const AdminDashboard: React.FC = () => {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Laporan SOP');
         XLSX.writeFile(wb, `Laporan_KPKNL_KnowledgeBase_${new Date().toISOString().split('T')[0]}.xlsx`);
-        toast.success('Laporan berhasil didownload!');
+        toast.success('Laporan SOP berhasil didownload!');
     };
 
+    /* [#6] Export FAQ ke Excel */
+    const handleExportFaqExcel = () => {
+        const data = faqs.map((i, idx) => ({
+            No: idx + 1,
+            Pertanyaan: i.question,
+            Jawaban:    i.answer,
+        }));
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Data FAQ');
+        XLSX.writeFile(wb, `FAQ_KPKNL_KnowledgeBase_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success('Data FAQ berhasil didownload!');
+    };
+
+    /* [#6] Export Panduan ke Excel */
+    const handleExportGuideExcel = () => {
+        const data = guides.map((i, idx) => ({
+            No: idx + 1,
+            'Isi Panduan':      i.content,
+            'Terakhir Update':  formatTimeDetailed(i.updatedAt),
+        }));
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Data Panduan');
+        XLSX.writeFile(wb, `Panduan_KPKNL_KnowledgeBase_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success('Data Panduan berhasil didownload!');
+    };
+
+    /* Hapus satu dokumen */
     const confirmDelete = (col: string, id: string) => {
         setConfirmModal({
             isOpen: true, type: 'delete',
@@ -435,6 +494,57 @@ const AdminDashboard: React.FC = () => {
                 setConfirmModal(p => ({ ...p, isOpen: false }));
             },
         });
+    };
+
+    /* [#8] Hapus banyak SOP sekaligus */
+    const handleBulkDelete = () => {
+        if (selectedSopIds.size === 0) return;
+        const count = selectedSopIds.size;
+        setConfirmModal({
+            isOpen: true, type: 'delete',
+            title: `Hapus ${count} Dokumen?`,
+            message: `Anda akan menghapus ${count} dokumen sekaligus. Tindakan ini tidak dapat dibatalkan.`,
+            onConfirm: async () => {
+                const promises = Array.from(selectedSopIds).map(id =>
+                    deleteDoc(doc(db, 'knowledge-base', id))
+                );
+                await toast.promise(Promise.all(promises), {
+                    loading: `Menghapus ${count} dokumen…`,
+                    success: `${count} dokumen berhasil dihapus!`,
+                    error:   'Gagal menghapus beberapa dokumen.',
+                });
+                setSelectedSopIds(new Set());
+                setConfirmModal(p => ({ ...p, isOpen: false }));
+            },
+        });
+    };
+
+    /* [#8] Toggle pilih satu baris */
+    const toggleSelectSop = (id: string) => {
+        setSelectedSopIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+
+    /* [#8] Toggle pilih semua di halaman saat ini */
+    const toggleSelectAll = () => {
+        const allOnPage = currentSopPage.map(i => i.id);
+        const allSelected = allOnPage.every(id => selectedSopIds.has(id)) && allOnPage.length > 0;
+        if (allSelected) {
+            setSelectedSopIds(prev => {
+                const next = new Set(prev);
+                allOnPage.forEach(id => next.delete(id));
+                return next;
+            });
+        } else {
+            setSelectedSopIds(prev => {
+                const next = new Set(prev);
+                allOnPage.forEach(id => next.add(id));
+                return next;
+            });
+        }
     };
 
     const confirmLogout = () => {
@@ -451,51 +561,106 @@ const AdminDashboard: React.FC = () => {
         });
     };
 
-    const handleEditSop = (i: ContentData) => { setEditingId(i.id); setFormData({ ...i, imageBase64: i.imageBase64 || '', pdfUrl: i.pdfUrl || '', videoUrl: i.videoUrl || '', tagsRaw: (i.tags || []).join(', ') }); setSopModalTab('editor'); setIsDirty(false); setTagInput(''); setIsModalOpen(true); };
-    const handleEditFaq = (i: FAQData) => { setEditingId(i.id); setFaqForm({ ...i }); setIsDirty(false); setIsFaqModalOpen(true); };
+    /* [#9] handleEditSop — sertakan internalNote */
+    const handleEditSop = (i: ContentData) => {
+        setEditingId(i.id);
+        setFormData({
+            ...i,
+            imageBase64:  i.imageBase64  || '',
+            pdfUrl:       i.pdfUrl       || '',
+            videoUrl:     i.videoUrl     || '',
+            tagsRaw:      (i.tags || []).join(', '),
+            internalNote: i.internalNote || '',
+        });
+        setSopModalTab('editor');
+        setIsDirty(false);
+        setTagInput('');
+        setIsModalOpen(true);
+    };
+
+    const handleEditFaq   = (i: FAQData)   => { setEditingId(i.id); setFaqForm({ ...i }); setIsDirty(false); setIsFaqModalOpen(true); };
     const handleEditGuide = (i: GuideData) => { setEditingId(i.id); setGuideForm({ content: i.content }); setIsDirty(false); setIsGuideModalOpen(true); };
-    const handleAddSop = () => { setEditingId(null); setFormData({ ...emptyForm }); setSopModalTab('editor'); setIsSplitView(false); setIsDirty(false); setTagInput(''); setIsModalOpen(true); };
-    const handleAddFaq = () => { setEditingId(null); setFaqForm({ question: '', answer: '' }); setIsDirty(false); setIsFaqModalOpen(true); };
+
+    const handleAddSop = () => {
+        setEditingId(null);
+        setFormData({ ...emptyForm });
+        setSopModalTab('editor');
+        setIsSplitView(false);
+        setIsDirty(false);
+        setTagInput('');
+        setIsModalOpen(true);
+    };
+    const handleAddFaq   = () => { setEditingId(null); setFaqForm({ question: '', answer: '' }); setIsDirty(false); setIsFaqModalOpen(true); };
     const handleAddGuide = () => { setEditingId(null); setGuideForm({ content: '' }); setIsDirty(false); setIsGuideModalOpen(true); };
 
+    /* [#7] Duplikat/Clone SOP — buka form pre-filled sebagai dokumen baru */
+    const handleCloneSop = (i: ContentData) => {
+        setEditingId(null); // pastikan ini dokumen BARU, bukan update
+        setFormData({
+            title:        `Salinan — ${i.title}`,
+            category:     i.category     || 'psp',
+            description:  i.description  || '',
+            content:      i.content      || '',
+            imageBase64:  i.imageBase64  || '',
+            pdfUrl:       i.pdfUrl       || '',
+            videoUrl:     i.videoUrl     || '',
+            tagsRaw:      (i.tags || []).join(', '),
+            internalNote: i.internalNote || '',
+        });
+        setSopModalTab('editor');
+        setIsSplitView(false);
+        setIsDirty(true); // dirty agar admin tidak tutup sembarangan
+        setTagInput('');
+        setIsModalOpen(true);
+        toast('📋 Dokumen disalin — review judul lalu simpan.', { duration: 3500 });
+    };
+
+    /* Save SOP */
     const handleSaveSop = async (e: React.FormEvent) => {
         e.preventDefault();
-        /* ── Validasi form ── */
-        if (!formData.title.trim()) { toast.error('⚠️ Judul dokumen tidak boleh kosong.'); return; }
-        if (formData.title.trim().length < 5) { toast.error('⚠️ Judul minimal 5 karakter.'); return; }
-        if (!formData.description.trim()) { toast.error('⚠️ Deskripsi tidak boleh kosong.'); return; }
-        if (formData.description.trim().length < 10) { toast.error('⚠️ Deskripsi minimal 10 karakter.'); return; }
-        if (!formData.content.trim()) { toast.error('⚠️ Isi dokumen tidak boleh kosong.'); return; }
-        if (formData.content.trim().length < 20) { toast.error('⚠️ Isi dokumen minimal 20 karakter.'); return; }
-        if (formData.pdfUrl && !/^https?:\/\/.+/.test(formData.pdfUrl.trim())) { toast.error('⚠️ URL PDF tidak valid. Harus dimulai https://'); return; }
-        if (formData.videoUrl && !/^https?:\/\/.+/.test(formData.videoUrl.trim())) { toast.error('⚠️ URL Video tidak valid. Harus dimulai https://'); return; }
+        if (!formData.title.trim())                                                         { toast.error('⚠️ Judul dokumen tidak boleh kosong.'); return; }
+        if (formData.title.trim().length < 5)                                               { toast.error('⚠️ Judul minimal 5 karakter.'); return; }
+        if (!formData.description.trim())                                                   { toast.error('⚠️ Deskripsi tidak boleh kosong.'); return; }
+        if (formData.description.trim().length < 10)                                        { toast.error('⚠️ Deskripsi minimal 10 karakter.'); return; }
+        if (!formData.content.trim())                                                       { toast.error('⚠️ Isi dokumen tidak boleh kosong.'); return; }
+        if (formData.content.trim().length < 20)                                            { toast.error('⚠️ Isi dokumen minimal 20 karakter.'); return; }
+        if (formData.pdfUrl   && !/^https?:\/\/.+/.test(formData.pdfUrl.trim()))           { toast.error('⚠️ URL PDF tidak valid. Harus dimulai https://'); return; }
+        if (formData.videoUrl && !/^https?:\/\/.+/.test(formData.videoUrl.trim()))         { toast.error('⚠️ URL Video tidak valid. Harus dimulai https://'); return; }
+
         setIsSaving(true);
         try {
             const tags = formData.tagsRaw
                 ? formData.tagsRaw.split(',').map((t: string) => t.trim()).filter(Boolean)
                 : [];
             const { tagsRaw, ...rest } = formData;
-            const payload = { ...rest, tags };
+            const payload   = { ...rest, tags };
             const updatedBy = auth.currentUser?.email ?? 'admin';
+
             const p: Promise<void> = editingId
                 ? updateDoc(doc(db, 'knowledge-base', editingId), { ...payload, updatedAt: serverTimestamp(), updatedBy })
                 : addDoc(collection(db, 'knowledge-base'), { ...payload, updatedAt: serverTimestamp(), updatedBy, views: 0, likes: 0, dislikes: 0 }).then(() => {});
+
             await toast.promise(p, { loading: 'Menyimpan SOP…', success: 'SOP berhasil disimpan!', error: 'Gagal menyimpan SOP.' });
             setIsDirty(false);
             setIsModalOpen(false);
         } catch (_) { } finally { setIsSaving(false); }
     };
 
+    /* [#2] Save FAQ — mode EDIT kini pakai `updatedAt` agar `createdAt` (basis
+       urutan di beranda) tidak pernah berubah akibat proses edit. */
     const handleSaveFaq = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!faqForm.question.trim()) { toast.error('⚠️ Pertanyaan tidak boleh kosong.'); return; }
-        if (faqForm.question.trim().length < 10) { toast.error('⚠️ Pertanyaan minimal 10 karakter.'); return; }
-        if (!faqForm.answer.trim()) { toast.error('⚠️ Jawaban tidak boleh kosong.'); return; }
-        if (faqForm.answer.trim().length < 10) { toast.error('⚠️ Jawaban minimal 10 karakter.'); return; }
+        if (!faqForm.question.trim())              { toast.error('⚠️ Pertanyaan tidak boleh kosong.'); return; }
+        if (faqForm.question.trim().length < 10)   { toast.error('⚠️ Pertanyaan minimal 10 karakter.'); return; }
+        if (!faqForm.answer.trim())                { toast.error('⚠️ Jawaban tidak boleh kosong.'); return; }
+        if (faqForm.answer.trim().length < 10)     { toast.error('⚠️ Jawaban minimal 10 karakter.'); return; }
+
         setIsSaving(true);
         try {
             const p: Promise<void> = editingId
-                ? updateDoc(doc(db, 'faqs', editingId), { ...faqForm, createdAt: serverTimestamp() })
+                /* [#2] Edit: simpan updatedAt agar createdAt (urutan) tidak berubah */
+                ? updateDoc(doc(db, 'faqs', editingId), { ...faqForm, updatedAt: serverTimestamp() })
+                /* Tambah baru: set createdAt sebagai basis pengurutan di beranda */
                 : addDoc(collection(db, 'faqs'), { ...faqForm, createdAt: serverTimestamp() }).then(() => {});
             await toast.promise(p, { loading: 'Menyimpan FAQ…', success: 'FAQ berhasil disimpan!', error: 'Gagal menyimpan FAQ.' });
             setIsDirty(false);
@@ -503,8 +668,10 @@ const AdminDashboard: React.FC = () => {
         } catch (_) { } finally { setIsSaving(false); }
     };
 
+    /* Save Panduan */
     const handleSaveGuide = async (e: React.FormEvent) => {
-        e.preventDefault(); setIsSaving(true);
+        e.preventDefault();
+        setIsSaving(true);
         try {
             const p: Promise<void> = editingId
                 ? updateDoc(doc(db, 'guides', editingId), { ...guideForm, updatedAt: serverTimestamp() })
@@ -515,32 +682,28 @@ const AdminDashboard: React.FC = () => {
         } catch (_) { } finally { setIsSaving(false); }
     };
 
+    /* [#4] handleImageUpload — batas file SEBELUM kompresi diturunkan 10 MB → 5 MB.
+       Gambar tetap disimpan sebagai base64 di Firestore (Firebase Storage tidak dipakai). */
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        /* Tolak file non-gambar */
         if (!file.type.startsWith('image/')) {
             toast.error('⚠️ File harus berupa gambar (JPG, PNG, WEBP, dll.)');
             return;
         }
 
-        /* Batas awal: file asli > 10 MB kemungkinan besar bermasalah */
-        if (file.size > 10 * 1024 * 1024) {
-            toast.error('⚠️ Ukuran file terlalu besar (maks 10 MB sebelum kompresi).');
+        /* [#4] Batas 5 MB (turun dari 10 MB) — mencegah browser hang pada file besar */
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('⚠️ Ukuran file terlalu besar (maks 5 MB sebelum kompresi).');
             return;
         }
 
         const toastId = toast.loading('🗜️ Mengompresi gambar…');
         try {
-            const compressed = await compressImage(file);
-
-            /* Estimasi ukuran hasil (base64 ~4/3 dari byte asli) */
+            const compressed  = await compressImage(file);
             const estimatedKb = Math.round((compressed.length * 3) / (4 * 1024));
-            toast.success(
-                `✅ Gambar dikompres — ±${estimatedKb} KB`,
-                { id: toastId }
-            );
+            toast.success(`✅ Gambar dikompres — ±${estimatedKb} KB`, { id: toastId });
             setFormData(p => ({ ...p, imageBase64: compressed }));
             setIsDirty(true);
         } catch {
@@ -548,39 +711,41 @@ const AdminDashboard: React.FC = () => {
         }
     };
 
+    /* Format toolbar insert */
     const insertFormat = (target: 'sop' | 'faq' | 'guide', tag: string) => {
         const idMap = { sop: 'content-editor', faq: 'faq-editor', guide: 'guide-editor' };
         const textarea = document.getElementById(idMap[target]) as HTMLTextAreaElement;
         if (!textarea) return;
-        const s = textarea.selectionStart, end = textarea.selectionEnd;
-        const cur = target === 'sop' ? formData.content : target === 'faq' ? faqForm.answer : guideForm.content;
+        const s   = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const cur    = target === 'sop' ? formData.content : target === 'faq' ? faqForm.answer : guideForm.content;
         const before = cur.substring(0, s), sel = cur.substring(s, end), after = cur.substring(end);
         const inserts: Record<string, string> = {
-            bold: `${before}**${sel || 'Teks Tebal'}**${after}`,
+            bold:   `${before}**${sel || 'Teks Tebal'}**${after}`,
             italic: `${before}_${sel || 'Teks Miring'}_${after}`,
-            code: `${before}\`${sel || 'kode'}\`${after}`,
-            list: `${before}\n- ${sel || 'Poin 1'}\n- Poin 2${after}`,
+            code:   `${before}\`${sel || 'kode'}\`${after}`,
+            list:   `${before}\n- ${sel || 'Poin 1'}\n- Poin 2${after}`,
             number: `${before}\n1. ${sel || 'Langkah 1'}\n2. Langkah 2${after}`,
-            h2: `${before}\n## ${sel || 'Judul Besar'}${after}`,
-            h3: `${before}\n### ${sel || 'Sub Judul'}${after}`,
-            quote: `${before}\n> "${sel || 'Catatan penting'}"${after}`,
-            link: `${before}[${sel || 'Teks Link'}](https://contoh.com)${after}`,
-            hr: `${before}\n\n---\n\n${after}`,
+            h2:     `${before}\n## ${sel || 'Judul Besar'}${after}`,
+            h3:     `${before}\n### ${sel || 'Sub Judul'}${after}`,
+            quote:  `${before}\n> "${sel || 'Catatan penting'}"${after}`,
+            link:   `${before}[${sel || 'Teks Link'}](https://contoh.com)${after}`,
+            hr:     `${before}\n\n---\n\n${after}`,
         };
         const newText = inserts[tag] ?? cur;
-        if (target === 'sop') { setFormData(p => ({ ...p, content: newText })); setIsDirty(true); }
-        else if (target === 'faq') { setFaqForm(p => ({ ...p, answer: newText })); setIsDirty(true); }
-        else { setGuideForm({ content: newText }); setIsDirty(true); }
+        if (target === 'sop')       { setFormData(p => ({ ...p, content: newText })); setIsDirty(true); }
+        else if (target === 'faq')  { setFaqForm(p => ({ ...p, answer: newText }));   setIsDirty(true); }
+        else                        { setGuideForm({ content: newText });              setIsDirty(true); }
         setTimeout(() => textarea.focus(), 50);
     };
 
     /* ── Nav items ── */
     const navItems = [
-        { id: 'overview' as const, label: 'Dashboard', icon: <BarChart3 className="w-5 h-5" />, badge: null },
-        { id: 'sop' as const, label: 'Data SOP', icon: <LayoutList className="w-5 h-5" />, badge: contents.length },
-        { id: 'faq' as const, label: 'Data FAQ', icon: <HelpCircle className="w-5 h-5" />, badge: faqs.length },
-        { id: 'guide' as const, label: 'Data Panduan', icon: <BookOpen className="w-5 h-5" />, badge: guides.length },
-        { id: 'analytics' as const, label: 'Analitik Pencarian', icon: <Activity className="w-5 h-5" />, badge: searchLogs.length > 0 ? searchLogs.length : null },
+        { id: 'overview'  as const, label: 'Dashboard',         icon: <BarChart3  className="w-5 h-5" />, badge: null },
+        { id: 'sop'       as const, label: 'Data SOP',           icon: <LayoutList className="w-5 h-5" />, badge: contents.length },
+        { id: 'faq'       as const, label: 'Data FAQ',           icon: <HelpCircle className="w-5 h-5" />, badge: faqs.length },
+        { id: 'guide'     as const, label: 'Data Panduan',       icon: <BookOpen   className="w-5 h-5" />, badge: guides.length },
+        { id: 'analytics' as const, label: 'Analitik Pencarian', icon: <Activity   className="w-5 h-5" />, badge: searchLogs.length > 0 ? searchLogs.length : null },
     ];
 
     const handleTabChange = (id: typeof activeTab) => { setActiveTab(id); setSidebarOpen(false); };
@@ -624,23 +789,17 @@ const AdminDashboard: React.FC = () => {
 
                 {/* Kanan: admin info + dark toggle + logout */}
                 <div className="flex items-center gap-2">
-                    {/* Admin badge - desktop only */}
                     <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 mr-1">
                         <User className="w-3.5 h-3.5 text-slate-400 dark:text-slate-400" />
                         <span className="text-xs font-bold text-slate-600 dark:text-slate-300 max-w-[120px] truncate">{adminDisplay}</span>
                     </div>
-
-                    {/* Dark mode toggle */}
                     <button
                         onClick={() => setIsDark(p => !p)}
                         className="p-2 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 transition-all"
                         aria-label={isDark ? 'Mode Terang' : 'Mode Gelap'}
-                        title={isDark ? 'Mode Terang' : 'Mode Gelap'}
-                    >
+                        title={isDark ? 'Mode Terang' : 'Mode Gelap'}>
                         {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4" />}
                     </button>
-
-                    {/* Logout */}
                     <button onClick={confirmLogout}
                         className="flex items-center gap-1.5 text-rose-600 hover:text-white font-bold text-xs transition-all hover:bg-rose-500 hover:shadow-lg hover:shadow-rose-200 px-3 py-2 rounded-xl border border-rose-100 dark:border-rose-800/40">
                         <LogOut className="w-3.5 h-3.5" />
@@ -702,10 +861,10 @@ const AdminDashboard: React.FC = () => {
                             <div className="bg-white/5 rounded-2xl border border-white/10 p-4 space-y-2 mb-3">
                                 <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-3">Ringkasan</p>
                                 {[
-                                    { label: 'Dokumen', val: contents.length, color: 'text-emerald-300' },
-                                    { label: 'FAQ', val: faqs.length, color: 'text-amber-300' },
-                                    { label: 'Panduan', val: guides.length, color: 'text-blue-300' },
-                                    { label: 'Total View', val: stats.totalViews, color: 'text-purple-300' },
+                                    { label: 'Dokumen',    val: contents.length,    color: 'text-emerald-300' },
+                                    { label: 'FAQ',        val: faqs.length,        color: 'text-amber-300' },
+                                    { label: 'Panduan',    val: guides.length,      color: 'text-blue-300' },
+                                    { label: 'Total View', val: stats.totalViews,   color: 'text-purple-300' },
                                 ].map(s => (
                                     <div key={s.label} className="flex items-center justify-between">
                                         <span className="text-white/50 text-xs">{s.label}</span>
@@ -713,8 +872,6 @@ const AdminDashboard: React.FC = () => {
                                     </div>
                                 ))}
                             </div>
-
-                            {/* Last login info */}
                             <div className="bg-white/5 rounded-xl border border-white/10 px-3 py-2 mb-3 flex items-center gap-2">
                                 <ClockIcon className="w-3 h-3 text-white/30 flex-shrink-0" />
                                 <div className="min-w-0">
@@ -722,7 +879,6 @@ const AdminDashboard: React.FC = () => {
                                     <p className="text-white/60 text-[10px] font-bold truncate">{adminEmail}</p>
                                 </div>
                             </div>
-
                             <button onClick={() => navigate('/')}
                                 className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white text-xs font-bold rounded-xl transition-all">
                                 <Home className="w-3.5 h-3.5" /> Lihat Website
@@ -735,7 +891,9 @@ const AdminDashboard: React.FC = () => {
                 <main className="flex-1 lg:pl-64 min-h-screen">
                     <div className="max-w-6xl mx-auto p-4 md:p-6 lg:p-8">
 
-                        {/* ── TAB: OVERVIEW ── */}
+                        {/* ════════════════════════════════════════════
+                            TAB: OVERVIEW
+                        ════════════════════════════════════════════ */}
                         {activeTab === 'overview' && (
                             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                 <div>
@@ -745,9 +903,9 @@ const AdminDashboard: React.FC = () => {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
                                     {[
-                                        { label: 'Total Dokumen', val: contents.length, icon: <FileText className="w-7 h-7" />, bg: 'bg-blue-50    text-blue-600', border: 'border-blue-100    dark:border-blue-900/30' },
-                                        { label: 'Total Dilihat', val: stats.totalViews, icon: <Eye className="w-7 h-7" />, bg: 'bg-emerald-50 text-emerald-600', border: 'border-emerald-100 dark:border-emerald-900/30' },
-                                        { label: 'Total Apresiasi', val: stats.totalLikes, icon: <ThumbsUp className="w-7 h-7" />, bg: 'bg-amber-50   text-amber-600', border: 'border-amber-100   dark:border-amber-900/30' },
+                                        { label: 'Total Dokumen',   val: contents.length,    icon: <FileText  className="w-7 h-7" />, bg: 'bg-blue-50    text-blue-600',    border: 'border-blue-100    dark:border-blue-900/30' },
+                                        { label: 'Total Dilihat',   val: stats.totalViews,   icon: <Eye       className="w-7 h-7" />, bg: 'bg-emerald-50 text-emerald-600', border: 'border-emerald-100 dark:border-emerald-900/30' },
+                                        { label: 'Total Apresiasi', val: stats.totalLikes,   icon: <ThumbsUp  className="w-7 h-7" />, bg: 'bg-amber-50   text-amber-600',   border: 'border-amber-100   dark:border-amber-900/30' },
                                     ].map(s => (
                                         <div key={s.label} className={`bg-white dark:bg-[#162918] p-6 rounded-3xl shadow-sm border ${s.border} flex items-center gap-5 hover:-translate-y-1 hover:shadow-lg transition-all`}>
                                             <div className={`p-3.5 rounded-2xl flex-shrink-0 ${s.bg}`}>{s.icon}</div>
@@ -794,9 +952,7 @@ const AdminDashboard: React.FC = () => {
                                     </div>
                                 </div>
 
-                                {/* ── 2 Chart Baru ── */}
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
-                                    {/* Trend 7 hari */}
                                     <div className="bg-white dark:bg-[#162918] p-5 md:p-7 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
                                         <div className="mb-4">
                                             <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center text-sm md:text-base">
@@ -809,7 +965,7 @@ const AdminDashboard: React.FC = () => {
                                                 <AreaChart data={stats.trendData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                                                     <defs>
                                                         <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-                                                            <stop offset="5%" stopColor="#0D5C35" stopOpacity={0.35} />
+                                                            <stop offset="5%"  stopColor="#0D5C35" stopOpacity={0.35} />
                                                             <stop offset="95%" stopColor="#0D5C35" stopOpacity={0} />
                                                         </linearGradient>
                                                     </defs>
@@ -822,7 +978,6 @@ const AdminDashboard: React.FC = () => {
                                             </ResponsiveContainer>
                                         </div>
                                     </div>
-                                    {/* Views per kategori */}
                                     <div className="bg-white dark:bg-[#162918] p-5 md:p-7 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
                                         <div className="mb-4">
                                             <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center text-sm md:text-base">
@@ -848,7 +1003,9 @@ const AdminDashboard: React.FC = () => {
                             </div>
                         )}
 
-                        {/* ── TAB: DATA SOP ── */}
+                        {/* ════════════════════════════════════════════
+                            TAB: DATA SOP
+                        ════════════════════════════════════════════ */}
                         {activeTab === 'sop' && (
                             <div className="animate-in fade-in zoom-in duration-300">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -890,35 +1047,90 @@ const AdminDashboard: React.FC = () => {
                                     </div>
                                 </div>
 
+                                {/* [#8] Bulk Action Bar — muncul saat ada item dipilih */}
+                                {selectedSopIds.size > 0 && (
+                                    <div className="flex items-center justify-between gap-3 px-4 py-3 mb-4 bg-[#0D5C35]/10 dark:bg-emerald-900/20 border border-[#0D5C35]/20 dark:border-emerald-700/30 rounded-xl animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <span className="text-sm font-bold text-[#0D5C35] dark:text-emerald-400">
+                                            {selectedSopIds.size} dokumen dipilih
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => setSelectedSopIds(new Set())}
+                                                className="text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                                Batalkan
+                                            </button>
+                                            <button
+                                                onClick={handleBulkDelete}
+                                                className="flex items-center gap-1.5 text-xs font-bold text-white bg-rose-500 hover:bg-rose-600 px-3 py-1.5 rounded-lg shadow-sm transition-colors">
+                                                <Trash2 className="w-3.5 h-3.5" /> Hapus {selectedSopIds.size} Data
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Tabel */}
                                 <div className="bg-white dark:bg-[#162918] rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
                                     <div className="overflow-x-auto">
-                                        <table className="w-full text-left border-collapse" style={{ minWidth: '680px' }}>
+                                        <table className="w-full text-left border-collapse" style={{ minWidth: '740px' }}>
                                             <thead className="bg-slate-50 dark:bg-[#1a3021] text-slate-500 dark:text-slate-400 text-xs uppercase font-black tracking-wider border-b border-slate-200 dark:border-slate-700">
                                                 <tr>
+                                                    {/* [#8] Kolom checkbox */}
+                                                    <th className="px-4 py-4 w-10">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={currentSopPage.length > 0 && currentSopPage.every(i => selectedSopIds.has(i.id))}
+                                                            onChange={toggleSelectAll}
+                                                            className="w-4 h-4 rounded cursor-pointer accent-[#0D5C35]"
+                                                            title="Pilih semua di halaman ini"
+                                                        />
+                                                    </th>
                                                     <th className="px-5 py-4">Judul & Info</th>
                                                     <th className="px-5 py-4 w-36">Kategori</th>
                                                     <th className="px-5 py-4 w-44 hidden lg:table-cell">Tags</th>
                                                     <th className="px-5 py-4 text-center w-32">Statistik</th>
-                                                    <th className="px-5 py-4 text-center w-28">Aksi</th>
+                                                    <th className="px-5 py-4 text-center w-40">Aksi</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                                                 {currentSopPage.length > 0 ? currentSopPage.map(item => (
-                                                    <tr key={item.id} className="hover:bg-slate-50/70 dark:hover:bg-[#1a3021]/50 transition-colors">
+                                                    <tr key={item.id}
+                                                        className={`hover:bg-slate-50/70 dark:hover:bg-[#1a3021]/50 transition-colors ${selectedSopIds.has(item.id) ? 'bg-emerald-50/60 dark:bg-emerald-900/10' : ''}`}>
+                                                        {/* [#8] Checkbox per baris */}
+                                                        <td className="px-4 py-4 w-10">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedSopIds.has(item.id)}
+                                                                onChange={() => toggleSelectSop(item.id)}
+                                                                className="w-4 h-4 rounded cursor-pointer accent-[#0D5C35]"
+                                                            />
+                                                        </td>
                                                         <td className="px-5 py-4">
-                                                            <p className="font-bold text-slate-800 dark:text-slate-100 mb-1 leading-snug">{item.title}</p>
-                                                            <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 flex-wrap">
-                                                                <ClockIcon className="w-3 h-3" />
-                                                                <span>{formatTime(item.updatedAt)}</span>
-                                                                {item.updatedBy && (
-                                                                    <>
-                                                                        <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
-                                                                        <span className="flex items-center gap-1 text-[10px] bg-[#0D5C35]/10 dark:bg-emerald-900/20 text-[#0D5C35] dark:text-emerald-400 px-1.5 py-0.5 rounded-md font-bold border border-[#0D5C35]/15 dark:border-emerald-700/30">
-                                                                            <User className="w-2.5 h-2.5" />{item.updatedBy.split('@')[0]}
-                                                                        </span>
-                                                                    </>
-                                                                )}
+                                                            <div className="flex items-start gap-2">
+                                                                <div className="min-w-0">
+                                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                                        <p className="font-bold text-slate-800 dark:text-slate-100 leading-snug">{item.title}</p>
+                                                                        {/* [#9] Indikator ada catatan internal */}
+                                                                        {item.internalNote && (
+                                                                            <span
+                                                                                title={`Catatan: ${item.internalNote}`}
+                                                                                className="flex-shrink-0 inline-flex items-center justify-center p-1 rounded-md bg-amber-50 dark:bg-amber-900/20 text-amber-500 border border-amber-200 dark:border-amber-700/30">
+                                                                                <StickyNote className="w-3 h-3" />
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 flex-wrap mt-1">
+                                                                        <ClockIcon className="w-3 h-3" />
+                                                                        <span>{formatTime(item.updatedAt)}</span>
+                                                                        {item.updatedBy && (
+                                                                            <>
+                                                                                <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+                                                                                <span className="flex items-center gap-1 text-[10px] bg-[#0D5C35]/10 dark:bg-emerald-900/20 text-[#0D5C35] dark:text-emerald-400 px-1.5 py-0.5 rounded-md font-bold border border-[#0D5C35]/15 dark:border-emerald-700/30">
+                                                                                    <User className="w-2.5 h-2.5" />{item.updatedBy.split('@')[0]}
+                                                                                </span>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         </td>
                                                         <td className="px-5 py-4">
@@ -945,8 +1157,12 @@ const AdminDashboard: React.FC = () => {
                                                             </div>
                                                         </td>
                                                         <td className="px-5 py-4 text-center">
-                                                            <div className="flex justify-center gap-2">
+                                                            <div className="flex justify-center gap-1.5">
+                                                                {/* Edit */}
                                                                 <button onClick={() => handleEditSop(item)} className="p-2.5 text-amber-600 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-500 hover:text-white rounded-xl border border-amber-100 dark:border-amber-700/30 transition-all" title="Edit"><Edit className="w-4 h-4" /></button>
+                                                                {/* [#7] Clone/Duplikat */}
+                                                                <button onClick={() => handleCloneSop(item)} className="p-2.5 text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-500 hover:text-white rounded-xl border border-indigo-100 dark:border-indigo-700/30 transition-all" title="Duplikat dokumen ini"><Copy className="w-4 h-4" /></button>
+                                                                {/* Reset Statistik */}
                                                                 <button
                                                                     onClick={() => setConfirmModal({
                                                                         isOpen: true, type: 'info',
@@ -962,13 +1178,14 @@ const AdminDashboard: React.FC = () => {
                                                                     title="Reset Statistik">
                                                                     <RefreshCw className="w-4 h-4" />
                                                                 </button>
+                                                                {/* Hapus */}
                                                                 <button onClick={() => confirmDelete('knowledge-base', item.id)} className="p-2.5 text-rose-600 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-500 hover:text-white rounded-xl border border-rose-100 dark:border-rose-700/30 transition-all" title="Hapus"><Trash2 className="w-4 h-4" /></button>
                                                             </div>
                                                         </td>
                                                     </tr>
                                                 )) : (
                                                     <tr>
-                                                        <td colSpan={5} className="py-16 text-center">
+                                                        <td colSpan={6} className="py-16 text-center">
                                                             <FileText className="w-12 h-12 text-slate-200 dark:text-slate-600 mx-auto mb-3" />
                                                             <p className="text-slate-400 dark:text-slate-500 font-bold">Tidak ada data yang cocok.</p>
                                                         </td>
@@ -993,7 +1210,6 @@ const AdminDashboard: React.FC = () => {
                                                 className="p-2 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                                                 <ChevronLeft className="w-4 h-4" />
                                             </button>
-                                            {/* Page buttons */}
                                             {Array.from({ length: Math.min(sopTotalPages, 5) }, (_, i) => {
                                                 const page = sopTotalPages <= 5 ? i + 1 : sopPage <= 3 ? i + 1 : sopPage >= sopTotalPages - 2 ? sopTotalPages - 4 + i : sopPage - 2 + i;
                                                 return (
@@ -1013,7 +1229,9 @@ const AdminDashboard: React.FC = () => {
                             </div>
                         )}
 
-                        {/* ── TAB: DATA FAQ ── */}
+                        {/* ════════════════════════════════════════════
+                            TAB: DATA FAQ
+                        ════════════════════════════════════════════ */}
                         {activeTab === 'faq' && (
                             <div className="animate-in fade-in zoom-in duration-300">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -1021,9 +1239,15 @@ const AdminDashboard: React.FC = () => {
                                         <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Data FAQ</h2>
                                         <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{faqs.length} pertanyaan tersimpan</p>
                                     </div>
-                                    <button onClick={handleAddFaq} className="self-start sm:self-auto flex items-center gap-1.5 bg-[#0D5C35] text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-[#0A492A] hover:-translate-y-0.5 transition-all text-sm">
-                                        <Plus className="w-4 h-4" /> Tambah FAQ
-                                    </button>
+                                    {/* [#6] Tombol Export FAQ ditambahkan */}
+                                    <div className="flex items-center gap-3 self-start sm:self-auto">
+                                        <button onClick={handleExportFaqExcel} className="flex items-center gap-1.5 bg-white dark:bg-[#0f1f16] border-2 border-[#00A3C8] text-[#00A3C8] px-4 py-2.5 rounded-xl font-bold hover:bg-[#00A3C8] hover:text-white transition-colors text-sm">
+                                            <FileSpreadsheet className="w-4 h-4" /> Export
+                                        </button>
+                                        <button onClick={handleAddFaq} className="flex items-center gap-1.5 bg-[#0D5C35] text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-[#0A492A] hover:-translate-y-0.5 transition-all text-sm">
+                                            <Plus className="w-4 h-4" /> Tambah FAQ
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="space-y-4">
                                     {faqs.length > 0 ? faqs.map(item => (
@@ -1056,7 +1280,9 @@ const AdminDashboard: React.FC = () => {
                             </div>
                         )}
 
-                        {/* ── TAB: DATA PANDUAN ── */}
+                        {/* ════════════════════════════════════════════
+                            TAB: DATA PANDUAN
+                        ════════════════════════════════════════════ */}
                         {activeTab === 'guide' && (
                             <div className="animate-in fade-in zoom-in duration-300">
                                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
@@ -1064,9 +1290,15 @@ const AdminDashboard: React.FC = () => {
                                         <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Data Panduan</h2>
                                         <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{guides.length} panduan tersimpan</p>
                                     </div>
-                                    <button onClick={handleAddGuide} className="self-start sm:self-auto flex items-center gap-1.5 bg-[#0D5C35] text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-[#0A492A] hover:-translate-y-0.5 transition-all text-sm">
-                                        <Plus className="w-4 h-4" /> Buat Panduan
-                                    </button>
+                                    {/* [#6] Tombol Export Panduan ditambahkan */}
+                                    <div className="flex items-center gap-3 self-start sm:self-auto">
+                                        <button onClick={handleExportGuideExcel} className="flex items-center gap-1.5 bg-white dark:bg-[#0f1f16] border-2 border-[#00A3C8] text-[#00A3C8] px-4 py-2.5 rounded-xl font-bold hover:bg-[#00A3C8] hover:text-white transition-colors text-sm">
+                                            <FileSpreadsheet className="w-4 h-4" /> Export
+                                        </button>
+                                        <button onClick={handleAddGuide} className="flex items-center gap-1.5 bg-[#0D5C35] text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-[#0A492A] hover:-translate-y-0.5 transition-all text-sm">
+                                            <Plus className="w-4 h-4" /> Buat Panduan
+                                        </button>
+                                    </div>
                                 </div>
                                 {guides.length > 0 ? (
                                     <div className="space-y-5">
@@ -1092,17 +1324,17 @@ const AdminDashboard: React.FC = () => {
                             </div>
                         )}
 
-                        {/* ── TAB: ANALITIK PENCARIAN ── */}
+                        {/* ════════════════════════════════════════════
+                            TAB: ANALITIK PENCARIAN
+                        ════════════════════════════════════════════ */}
                         {activeTab === 'analytics' && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                {/* Header */}
                                 <div>
                                     <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Analitik Pencarian</h2>
                                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Data kueri yang dicari pengguna di halaman Pencarian</p>
                                 </div>
 
                                 {searchLogs.length === 0 ? (
-                                    /* ── Empty state ── */
                                     <div className="bg-white dark:bg-[#162918] py-24 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-center">
                                         <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
                                             <Search className="w-10 h-10 text-blue-300 dark:text-blue-500" />
@@ -1112,12 +1344,12 @@ const AdminDashboard: React.FC = () => {
                                     </div>
                                 ) : (
                                     <>
-                                        {/* ── Kartu Statistik Ringkas ── */}
+                                        {/* Kartu Statistik Ringkas */}
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                             {[
-                                                { label: 'Total Pencarian', val: searchStats.totalSearches, icon: <Search className="w-6 h-6" />, bg: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400', border: 'border-blue-100 dark:border-blue-900/30' },
-                                                { label: 'Kueri Unik', val: searchStats.uniqueQueries, icon: <Activity className="w-6 h-6" />, bg: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400', border: 'border-emerald-100 dark:border-emerald-900/30' },
-                                                { label: 'Rata-rata Hasil', val: searchStats.avgResults, icon: <FileText className="w-6 h-6" />, bg: 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400', border: 'border-amber-100 dark:border-amber-900/30' },
+                                                { label: 'Total Pencarian',   val: searchStats.totalSearches,  icon: <Search    className="w-6 h-6" />, bg: 'bg-blue-50    text-blue-600    dark:bg-blue-900/20    dark:text-blue-400',    border: 'border-blue-100    dark:border-blue-900/30' },
+                                                { label: 'Kueri Unik',        val: searchStats.uniqueQueries,  icon: <Activity  className="w-6 h-6" />, bg: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400', border: 'border-emerald-100 dark:border-emerald-900/30' },
+                                                { label: 'Rata-rata Hasil',   val: searchStats.avgResults,     icon: <FileText  className="w-6 h-6" />, bg: 'bg-amber-50   text-amber-600   dark:bg-amber-900/20   dark:text-amber-400',   border: 'border-amber-100   dark:border-amber-900/30' },
                                                 { label: 'Pencarian Terbaru', val: searchLogs[0]?.query ? `"${searchLogs[0].query}"` : '—', icon: <TrendingUp className="w-6 h-6" />, bg: 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400', border: 'border-purple-100 dark:border-purple-900/30' },
                                             ].map(s => (
                                                 <div key={s.label} className={`bg-white dark:bg-[#162918] p-5 rounded-2xl shadow-sm border ${s.border} flex items-center gap-4`}>
@@ -1130,7 +1362,7 @@ const AdminDashboard: React.FC = () => {
                                             ))}
                                         </div>
 
-                                        {/* ── Grafik Top 10 Kueri ── */}
+                                        {/* Grafik Top 10 Kueri */}
                                         {searchStats.topQueries.length > 0 && (
                                             <div className="bg-white dark:bg-[#162918] p-6 md:p-7 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
                                                 <div className="mb-5">
@@ -1160,14 +1392,15 @@ const AdminDashboard: React.FC = () => {
                                             </div>
                                         )}
 
-                                        {/* ── Tabel Riwayat Pencarian Terbaru ── */}
+                                        {/* Tabel Riwayat Pencarian */}
                                         <div className="bg-white dark:bg-[#162918] rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
                                             <div className="p-5 md:p-6 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between gap-3">
                                                 <div>
                                                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm md:text-base flex items-center gap-2.5">
                                                         <ClockIcon className="w-4 h-4 text-slate-400 flex-shrink-0" /> Riwayat Pencarian Terbaru
                                                     </h3>
-                                                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 ml-6">Menampilkan 200 pencarian terakhir secara real-time</p>
+                                                    {/* [#5] Teks diperbarui mencerminkan limit 500 */}
+                                                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 ml-6">Menampilkan 500 pencarian terakhir secara real-time</p>
                                                 </div>
                                                 <span className="flex-shrink-0 text-[10px] font-black px-2.5 py-1 rounded-full bg-[#0D5C35]/10 dark:bg-emerald-900/20 text-[#0D5C35] dark:text-emerald-400 border border-[#0D5C35]/15 dark:border-emerald-700/30">
                                                     {searchLogs.length} log
@@ -1183,27 +1416,31 @@ const AdminDashboard: React.FC = () => {
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                                                        {searchLogs.map(log => (
-                                                            <tr key={log.id} className="hover:bg-slate-50/70 dark:hover:bg-[#1a3021]/50 transition-colors">
-                                                                <td className="px-5 py-3.5">
-                                                                    <div className="flex items-center gap-2.5">
-                                                                        <Search className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 flex-shrink-0" />
-                                                                        <span className="font-medium text-slate-700 dark:text-slate-200 text-sm">{log.query || <span className="text-slate-300 dark:text-slate-600 italic">—</span>}</span>
-                                                                    </div>
-                                                                </td>
-                                                                <td className="px-5 py-3.5 text-center">
-                                                                    <span className={`inline-flex items-center justify-center min-w-[2rem] px-2.5 py-1 rounded-lg text-xs font-bold border
-                                                                        ${(log.resultCount || 0) === 0
-                                                                            ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-800/30'
-                                                                            : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800/30'}`}>
-                                                                        {log.resultCount || 0}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="px-5 py-3.5 text-right text-xs text-slate-400 dark:text-slate-500 font-medium">
-                                                                    {formatTimeDetailed(log.createdAt)}
-                                                                </td>
-                                                            </tr>
-                                                        ))}
+                                                        {searchLogs.map(log => {
+                                                            /* [#1] Baca kedua varian field */
+                                                            const resultCount = log.resultCount ?? log.resultsCount ?? 0;
+                                                            return (
+                                                                <tr key={log.id} className="hover:bg-slate-50/70 dark:hover:bg-[#1a3021]/50 transition-colors">
+                                                                    <td className="px-5 py-3.5">
+                                                                        <div className="flex items-center gap-2.5">
+                                                                            <Search className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 flex-shrink-0" />
+                                                                            <span className="font-medium text-slate-700 dark:text-slate-200 text-sm">{log.query || <span className="text-slate-300 dark:text-slate-600 italic">—</span>}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-5 py-3.5 text-center">
+                                                                        <span className={`inline-flex items-center justify-center min-w-[2rem] px-2.5 py-1 rounded-lg text-xs font-bold border
+                                                                            ${resultCount === 0
+                                                                                ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-800/30'
+                                                                                : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800/30'}`}>
+                                                                            {resultCount}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="px-5 py-3.5 text-right text-xs text-slate-400 dark:text-slate-500 font-medium">
+                                                                        {formatTimeDetailed(log.createdAt)}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
                                                     </tbody>
                                                 </table>
                                             </div>
@@ -1220,19 +1457,19 @@ const AdminDashboard: React.FC = () => {
                 MODALS
             ══════════════════════════════════════════════════════════ */}
 
-            {/* Konfirmasi (delete / logout / unsaved / info) */}
+            {/* Modal Konfirmasi (delete / logout / unsaved / info) */}
             {confirmModal.isOpen && (
                 <div className="fixed inset-0 bg-slate-900/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-white dark:bg-[#162918] rounded-3xl w-full max-w-sm p-7 md:p-8 shadow-2xl dark:border dark:border-slate-700">
                         <div className="flex flex-col items-center text-center">
                             <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mb-5 shadow-inner
-                                ${confirmModal.type === 'delete' ? 'bg-rose-50 text-rose-500 border-4 border-rose-100'
-                                    : confirmModal.type === 'unsaved' ? 'bg-amber-50 text-amber-500 border-4 border-amber-100'
-                                        : confirmModal.type === 'info' ? 'bg-blue-50 text-blue-500 border-4 border-blue-100'
-                                            : 'bg-amber-50 text-amber-500 border-4 border-amber-100'}`}>
-                                {confirmModal.type === 'unsaved' ? <AlertCircle className="w-8 h-8 md:w-10 md:h-10" />
-                                    : confirmModal.type === 'info' ? <RefreshCw className="w-8 h-8 md:w-10 md:h-10" />
-                                        : <AlertTriangle className="w-8 h-8 md:w-10 md:h-10" />}
+                                ${confirmModal.type === 'delete'  ? 'bg-rose-50  text-rose-500  border-4 border-rose-100'
+                                : confirmModal.type === 'unsaved' ? 'bg-amber-50 text-amber-500 border-4 border-amber-100'
+                                : confirmModal.type === 'info'    ? 'bg-blue-50  text-blue-500  border-4 border-blue-100'
+                                :                                   'bg-amber-50 text-amber-500 border-4 border-amber-100'}`}>
+                                {confirmModal.type === 'unsaved' ? <AlertCircle  className="w-8 h-8 md:w-10 md:h-10" />
+                                : confirmModal.type === 'info'   ? <RefreshCw   className="w-8 h-8 md:w-10 md:h-10" />
+                                :                                  <AlertTriangle className="w-8 h-8 md:w-10 md:h-10" />}
                             </div>
                             <h3 className="text-xl md:text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">{confirmModal.title}</h3>
                             <p className="text-slate-500 dark:text-slate-400 mb-7 leading-relaxed font-medium text-sm md:text-base">{confirmModal.message}</p>
@@ -1243,14 +1480,14 @@ const AdminDashboard: React.FC = () => {
                                 </button>
                                 <button onClick={confirmModal.onConfirm}
                                     className={`flex-1 py-3 text-white font-bold rounded-xl shadow-lg transition-all
-                                    ${confirmModal.type === 'delete' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
-                                            : confirmModal.type === 'unsaved' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'
-                                                : confirmModal.type === 'info' ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
-                                                    : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'}`}>
-                                    {confirmModal.type === 'delete' ? 'Ya, Hapus'
-                                        : confirmModal.type === 'unsaved' ? 'Buang Perubahan'
-                                            : confirmModal.type === 'info' ? 'Ya, Reset'
-                                                : 'Ya, Keluar'}
+                                    ${confirmModal.type === 'delete'  ? 'bg-rose-600  hover:bg-rose-700  shadow-rose-200'
+                                    : confirmModal.type === 'unsaved' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'
+                                    : confirmModal.type === 'info'    ? 'bg-blue-600  hover:bg-blue-700  shadow-blue-200'
+                                    :                                   'bg-amber-500 hover:bg-amber-600 shadow-amber-200'}`}>
+                                    {confirmModal.type === 'delete'  ? 'Ya, Hapus'
+                                    : confirmModal.type === 'unsaved' ? 'Buang Perubahan'
+                                    : confirmModal.type === 'info'    ? 'Ya, Reset'
+                                    :                                   'Ya, Keluar'}
                                 </button>
                             </div>
                         </div>
@@ -1312,21 +1549,15 @@ const AdminDashboard: React.FC = () => {
                                         <input type="file" accept="image/*" onChange={handleImageUpload}
                                             className="block w-full text-sm text-slate-500 file:mr-3 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer border border-slate-200 dark:border-slate-600 rounded-xl bg-slate-50 dark:bg-[#0f1f16]" />
 
-                                        {/* ── Preview gambar hasil kompresi ── */}
+                                        {/* Preview gambar hasil kompresi */}
                                         {formData.imageBase64 && (
                                             <div className="mt-2.5 relative group/img rounded-xl overflow-hidden border border-slate-200 dark:border-slate-600">
-                                                <img
-                                                    src={formData.imageBase64}
-                                                    alt="Preview"
-                                                    className="w-full h-32 object-cover"
-                                                />
-                                                {/* Tombol hapus gambar */}
+                                                <img src={formData.imageBase64} alt="Preview" className="w-full h-32 object-cover" />
                                                 <button
                                                     type="button"
                                                     onClick={() => { setFormData(p => ({ ...p, imageBase64: '' })); setIsDirty(true); }}
                                                     className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity shadow-md hover:bg-rose-600"
-                                                    title="Hapus gambar"
-                                                >
+                                                    title="Hapus gambar">
                                                     <X className="w-3 h-3" />
                                                 </button>
                                             </div>
@@ -1352,7 +1583,6 @@ const AdminDashboard: React.FC = () => {
                                         <Tag className="w-3.5 h-3.5" /> Tags / Label
                                         <span className="text-slate-400 normal-case font-normal text-[10px] ml-1">(Opsional — tekan Enter atau , untuk menambah)</span>
                                     </label>
-                                    {/* ── Chip input ── */}
                                     <div
                                         className="min-h-[46px] w-full flex flex-wrap gap-1.5 p-2.5 border border-slate-200 dark:border-slate-600 rounded-xl bg-slate-50 dark:bg-[#0f1f16] focus-within:ring-2 focus-within:ring-[#0D5C35] focus-within:bg-white dark:focus-within:bg-[#0f1f16] transition-all cursor-text"
                                         onClick={() => document.getElementById('tag-chip-input')?.focus()}>
@@ -1372,8 +1602,7 @@ const AdminDashboard: React.FC = () => {
                                             </span>
                                         ))}
                                         <input
-                                            id="tag-chip-input"
-                                            type="text"
+                                            id="tag-chip-input" type="text"
                                             placeholder={formData.tagsRaw ? '' : 'Ketik tag lalu tekan Enter…'}
                                             className="flex-1 min-w-[140px] bg-transparent outline-none text-sm text-slate-700 dark:text-slate-200 placeholder:text-slate-400 font-medium py-0.5"
                                             value={tagInput}
@@ -1381,7 +1610,7 @@ const AdminDashboard: React.FC = () => {
                                             onKeyDown={e => {
                                                 if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
                                                     e.preventDefault();
-                                                    const newTag = tagInput.trim();
+                                                    const newTag  = tagInput.trim();
                                                     const existing = formData.tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
                                                     if (!existing.includes(newTag)) {
                                                         setFormData(p => ({ ...p, tagsRaw: [...existing, newTag].join(', ') }));
@@ -1402,7 +1631,21 @@ const AdminDashboard: React.FC = () => {
                                     <p className="text-[10px] text-slate-400 dark:text-slate-500">Tekan <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[9px] font-bold">Enter</kbd> atau <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[9px] font-bold">,</kbd> untuk menambah · <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[9px] font-bold">Backspace</kbd> untuk hapus terakhir</p>
                                 </div>
 
-                            {/* ── Editor / Preview Tab ── */}
+                                {/* [#9] Field Catatan Internal */}
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <StickyNote className="w-3.5 h-3.5 text-amber-500" /> Catatan Internal
+                                        <span className="text-slate-400 normal-case font-normal text-[10px] ml-1">(Opsional — hanya terlihat di Admin Panel)</span>
+                                    </label>
+                                    <input type="text"
+                                        placeholder="Contoh: perlu diupdate setelah revisi PMK bulan depan…"
+                                        className="w-full p-3.5 border border-amber-200 dark:border-amber-700/40 dark:bg-[#0f1f16] dark:text-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 outline-none font-medium bg-amber-50/40 dark:bg-amber-900/10 focus:bg-white dark:focus:bg-[#0f1f16] placeholder:text-slate-400"
+                                        value={formData.internalNote}
+                                        onChange={e => { setFormData(p => ({ ...p, internalNote: e.target.value })); setIsDirty(true); }} />
+                                    <p className="text-[10px] text-amber-600 dark:text-amber-500">Catatan ini tidak ditampilkan kepada pengguna publik.</p>
+                                </div>
+
+                                {/* Editor / Preview Tab */}
                                 <div className="space-y-1.5">
                                     <div className="flex items-center justify-between">
                                         <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Isi Dokumen (Markdown)</label>
@@ -1423,7 +1666,6 @@ const AdminDashboard: React.FC = () => {
                                     </div>
 
                                     {isSplitView ? (
-                                        /* ── Split View: editor + preview side by side ── */
                                         <div className="border border-slate-200 dark:border-slate-600 rounded-xl overflow-hidden shadow-sm">
                                             <FormatToolbar target="sop" onInsert={insertFormat} isSplitView={isSplitView} onToggleSplit={() => setIsSplitView(false)} />
                                             <div className="grid grid-cols-2 divide-x divide-slate-200 dark:divide-slate-600">
