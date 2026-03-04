@@ -19,6 +19,7 @@ import CategoryPage from './src/pages/CategoryPage';
 import BookmarksPage from './src/pages/BookmarksPage';
 import SearchPage from './src/pages/SearchPage';
 import NotFoundPage from './src/pages/NotFoundPage';
+import SimulasiUJLPage from './src/pages/SimulasiUJLPage';
 
 /* ═══════════════════════════════════════════════════════════════
    ERROR BOUNDARY
@@ -197,6 +198,11 @@ root.render(
 
                         {/* Halaman Pencarian Global */}
                         <Route path="/search" element={<SearchPage />} />
+
+                        {/* Halaman Layanan Digital — Simulasi UJL
+                            Diakses via tombol CTA di SectionUJLPreview (App.tsx).
+                            Route: /layanan/ujl — tidak memerlukan auth. */}
+                        <Route path="/layanan/ujl" element={<SimulasiUJLPage />} />
 
                         {/* Halaman Admin (Dilindungi Satpam/ProtectedRoute) */}
                         <Route

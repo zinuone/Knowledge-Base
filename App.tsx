@@ -324,209 +324,104 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   SECTION UJL — Layanan Digital: Simulasi Uang Jaminan Lelang
+   SECTION UJL PREVIEW — Preview card Layanan Digital di homepage.
    ──────────────────────────────────────────────────────────────
-   Ditempatkan antara </main> dan <footer>.
-   Fitur: kalkulator UJL interaktif (20% × nilai limit),
-   referensi regulasi PMK 27/PMK.06/2016, CTA ke mayar.id.
-   Semua interaksi menggunakan state lokal komponen ini.
+   Versi ringkas: hanya teaser + CTA "Lihat Selengkapnya".
+   Kalkulator interaktif & alur lengkap ada di /layanan/ujl
+   (SimulasiUJLPage.tsx — Sesi A).
+   Posisi: antara </main> dan <footer>, menjadi visual bridge.
 ══════════════════════════════════════════════════════════════ */
-const SectionUJL: React.FC<{ isDark: boolean }> = ({ isDark }) => {
-  const [nilaiLimit, setNilaiLimit] = useState('');
-  const [showResult, setShowResult] = useState(false);
+const SectionUJLPreview: React.FC<{ onNavigate: () => void }> = ({ onNavigate }) => (
+  <section
+    id="pembayaran"
+    className="relative bg-gradient-to-b from-[#0D5C35] via-[#0A3D24] to-[#062B18] overflow-hidden scroll-mt-20"
+  >
+    {/* Dekorasi blob & grid */}
+    <div className="absolute inset-0 hero-grid opacity-10 pointer-events-none" />
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      <div className="blob-1 absolute -top-24 -left-16 w-[380px] h-[380px] rounded-full bg-emerald-400/15 blur-3xl" />
+      <div className="blob-2 absolute -bottom-16 -right-12 w-[320px] h-[320px] rounded-full bg-[#D4AF37]/10 blur-3xl" />
+    </div>
 
-  /* Format input sebagai angka rupiah saat user mengetik */
-  const handleInput = (raw: string) => {
-    const digits = raw.replace(/\D/g, '');
-    setNilaiLimit(digits);
-    setShowResult(false);
-  };
+    {/* Top gold divider */}
+    <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-70" />
 
-  /* Hitung UJL: 20% dari nilai limit, min Rp 50.000 */
-  const nilaiLimitNum = parseInt(nilaiLimit || '0', 10);
-  const ujlAmount    = Math.max(Math.round(nilaiLimitNum * 0.2), nilaiLimitNum > 0 ? 50000 : 0);
+    <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-12 md:py-14">
+      <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
 
-  const formatRupiah = (n: number) =>
-    n > 0 ? `Rp ${n.toLocaleString('id-ID')}` : '—';
-
-  const steps = [
-    { icon: <BookOpen className="w-4 h-4" />, label: 'Baca SOP Lelang', sub: 'Pelajari persyaratan dan tata cara di Knowledge Base' },
-    { icon: <Calculator className="w-4 h-4" />, label: 'Hitung UJL Anda', sub: 'Gunakan kalkulator di bawah — 20% dari nilai limit' },
-    { icon: <CreditCard className="w-4 h-4" />, label: 'Bayar via Mayar', sub: 'Pembayaran digital, aman & langsung terkonfirmasi' },
-    { icon: <BadgeCheck className="w-4 h-4" />, label: 'Terima Bukti Otomatis', sub: 'Bukti dikirim via email & WhatsApp secara instan' },
-  ];
-
-  return (
-    <section
-      id="pembayaran"
-      className="relative bg-gradient-to-b from-[#0D5C35] via-[#0A3D24] to-[#062B18] overflow-hidden scroll-mt-20"
-    >
-      {/* Dekorasi blob & grid */}
-      <div className="absolute inset-0 hero-grid opacity-10 pointer-events-none" />
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="blob-1 absolute -top-32 -left-20 w-[480px] h-[480px] rounded-full bg-emerald-400/15 blur-3xl" />
-        <div className="blob-2 absolute -bottom-24 -right-16 w-[420px] h-[420px] rounded-full bg-[#D4AF37]/12 blur-3xl" />
-        <div className="blob-3 absolute top-1/2 left-1/2 w-[300px] h-[300px] rounded-full bg-teal-300/8 blur-3xl" />
-      </div>
-
-      {/* Top divider gold line */}
-      <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-70" />
-
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-16 md:py-20">
-
-        {/* ── Header ── */}
-        <div className="text-center mb-14">
-          {/* Label badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#D4AF37]/15 border border-[#D4AF37]/30 rounded-full mb-5">
-            <span className="mayar-badge-dot w-2 h-2 rounded-full bg-[#D4AF37]" />
-            <span className="text-[#D4AF37] text-xs font-black uppercase tracking-widest">Layanan Digital KPKNL</span>
+        {/* ── Kiri: Info ── */}
+        <div className="flex-1 text-center lg:text-left">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#D4AF37]/15 border border-[#D4AF37]/30 rounded-full mb-4">
+            <span className="mayar-badge-dot w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
+            <span className="text-[#D4AF37] text-[11px] font-black uppercase tracking-widest">Layanan Digital KPKNL</span>
           </div>
 
-          <h2 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-4 leading-tight">
+          <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight mb-3 leading-tight">
             Bayar Uang Jaminan Lelang
-            <span className="block text-[#D4AF37] mt-1">Secara Digital via Mayar</span>
+            <span className="text-[#D4AF37]"> via Mayar</span>
           </h2>
-          <p className="text-emerald-100/70 text-base max-w-2xl mx-auto leading-relaxed">
-            Peserta Lelang BMN kini dapat membayar <strong className="text-white">Uang Jaminan Lelang (UJL)</strong> secara digital —
-            tidak perlu antre di bank, konfirmasi otomatis dan terverifikasi.
+          <p className="text-emerald-100/65 text-sm md:text-base leading-relaxed mb-4 max-w-lg lg:mx-0 mx-auto">
+            Peserta Lelang BMN kini bisa membayar <strong className="text-white">Uang Jaminan Lelang (UJL)</strong> secara
+            digital — tidak perlu antre di bank, konfirmasi otomatis dan terverifikasi.
           </p>
 
-          {/* Regulasi reference */}
-          <div className="inline-flex items-center gap-2 mt-4 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full">
-            <Scale className="w-3.5 h-3.5 text-[#D4AF37]/80" />
-            <span className="text-emerald-100/60 text-[11px] font-medium">Berdasarkan PMK 27/PMK.06/2016 tentang Petunjuk Pelaksanaan Lelang</span>
-          </div>
-        </div>
-
-        {/* ── Grid: Kalkulator + Steps ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-
-          {/* Kalkulator UJL */}
-          <div className="calc-float">
-            <div className="relative bg-white/8 backdrop-blur-sm border border-white/15 rounded-3xl p-6 sm:p-8 shadow-2xl overflow-hidden ujl-shimmer">
-              {/* Card header */}
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-2xl bg-[#D4AF37]/20 border border-[#D4AF37]/30 flex items-center justify-center">
-                  <Calculator className="w-5 h-5 text-[#D4AF37]" />
-                </div>
-                <div>
-                  <p className="text-white font-black text-base leading-tight">Kalkulator UJL</p>
-                  <p className="text-emerald-100/55 text-xs">UJL = 20% × Nilai Limit Lelang</p>
-                </div>
-              </div>
-
-              {/* Input */}
-              <label className="block mb-1.5 text-emerald-100/80 text-xs font-bold uppercase tracking-wider">
-                Nilai Limit Lelang (Rp)
-              </label>
-              <div className="relative mb-4">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold pointer-events-none">Rp</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={nilaiLimit ? parseInt(nilaiLimit).toLocaleString('id-ID') : ''}
-                  onChange={e => handleInput(e.target.value)}
-                  placeholder="Contoh: 500.000.000"
-                  className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white dark:bg-[#162918] text-slate-800 dark:text-white font-bold text-lg outline-none focus:ring-2 focus:ring-[#D4AF37]/50 border border-white/20 dark:border-slate-700 placeholder:text-slate-300 dark:placeholder:text-slate-600 transition-all"
-                />
-              </div>
-
-              {/* Tombol hitung */}
-              <button
-                onClick={() => { if (nilaiLimitNum > 0) setShowResult(true); }}
-                disabled={nilaiLimitNum <= 0}
-                className="w-full py-3.5 rounded-2xl font-black text-slate-900 text-sm transition-all bg-[#D4AF37] hover:bg-[#B5952F] disabled:opacity-40 disabled:cursor-not-allowed hover:-translate-y-0.5 active:translate-y-0 mb-4"
-              >
-                Hitung UJL Saya →
-              </button>
-
-              {/* Hasil */}
-              <div className={`rounded-2xl border transition-all duration-500 overflow-hidden ${showResult && nilaiLimitNum > 0 ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
-                <div className="p-4 bg-emerald-900/40 border-emerald-500/20 border rounded-2xl">
-                  <p className="text-emerald-300/80 text-xs font-bold uppercase tracking-wider mb-1">Estimasi UJL yang Harus Dibayar</p>
-                  <p className="text-3xl font-black text-[#D4AF37]">{formatRupiah(ujlAmount)}</p>
-                  <p className="text-emerald-100/50 text-[11px] mt-1.5">
-                    {formatRupiah(nilaiLimitNum)} × 20% · bersifat ilustratif · sesuai PMK 27/2016
-                  </p>
-                </div>
-              </div>
-
-              {/* Disclaimer kecil */}
-              <p className="text-white/25 text-[10px] mt-4 text-center leading-relaxed">
-                ⚠ Fitur simulasi — nilai aktual ditetapkan oleh Pejabat Lelang. Tidak menggantikan prosedur resmi KPKNL.
-              </p>
-            </div>
-          </div>
-
-          {/* Steps cara kerja */}
-          <div className="flex flex-col justify-center gap-1">
-            <p className="text-white/50 text-xs font-black uppercase tracking-widest mb-4">Alur Pembayaran Digital</p>
-            {steps.map((s, i) => (
-              <div key={i} className="flex items-start gap-4 group">
-                {/* Step indicator */}
-                <div className="flex flex-col items-center flex-shrink-0">
-                  <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/15 border border-[#D4AF37]/25 flex items-center justify-center text-[#D4AF37] group-hover:bg-[#D4AF37]/25 transition-colors">
-                    {s.icon}
-                  </div>
-                  {i < steps.length - 1 && (
-                    <div className="w-px h-8 bg-gradient-to-b from-[#D4AF37]/30 to-transparent mt-1" />
-                  )}
-                </div>
-                {/* Step content */}
-                <div className="pb-6 pt-1.5">
-                  <p className="text-white font-black text-sm leading-tight mb-0.5">{s.label}</p>
-                  <p className="text-emerald-100/55 text-xs leading-relaxed">{s.sub}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── CTA Area ── */}
-        <div className="flex flex-col items-center gap-5">
-          {/* Tombol CTA utama */}
-          <a
-            href="https://mayar.id"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="pay-cta-glow inline-flex items-center gap-3 px-10 py-5 bg-[#D4AF37] hover:bg-[#C9A832] text-slate-900 font-black text-base rounded-full transition-all duration-300 hover:-translate-y-1 active:translate-y-0 group"
-          >
-            <Wallet className="w-5 h-5 group-hover:scale-110 transition-transform" />
-            Lanjutkan Pembayaran via Mayar
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </a>
-
-          {/* Powered by Mayar badge */}
-          <div className="flex items-center gap-2 px-4 py-2 bg-white/8 border border-white/12 rounded-full">
-            <span className="mayar-badge-dot w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
-            <span className="text-white/50 text-xs font-medium">Powered by</span>
-            <span className="text-white font-black text-xs tracking-wide">Mayar SimplePay</span>
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400/70" />
-          </div>
-
           {/* 3 benefit chips */}
-          <div className="flex flex-wrap justify-center gap-3 mt-1">
+          <div className="flex flex-wrap justify-center lg:justify-start gap-2">
             {[
-              { icon: <Zap className="w-3.5 h-3.5" />, label: 'Proses Cepat' },
-              { icon: <ShieldCheck className="w-3.5 h-3.5" />, label: 'Transaksi Aman' },
-              { icon: <BadgeCheck className="w-3.5 h-3.5" />, label: 'Konfirmasi Otomatis' },
-              { icon: <Landmark className="w-3.5 h-3.5" />, label: 'Sesuai Regulasi' },
-            ].map(chip => (
-              <div key={chip.label} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/8 border border-white/10 rounded-full text-emerald-100/70 text-xs font-semibold">
-                <span className="text-[#D4AF37]/80">{chip.icon}</span>
-                {chip.label}
-              </div>
+              { icon: <Zap className="w-3 h-3" />, label: 'Proses Cepat' },
+              { icon: <ShieldCheck className="w-3 h-3" />, label: 'Transaksi Aman' },
+              { icon: <BadgeCheck className="w-3 h-3" />, label: 'Konfirmasi Otomatis' },
+            ].map(c => (
+              <span key={c.label} className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/8 border border-white/10 rounded-full text-emerald-100/70 text-xs font-semibold">
+                <span className="text-[#D4AF37]/80">{c.icon}</span>{c.label}
+              </span>
             ))}
+          </div>
+        </div>
+
+        {/* ── Kanan: CTA card ── */}
+        <div className="flex-shrink-0 w-full lg:w-auto">
+          <div className="bg-white/8 backdrop-blur-sm border border-white/15 rounded-3xl p-6 sm:p-8 flex flex-col items-center gap-5 shadow-2xl min-w-[280px]">
+
+            {/* Icon */}
+            <div className="w-14 h-14 rounded-2xl bg-[#D4AF37]/20 border border-[#D4AF37]/30 flex items-center justify-center">
+              <Wallet className="w-7 h-7 text-[#D4AF37]" />
+            </div>
+
+            {/* Regulasi */}
+            <div className="text-center">
+              <p className="text-white font-black text-sm mb-1">Simulasi Kalkulator UJL</p>
+              <p className="text-emerald-100/55 text-xs leading-relaxed">Hitung estimasi 20% × nilai limit<br />sesuai PMK 27/PMK.06/2016</p>
+            </div>
+
+            {/* CTA Utama — ke halaman detail UJL */}
+            <button
+              onClick={onNavigate}
+              className="pay-cta-glow w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-[#D4AF37] hover:bg-[#C9A832] text-slate-900 font-black text-sm rounded-2xl transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 group"
+            >
+              <Calculator className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              Hitung & Lihat Selengkapnya
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+
+            {/* Powered by Mayar */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/6 border border-white/10 rounded-full">
+              <span className="mayar-badge-dot w-1 h-1 rounded-full bg-[#D4AF37]" />
+              <span className="text-white/40 text-[10px] font-medium">Powered by</span>
+              <span className="text-white/70 font-black text-[10px] tracking-wide">Mayar SimplePay</span>
+              <ShieldCheck className="w-3 h-3 text-emerald-400/60" />
+            </div>
           </div>
         </div>
 
       </div>
+    </div>
 
-      {/* Bottom divider */}
-      <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-    </section>
-  );
-};
+    {/* Bottom divider */}
+    <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+  </section>
+);
 
 const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -1173,7 +1068,7 @@ const App: React.FC = () => {
                 <p className="font-bold text-slate-800 dark:text-slate-100 text-sm mb-1">Tidak menemukan jawaban?</p>
                 <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-3">Hubungi kami langsung melalui Konsultasi Online untuk mendapatkan bantuan lebih lanjut.</p>
                 <a href="https://www.djkn.kemenkeu.go.id/kpknl-kendari/kontak" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 transition-colors">
-                  <Phone className="w-3.5 h-3.5" /> Konsul Online <ArrowRight className="w-3 h-3" />
+                  <Phone className="w-3.5 h-3.5" /> Hubungi Kami <ArrowRight className="w-3 h-3" />
                 </a>
               </div>
             </div>
@@ -1298,7 +1193,7 @@ const App: React.FC = () => {
                   <Phone className="w-5 h-5" />
                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-[#D4AF37] pulse-ring"></span>
                 </div>
-                Konsultasi Online
+                Hubungi Kami
               </a>
               <div className="flex items-center gap-2">
                 {socials.map(s => (
@@ -1380,7 +1275,14 @@ const App: React.FC = () => {
             {/* Desktop nav */}
             <div className="hidden md:flex items-center space-x-5">
               <div className="flex space-x-6 text-sm font-semibold uppercase tracking-wider">
-                {[{ label: 'Beranda', id: 'beranda' }, { label: 'FAQ', id: 'faq' }, { label: 'Panduan', id: 'panduan' }, { label: 'Kontak', id: 'info' }].map(item => (
+                {[
+                  { label: 'Beranda',  id: 'top'          },
+                  { label: 'Kategori', id: 'kategori'     },
+                  { label: 'FAQ',      id: 'faq'          },
+                  { label: 'Panduan',  id: 'panduan'      },
+                  { label: 'Info',     id: 'info'         },
+                  { label: 'Kontak',   id: 'footer-kontak'},
+                ].map(item => (
                   <button key={item.id} onClick={() => scrollToSection(item.id)} className="text-white/90 hover:text-[#D4AF37] transition-colors">{item.label}</button>
                 ))}
               </div>
@@ -1451,10 +1353,12 @@ const App: React.FC = () => {
           {isMenuOpen && (
             <div className="md:hidden absolute top-full left-0 right-0 mt-4 mx-4 bg-[#0A492A] rounded-2xl shadow-2xl border border-white/10 p-4 flex flex-col space-y-2 animate-in slide-in-from-top-5 duration-200">
               {[
-                { label: 'Beranda', id: 'beranda', icon: <Grid className="w-4 h-4" /> },
-                { label: 'FAQ', id: 'faq', icon: <HelpCircle className="w-4 h-4" /> },
-                { label: 'Panduan', id: 'panduan', icon: <BookOpen className="w-4 h-4" /> },
-                { label: 'Kontak', id: 'info', icon: <BarChart3 className="w-4 h-4" /> },
+                { label: 'Beranda',          id: 'top',           icon: <Grid className="w-4 h-4" />       },
+                { label: 'Kategori Layanan', id: 'kategori',      icon: <Layers className="w-4 h-4" />     },
+                { label: 'FAQ',              id: 'faq',           icon: <HelpCircle className="w-4 h-4" /> },
+                { label: 'Panduan',          id: 'panduan',       icon: <BookOpen className="w-4 h-4" />   },
+                { label: 'Info & Statistik', id: 'info',          icon: <BarChart3 className="w-4 h-4" />  },
+                { label: 'Kontak',           id: 'footer-kontak', icon: <MapPin className="w-4 h-4" />     },
               ].map(item => (
                 <button key={item.id} onClick={() => scrollToSection(item.id)}
                   className="text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white font-semibold flex items-center gap-3">
@@ -1696,7 +1600,7 @@ const App: React.FC = () => {
                 <a href="https://www.djkn.kemenkeu.go.id/kpknl-kendari/kontak" target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center px-8 py-4 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 font-black rounded-full shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:shadow-[0_0_30px_rgba(212,175,55,0.6)] hover:-translate-y-1 transition-all duration-300">
                   <Phone className="w-5 h-5 mr-3 animate-pulse" />
-                  DAFTAR KONSUL ONLINE
+                  HUBUNGI KAMI
                 </a>
                 <p className="text-emerald-100/60 text-sm mt-3">Hubungi petugas kami secara virtual untuk panduan lebih lanjut.</p>
               </div>
@@ -1780,12 +1684,11 @@ const App: React.FC = () => {
         </FadeInSection>
       </main>
 
-      {/* ══ SECTION UJL — Layanan Digital Pembayaran Uang Jaminan Lelang ══
-          Ditempatkan di sini agar user yang scroll sampai bawah konten
-          (paling engaged) langsung mendapat CTA pembayaran digital.
-          Secara visual menjadi jembatan antara konten putih dan footer hijau gelap. */}
+      {/* ══ SECTION UJL PREVIEW — teaser card Layanan Digital ══
+          Preview ringkas di homepage. Klik CTA → navigate ke
+          /layanan/ujl untuk kalkulator & info lengkap (Sesi A). */}
       <FadeInSection>
-        <SectionUJL isDark={isDark} />
+        <SectionUJLPreview onNavigate={() => navigate('/layanan/ujl')} />
       </FadeInSection>
 
       {/* ── FOOTER ── */}
@@ -1845,7 +1748,7 @@ const App: React.FC = () => {
                 ))}
               </ul>
             </div>
-            <div>
+            <div id="footer-kontak">
               <h4 className="font-black text-white uppercase tracking-widest text-xs mb-5 flex items-center gap-2">
                 <span className="h-px flex-1 bg-white/10" /><span>Kontak</span><span className="h-px flex-1 bg-white/10" />
               </h4>
