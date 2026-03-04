@@ -423,6 +423,224 @@ const SectionUJLPreview: React.FC<{ onNavigate: () => void }> = ({ onNavigate })
   </section>
 );
 
+/* ══════════════════════════════════════════════════════════════
+   SECTION FAQ — KOMPONEN DI LUAR App
+   ──────────────────────────────────────────────────────────────
+   [BUG-FIX] Sebelumnya didefinisikan sebagai `const SectionFAQ`
+   di DALAM App. Karena root <div> di App memanggil setClickRipples
+   pada setiap klik (efek ripple), App re-render → fungsi baru
+   diciptakan → React menganggap ini tipe komponen berbeda →
+   unmount + remount seluruh subtree → state `isOpen` di setiap
+   FAQAccordionItem direset ke false → chevron tidak bisa diklik.
+   Solusi: pindahkan ke luar App, kirim data melalui props.
+══════════════════════════════════════════════════════════════ */
+interface SectionFAQProps {
+  faqs: FAQData[];
+  isDark: boolean;
+}
+const SectionFAQ: React.FC<SectionFAQProps> = ({ faqs, isDark }) => {
+  const navigate = useNavigate();
+  return (
+    <div className="max-w-6xl mx-auto">
+      <div className="text-center mb-10">
+        <div>
+          <h2 className="flex items-center justify-center gap-3 sm:gap-4 text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight mb-2 group cursor-default">
+            <div className="shrink-0 relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-amber-100 to-orange-50 dark:from-amber-900/40 dark:to-orange-900/20 border border-amber-200 dark:border-amber-700/50 shadow-sm group-hover:shadow-md group-hover:-translate-y-1 transition-all duration-300">
+              <HelpCircle className="w-5 h-5 sm:w-7 sm:h-7 text-amber-500 dark:text-amber-400 group-hover:rotate-12 transition-transform duration-300" />
+              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 sm:h-3.5 sm:w-3.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 bg-amber-500 border-2 border-white dark:border-[#0d1a12]"></span>
+              </span>
+            </div>
+            <span className="text-left leading-tight group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors duration-300">
+              Pertanyaan yang Sering Diajukan
+            </span>
+          </h2>
+          <p className="text-slate-500 dark:text-slate-400 max-w-lg mx-auto text-sm sm:text-base px-4 mt-3">
+            Temukan jawaban atas pertanyaan umum seputar layanan BMN KPKNL Kendari
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
+        <div className="lg:col-span-2 lg:sticky lg:top-24 space-y-4">
+          <div className="bg-gradient-to-br from-[#0D5C35] to-[#0A492A] rounded-2xl p-6 text-white shadow-lg shadow-emerald-900/20">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-white/10 rounded-xl"><HelpCircle className="w-5 h-5" /></div>
+              <div>
+                <p className="font-black text-lg leading-none">{faqs.length}</p>
+                <p className="text-emerald-200 text-xs">Pertanyaan Tersedia</p>
+              </div>
+            </div>
+            <p className="text-emerald-100/80 text-sm leading-relaxed mb-4">Kumpulan jawaban resmi atas pertanyaan yang paling sering diajukan pengguna layanan KPKNL Kendari.</p>
+            <div className="flex flex-wrap gap-2">
+              {['Sewa BMN', 'Lelang', 'PSP', 'Hibah'].map(tag => (
+                <button key={tag}
+                  onClick={() => navigate(`/search?q=${encodeURIComponent(tag)}`)}
+                  className="px-3 py-1 bg-white/10 hover:bg-white/25 rounded-full text-xs font-medium border border-white/10 hover:border-white/30 text-white/80 hover:text-white transition-all cursor-pointer">
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/20 rounded-2xl p-5">
+            <div className="flex items-start gap-3">
+              <Sparkles className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-slate-800 dark:text-slate-100 text-sm mb-1">Tidak menemukan jawaban?</p>
+                <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-3">Hubungi kami langsung melalui Konsultasi Online untuk mendapatkan bantuan lebih lanjut.</p>
+                <a href="https://www.djkn.kemenkeu.go.id/kpknl-kendari/kontak" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 transition-colors">
+                  <Phone className="w-3.5 h-3.5" /> Hubungi Kami <ArrowRight className="w-3 h-3" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="lg:col-span-3 space-y-3">
+          {faqs.length > 0
+            ? faqs.map((faq, idx) => <FAQAccordionItem key={faq.id} faq={faq} index={idx} isDark={isDark} />)
+            : (
+              <div className="bg-white dark:bg-[#162918] rounded-2xl border border-slate-200 dark:border-slate-700 p-12 text-center">
+                <HelpCircle className="w-12 h-12 text-slate-200 dark:text-slate-600 mx-auto mb-3" />
+                <p className="text-slate-400 dark:text-slate-500 font-medium italic">Belum ada FAQ tersedia.</p>
+              </div>
+            )
+          }
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ══════════════════════════════════════════════════════════════
+   SECTION PANDUAN — KOMPONEN DI LUAR App (alasan sama di atas)
+══════════════════════════════════════════════════════════════ */
+interface SectionPanduanProps {
+  guides: GuideData[];
+}
+const SectionPanduan: React.FC<SectionPanduanProps> = ({ guides }) => (
+  <div className="max-w-4xl mx-auto">
+    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8 group cursor-default">
+      <div className="flex items-center gap-4">
+        <div className="shrink-0 relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-100 to-green-50 dark:from-emerald-900/40 dark:to-green-900/20 border border-emerald-200 dark:border-emerald-700/50 shadow-sm group-hover:shadow-md group-hover:-translate-y-1 transition-all duration-300">
+          <BookOpen className="w-5 h-5 sm:w-7 sm:h-7 text-[#0D5C35] dark:text-emerald-400 group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-300" />
+          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 sm:h-3.5 sm:w-3.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 bg-emerald-500 border-2 border-white dark:border-[#0d1a12]"></span>
+          </span>
+        </div>
+        <div>
+          <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-300">
+            Panduan Pengguna
+          </h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors duration-300">
+            Petunjuk penggunaan layanan KPKNL Kendari
+          </p>
+        </div>
+      </div>
+      {guides.length > 0 && (
+        <span className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-[#0D5C35] dark:text-emerald-400 rounded-full text-xs font-bold border border-emerald-200 dark:border-emerald-700/30">
+          <Layers className="w-3.5 h-3.5" /> {guides.length} panduan tersedia
+        </span>
+      )}
+    </div>
+    {guides.length > 0 ? (
+      <div className="space-y-6">
+        {guides.map((guide, idx) => (
+          <div key={guide.id} className="group bg-white dark:bg-[#162918] rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm hover:shadow-md hover:border-[#0D5C35]/20 dark:hover:border-[#0D5C35]/40 transition-all duration-300">
+            <div className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-[#EAF2EE] dark:from-[#0D5C35]/15 to-transparent border-b border-slate-100 dark:border-slate-700">
+              <span className="flex-shrink-0 w-8 h-8 rounded-full bg-[#0D5C35] text-white text-sm font-black flex items-center justify-center shadow-sm">{idx + 1}</span>
+              <span className="text-[#0D5C35] dark:text-emerald-400 text-xs font-bold uppercase tracking-widest">{extractGuideTitle(guide.content, idx)}</span>
+            </div>
+            <div className="px-6 py-5">
+              <div className="prose prose-slate dark:prose-invert max-w-none prose-sm prose-p:text-slate-600 dark:prose-p:text-slate-300 prose-p:leading-relaxed prose-li:marker:text-[#0D5C35] prose-strong:text-slate-800 dark:prose-strong:text-slate-100 prose-headings:text-slate-800 dark:prose-headings:text-slate-100 prose-headings:font-bold">
+                <ReactMarkdown>{guide.content}</ReactMarkdown>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div className="bg-white dark:bg-[#162918] rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 p-16 text-center">
+        <BookOpen className="w-12 h-12 text-slate-200 dark:text-slate-600 mx-auto mb-3" />
+        <p className="text-slate-400 dark:text-slate-500 italic">Belum ada data panduan.</p>
+      </div>
+    )}
+  </div>
+);
+
+/* ══════════════════════════════════════════════════════════════
+   SECTION CTA — KOMPONEN DI LUAR App (alasan sama di atas)
+══════════════════════════════════════════════════════════════ */
+interface SectionCTAProps {
+  documents: ContentData[];
+  faqs: FAQData[];
+  guides: GuideData[];
+}
+const SectionCTA: React.FC<SectionCTAProps> = ({ documents, faqs, guides }) => {
+  const ctaStats = [
+    { label: 'Total Dokumen', value: documents.length, icon: <FileText className="w-6 h-6" />, color: 'from-emerald-500 to-teal-600' },
+    { label: 'Total Kunjungan', value: documents.reduce((a, d) => a + (d.views || 0), 0).toLocaleString('id-ID'), icon: <Eye className="w-6 h-6" />, color: 'from-blue-500 to-indigo-600' },
+    { label: 'FAQ Tersedia', value: faqs.length, icon: <MessageSquare className="w-6 h-6" />, color: 'from-amber-500 to-orange-600' },
+    { label: 'Panduan Lengkap', value: guides.length, icon: <BookOpen className="w-6 h-6" />, color: 'from-rose-500 to-pink-600' },
+  ];
+  const socials = [
+    { href: 'https://www.instagram.com/kpknlkendari', icon: <Instagram className="w-5 h-5" />, label: 'Instagram', bg: 'bg-pink-50 hover:bg-pink-500', text: 'hover:text-white text-pink-600' },
+    { href: 'https://www.youtube.com/@kpknlkendarimelulo9245', icon: <Youtube className="w-5 h-5" />, label: 'YouTube', bg: 'bg-red-50 hover:bg-red-500', text: 'hover:text-white text-red-600' },
+    { href: 'https://www.djkn.kemenkeu.go.id/kpknl-kendari', icon: <Globe className="w-5 h-5" />, label: 'Website', bg: 'bg-blue-50 hover:bg-blue-500', text: 'hover:text-white text-blue-600' },
+    { href: 'https://lelang.go.id/', icon: <Scale className="w-5 h-5" />, label: 'Lelang', bg: 'bg-amber-50 hover:bg-amber-500', text: 'hover:text-white text-amber-600' },
+  ];
+  return (
+    <div id="info" className="max-w-5xl mx-auto">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+        {ctaStats.map((s, i) => (
+          <div key={s.label} className="bg-white dark:bg-[#162918] rounded-2xl border border-slate-200 dark:border-slate-700 p-5 text-center shadow-sm hover:shadow-md transition-shadow group stat-animate" style={{ animationDelay: `${i * 100}ms` }}>
+            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${s.color} text-white flex items-center justify-center mx-auto mb-3 shadow-md group-hover:scale-110 transition-transform`}>{s.icon}</div>
+            <div className="text-3xl font-black text-slate-900 dark:text-slate-100 leading-none mb-1">{s.value}</div>
+            <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">{s.label}</div>
+          </div>
+        ))}
+      </div>
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0D5C35] via-[#0A492A] to-[#083D23] p-8 md:p-12 shadow-2xl shadow-emerald-900/30">
+        <div className="absolute inset-0 hero-grid opacity-30 pointer-events-none" />
+        <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-[#D4AF37]/10 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-8 -left-8 w-48 h-48 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="text-center md:text-left">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#D4AF37]/20 border border-[#D4AF37]/30 rounded-full text-[#D4AF37] text-xs font-bold uppercase tracking-widest mb-4">
+              <TrendingUp className="w-3.5 h-3.5" /> Layanan Terbaik
+            </div>
+            <h2 className="text-2xl md:text-3xl font-black text-white leading-tight mb-3">
+              Butuh Bantuan <br className="hidden md:block" /><span className="text-[#D4AF37]">Lebih Lanjut?</span>
+            </h2>
+            <p className="text-emerald-100/70 text-sm max-w-md leading-relaxed">
+              Tim profesional kami siap membantu Anda memahami prosedur pengelolaan kekayaan negara secara langsung dan personal.
+            </p>
+          </div>
+          <div className="flex flex-col items-center gap-4 flex-shrink-0">
+            <a href="https://www.djkn.kemenkeu.go.id/kpknl-kendari/kontak" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-3 px-8 py-4 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 font-black rounded-2xl shadow-[0_0_24px_rgba(212,175,55,0.4)] hover:shadow-[0_0_30px_rgba(212,175,55,0.6)] hover:-translate-y-1 transition-all duration-300 whitespace-nowrap">
+              <div className="relative">
+                <Phone className="w-5 h-5" />
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-[#D4AF37] pulse-ring"></span>
+              </div>
+              Hubungi Kami
+            </a>
+            <div className="flex items-center gap-2">
+              {socials.map(s => (
+                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label}
+                  className={`p-2.5 ${s.bg} ${s.text} rounded-xl border border-white/10 transition-all duration-300 hover:scale-110 hover:shadow-lg`}>
+                  {s.icon}
+                </a>
+              ))}
+            </div>
+            <p className="text-emerald-200/50 text-xs">Ikuti kami di media sosial</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
@@ -1016,204 +1234,7 @@ const App: React.FC = () => {
     </div>
   );
 
-  /* ══════════════════════════════════════════════════════════════
-     SECTION: FAQ
-  ══════════════════════════════════════════════════════════════ */
-  const SectionFAQ = () => (
-    <div className="max-w-6xl mx-auto">
-      <div className="text-center mb-10">
-        <div>
-          <h2 className="flex items-center justify-center gap-3 sm:gap-4 text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight mb-2 group cursor-default">
-            <div className="shrink-0 relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-amber-100 to-orange-50 dark:from-amber-900/40 dark:to-orange-900/20 border border-amber-200 dark:border-amber-700/50 shadow-sm group-hover:shadow-md group-hover:-translate-y-1 transition-all duration-300">
-              <HelpCircle className="w-5 h-5 sm:w-7 sm:h-7 text-amber-500 dark:text-amber-400 group-hover:rotate-12 transition-transform duration-300" />
-              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 sm:h-3.5 sm:w-3.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 bg-amber-500 border-2 border-white dark:border-[#0d1a12]"></span>
-              </span>
-            </div>
-            <span className="text-left leading-tight group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors duration-300">
-              Pertanyaan yang Sering Diajukan
-            </span>
-          </h2>
-          <p className="text-slate-500 dark:text-slate-400 max-w-lg mx-auto text-sm sm:text-base px-4 mt-3">
-            Temukan jawaban atas pertanyaan umum seputar layanan BMN KPKNL Kendari
-          </p>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
-        <div className="lg:col-span-2 lg:sticky lg:top-24 space-y-4">
-          <div className="bg-gradient-to-br from-[#0D5C35] to-[#0A492A] rounded-2xl p-6 text-white shadow-lg shadow-emerald-900/20">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-white/10 rounded-xl"><HelpCircle className="w-5 h-5" /></div>
-              <div>
-                <p className="font-black text-lg leading-none">{faqs.length}</p>
-                <p className="text-emerald-200 text-xs">Pertanyaan Tersedia</p>
-              </div>
-            </div>
-            <p className="text-emerald-100/80 text-sm leading-relaxed mb-4">Kumpulan jawaban resmi atas pertanyaan yang paling sering diajukan pengguna layanan KPKNL Kendari.</p>
-            <div className="flex flex-wrap gap-2">
-              {['Sewa BMN', 'Lelang', 'PSP', 'Hibah'].map(tag => (
-                <button key={tag}
-                  onClick={() => navigate(`/search?q=${encodeURIComponent(tag)}`)}
-                  className="px-3 py-1 bg-white/10 hover:bg-white/25 rounded-full text-xs font-medium border border-white/10 hover:border-white/30 text-white/80 hover:text-white transition-all cursor-pointer">
-                  {tag}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/20 rounded-2xl p-5">
-            <div className="flex items-start gap-3">
-              <Sparkles className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold text-slate-800 dark:text-slate-100 text-sm mb-1">Tidak menemukan jawaban?</p>
-                <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-3">Hubungi kami langsung melalui Konsultasi Online untuk mendapatkan bantuan lebih lanjut.</p>
-                <a href="https://www.djkn.kemenkeu.go.id/kpknl-kendari/kontak" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 transition-colors">
-                  <Phone className="w-3.5 h-3.5" /> Hubungi Kami <ArrowRight className="w-3 h-3" />
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="lg:col-span-3 space-y-3">
-          {faqs.length > 0
-            ? faqs.map((faq, idx) => <FAQAccordionItem key={faq.id} faq={faq} index={idx} isDark={isDark} />)
-            : (
-              <div className="bg-white dark:bg-[#162918] rounded-2xl border border-slate-200 dark:border-slate-700 p-12 text-center">
-                <HelpCircle className="w-12 h-12 text-slate-200 dark:text-slate-600 mx-auto mb-3" />
-                <p className="text-slate-400 dark:text-slate-500 font-medium italic">Belum ada FAQ tersedia.</p>
-              </div>
-            )
-          }
-        </div>
-      </div>
-    </div>
-  );
 
-  /* ══════════════════════════════════════════════════════════════
-     SECTION: PANDUAN
-  ══════════════════════════════════════════════════════════════ */
-  const SectionPanduan = () => (
-    <div className="max-w-4xl mx-auto">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8 group cursor-default">
-        <div className="flex items-center gap-4">
-          <div className="shrink-0 relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-100 to-green-50 dark:from-emerald-900/40 dark:to-green-900/20 border border-emerald-200 dark:border-emerald-700/50 shadow-sm group-hover:shadow-md group-hover:-translate-y-1 transition-all duration-300">
-            <BookOpen className="w-5 h-5 sm:w-7 sm:h-7 text-[#0D5C35] dark:text-emerald-400 group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-300" />
-            <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 sm:h-3.5 sm:w-3.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 bg-emerald-500 border-2 border-white dark:border-[#0d1a12]"></span>
-            </span>
-          </div>
-          <div>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-300">
-              Panduan Pengguna
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors duration-300">
-              Petunjuk penggunaan layanan KPKNL Kendari
-            </p>
-          </div>
-        </div>
-        {guides.length > 0 && (
-          <span className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-[#0D5C35] dark:text-emerald-400 rounded-full text-xs font-bold border border-emerald-200 dark:border-emerald-700/30">
-            <Layers className="w-3.5 h-3.5" /> {guides.length} panduan tersedia
-          </span>
-        )}
-      </div>
-      {guides.length > 0 ? (
-        <div className="space-y-6">
-          {guides.map((guide, idx) => (
-            <div key={guide.id} className="group bg-white dark:bg-[#162918] rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm hover:shadow-md hover:border-[#0D5C35]/20 dark:hover:border-[#0D5C35]/40 transition-all duration-300">
-              <div className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-[#EAF2EE] dark:from-[#0D5C35]/15 to-transparent border-b border-slate-100 dark:border-slate-700">
-                <span className="flex-shrink-0 w-8 h-8 rounded-full bg-[#0D5C35] text-white text-sm font-black flex items-center justify-center shadow-sm">{idx + 1}</span>
-                <span className="text-[#0D5C35] dark:text-emerald-400 text-xs font-bold uppercase tracking-widest">{extractGuideTitle(guide.content, idx)}</span>
-              </div>
-              <div className="px-6 py-5">
-                <div className="prose prose-slate dark:prose-invert max-w-none prose-sm prose-p:text-slate-600 dark:prose-p:text-slate-300 prose-p:leading-relaxed prose-li:marker:text-[#0D5C35] prose-strong:text-slate-800 dark:prose-strong:text-slate-100 prose-headings:text-slate-800 dark:prose-headings:text-slate-100 prose-headings:font-bold">
-                  <ReactMarkdown>{guide.content}</ReactMarkdown>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white dark:bg-[#162918] rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 p-16 text-center">
-          <BookOpen className="w-12 h-12 text-slate-200 dark:text-slate-600 mx-auto mb-3" />
-          <p className="text-slate-400 dark:text-slate-500 italic">Belum ada data panduan.</p>
-        </div>
-      )}
-    </div>
-  );
-
-  /* ══════════════════════════════════════════════════════════════
-     SECTION: CTA / INFO
-  ══════════════════════════════════════════════════════════════ */
-  const SectionCTA = () => {
-    const ctaStats = [
-      { label: 'Total Dokumen', value: documents.length, icon: <FileText className="w-6 h-6" />, color: 'from-emerald-500 to-teal-600' },
-      { label: 'Total Kunjungan', value: documents.reduce((a, d) => a + (d.views || 0), 0).toLocaleString('id-ID'), icon: <Eye className="w-6 h-6" />, color: 'from-blue-500 to-indigo-600' },
-      { label: 'FAQ Tersedia', value: faqs.length, icon: <MessageSquare className="w-6 h-6" />, color: 'from-amber-500 to-orange-600' },
-      { label: 'Panduan Lengkap', value: guides.length, icon: <BookOpen className="w-6 h-6" />, color: 'from-rose-500 to-pink-600' },
-    ];
-    const socials = [
-      { href: 'https://www.instagram.com/kpknlkendari', icon: <Instagram className="w-5 h-5" />, label: 'Instagram', bg: 'bg-pink-50 hover:bg-pink-500', text: 'hover:text-white text-pink-600' },
-      { href: 'https://www.youtube.com/@kpknlkendarimelulo9245', icon: <Youtube className="w-5 h-5" />, label: 'YouTube', bg: 'bg-red-50 hover:bg-red-500', text: 'hover:text-white text-red-600' },
-      { href: 'https://www.djkn.kemenkeu.go.id/kpknl-kendari', icon: <Globe className="w-5 h-5" />, label: 'Website', bg: 'bg-blue-50 hover:bg-blue-500', text: 'hover:text-white text-blue-600' },
-      { href: 'https://lelang.go.id/', icon: <Scale className="w-5 h-5" />, label: 'Lelang', bg: 'bg-amber-50 hover:bg-amber-500', text: 'hover:text-white text-amber-600' },
-    ];
-    return (
-      <div id="info" className="max-w-5xl mx-auto">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          {ctaStats.map((s, i) => (
-            <div key={s.label} className="bg-white dark:bg-[#162918] rounded-2xl border border-slate-200 dark:border-slate-700 p-5 text-center shadow-sm hover:shadow-md transition-shadow group stat-animate" style={{ animationDelay: `${i * 100}ms` }}>
-              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${s.color} text-white flex items-center justify-center mx-auto mb-3 shadow-md group-hover:scale-110 transition-transform`}>{s.icon}</div>
-              <div className="text-3xl font-black text-slate-900 dark:text-slate-100 leading-none mb-1">{s.value}</div>
-              <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">{s.label}</div>
-            </div>
-          ))}
-        </div>
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0D5C35] via-[#0A492A] to-[#083D23] p-8 md:p-12 shadow-2xl shadow-emerald-900/30">
-          <div className="absolute inset-0 hero-grid opacity-30 pointer-events-none" />
-          <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-[#D4AF37]/10 blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-8 -left-8 w-48 h-48 rounded-full bg-white/5 blur-2xl pointer-events-none" />
-          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="text-center md:text-left">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#D4AF37]/20 border border-[#D4AF37]/30 rounded-full text-[#D4AF37] text-xs font-bold uppercase tracking-widest mb-4">
-                <TrendingUp className="w-3.5 h-3.5" /> Layanan Terbaik
-              </div>
-              <h2 className="text-2xl md:text-3xl font-black text-white leading-tight mb-3">
-                Butuh Bantuan <br className="hidden md:block" /><span className="text-[#D4AF37]">Lebih Lanjut?</span>
-              </h2>
-              <p className="text-emerald-100/70 text-sm max-w-md leading-relaxed">
-                Tim profesional kami siap membantu Anda memahami prosedur pengelolaan kekayaan negara secara langsung dan personal.
-              </p>
-            </div>
-            <div className="flex flex-col items-center gap-4 flex-shrink-0">
-              <a href="https://www.djkn.kemenkeu.go.id/kpknl-kendari/kontak" target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-3 px-8 py-4 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 font-black rounded-2xl shadow-[0_0_24px_rgba(212,175,55,0.4)] hover:shadow-[0_0_30px_rgba(212,175,55,0.6)] hover:-translate-y-1 transition-all duration-300 whitespace-nowrap">
-                <div className="relative">
-                  <Phone className="w-5 h-5" />
-                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-[#D4AF37] pulse-ring"></span>
-                </div>
-                Hubungi Kami
-              </a>
-              <div className="flex items-center gap-2">
-                {socials.map(s => (
-                  <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label}
-                    className={`p-2.5 ${s.bg} ${s.text} rounded-xl border border-white/10 transition-all duration-300 hover:scale-110 hover:shadow-lg`}>
-                    {s.icon}
-                  </a>
-                ))}
-              </div>
-              <p className="text-emerald-200/50 text-xs">Ikuti kami di media sosial</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  /* ══════════════════════════════════════════════════════════════
-     RENDER
-  ══════════════════════════════════════════════════════════════ */
   return (
     <div
       className="min-h-screen flex flex-col font-sans relative bg-[#F4F7F5] dark:bg-[#0d1a12]"
@@ -1276,12 +1297,12 @@ const App: React.FC = () => {
             <div className="hidden md:flex items-center space-x-5">
               <div className="flex space-x-6 text-sm font-semibold uppercase tracking-wider">
                 {[
-                  { label: 'Beranda',  id: 'top'          },
-                  { label: 'Kategori', id: 'kategori'     },
-                  { label: 'FAQ',      id: 'faq'          },
-                  { label: 'Panduan',  id: 'panduan'      },
-                  { label: 'Info',     id: 'info'         },
-                  { label: 'Kontak',   id: 'footer-kontak'},
+                  { label: 'Beranda', id: 'top' },
+                  { label: 'Kategori', id: 'kategori' },
+                  { label: 'FAQ', id: 'faq' },
+                  { label: 'Panduan', id: 'panduan' },
+                  { label: 'Info', id: 'info' },
+                  { label: 'Kontak', id: 'footer-kontak' },
                 ].map(item => (
                   <button key={item.id} onClick={() => scrollToSection(item.id)} className="text-white/90 hover:text-[#D4AF37] transition-colors">{item.label}</button>
                 ))}
@@ -1353,12 +1374,12 @@ const App: React.FC = () => {
           {isMenuOpen && (
             <div className="md:hidden absolute top-full left-0 right-0 mt-4 mx-4 bg-[#0A492A] rounded-2xl shadow-2xl border border-white/10 p-4 flex flex-col space-y-2 animate-in slide-in-from-top-5 duration-200">
               {[
-                { label: 'Beranda',          id: 'top',           icon: <Grid className="w-4 h-4" />       },
-                { label: 'Kategori Layanan', id: 'kategori',      icon: <Layers className="w-4 h-4" />     },
-                { label: 'FAQ',              id: 'faq',           icon: <HelpCircle className="w-4 h-4" /> },
-                { label: 'Panduan',          id: 'panduan',       icon: <BookOpen className="w-4 h-4" />   },
-                { label: 'Info & Statistik', id: 'info',          icon: <BarChart3 className="w-4 h-4" />  },
-                { label: 'Kontak',           id: 'footer-kontak', icon: <MapPin className="w-4 h-4" />     },
+                { label: 'Beranda', id: 'top', icon: <Grid className="w-4 h-4" /> },
+                { label: 'Kategori Layanan', id: 'kategori', icon: <Layers className="w-4 h-4" /> },
+                { label: 'FAQ', id: 'faq', icon: <HelpCircle className="w-4 h-4" /> },
+                { label: 'Panduan', id: 'panduan', icon: <BookOpen className="w-4 h-4" /> },
+                { label: 'Info & Statistik', id: 'info', icon: <BarChart3 className="w-4 h-4" /> },
+                { label: 'Kontak', id: 'footer-kontak', icon: <MapPin className="w-4 h-4" /> },
               ].map(item => (
                 <button key={item.id} onClick={() => scrollToSection(item.id)}
                   className="text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white font-semibold flex items-center gap-3">
@@ -1421,18 +1442,18 @@ const App: React.FC = () => {
         </div>
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           {[
-            { top: '15%', left: '10%',  size: 'w-4 h-4',     delay: '0s'   },
-            { top: '25%', left: '80%',  size: 'w-5 h-5',     delay: '1.2s' },
-            { top: '60%', left: '5%',   size: 'w-3 h-3',     delay: '0.6s' },
-            { top: '70%', left: '90%',  size: 'w-4 h-4',     delay: '2s'   },
-            { top: '45%', left: '95%',  size: 'w-3.5 h-3.5', delay: '1.5s' },
-            { top: '80%', left: '40%',  size: 'w-3 h-3',     delay: '0.3s' },
-            { top: '10%', left: '55%',  size: 'w-4 h-4',     delay: '2.5s' },
-            { top: '50%', left: '20%',  size: 'w-3 h-3',     delay: '1s'   },
-            { top: '35%', left: '65%',  size: 'w-3.5 h-3.5', delay: '3.1s' },
-            { top: '88%', left: '72%',  size: 'w-4 h-4',     delay: '1.8s' },
-            { top: '5%',  left: '30%',  size: 'w-3 h-3',     delay: '0.9s' },
-            { top: '65%', left: '48%',  size: 'w-3.5 h-3.5', delay: '2.3s' },
+            { top: '15%', left: '10%', size: 'w-4 h-4', delay: '0s' },
+            { top: '25%', left: '80%', size: 'w-5 h-5', delay: '1.2s' },
+            { top: '60%', left: '5%', size: 'w-3 h-3', delay: '0.6s' },
+            { top: '70%', left: '90%', size: 'w-4 h-4', delay: '2s' },
+            { top: '45%', left: '95%', size: 'w-3.5 h-3.5', delay: '1.5s' },
+            { top: '80%', left: '40%', size: 'w-3 h-3', delay: '0.3s' },
+            { top: '10%', left: '55%', size: 'w-4 h-4', delay: '2.5s' },
+            { top: '50%', left: '20%', size: 'w-3 h-3', delay: '1s' },
+            { top: '35%', left: '65%', size: 'w-3.5 h-3.5', delay: '3.1s' },
+            { top: '88%', left: '72%', size: 'w-4 h-4', delay: '1.8s' },
+            { top: '5%', left: '30%', size: 'w-3 h-3', delay: '0.9s' },
+            { top: '65%', left: '48%', size: 'w-3.5 h-3.5', delay: '2.3s' },
           ].map((p, i) => (
             <div key={i} className={`particle absolute ${p.size} rounded-full bg-white/30`} style={{ top: p.top, left: p.left, animationDelay: p.delay }} />
           ))}
@@ -1658,7 +1679,7 @@ const App: React.FC = () => {
         </FadeInSection>
 
         <FadeInSection>
-          <div id="faq" className="scroll-mt-24 mb-20"><SectionFAQ /></div>
+          <div id="faq" className="scroll-mt-24 mb-20"><SectionFAQ faqs={faqs} isDark={isDark} /></div>
         </FadeInSection>
 
         {/* ── Premium section divider ── */}
@@ -1676,11 +1697,11 @@ const App: React.FC = () => {
         </FadeInSection>
 
         <FadeInSection delay="delay-100">
-          <div id="panduan" className="scroll-mt-24 mb-20"><SectionPanduan /></div>
+          <div id="panduan" className="scroll-mt-24 mb-20"><SectionPanduan guides={guides} /></div>
         </FadeInSection>
 
         <FadeInSection delay="delay-150">
-          <SectionCTA />
+          <SectionCTA documents={documents} faqs={faqs} guides={guides} />
         </FadeInSection>
       </main>
 
