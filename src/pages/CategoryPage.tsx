@@ -99,29 +99,29 @@ const CategoryPage: React.FC = () => {
 
     /* ── Label & deskripsi per kategori untuk Helmet SEO ── */
     const categoryLabelMap: Record<string, string> = {
-        'psp':                  'PSP (Penetapan Status Penggunaan)',
-        'penjualan':            'Penjualan BMN',
-        'sewa':                 'Sewa BMN',
-        'penghapusan':          'Penghapusan BMN',
-        'pinjam-pakai':         'Pinjam Pakai BMN',
+        'psp': 'PSP (Penetapan Status Penggunaan)',
+        'penjualan': 'Penjualan BMN',
+        'sewa': 'Sewa BMN',
+        'penghapusan': 'Penghapusan BMN',
+        'pinjam-pakai': 'Pinjam Pakai BMN',
         'penggunaan-sementara': 'Penggunaan Sementara BMN',
-        'alih-status':          'Alih Status BMN',
-        'hibah':                'Hibah BMN',
-        'user-siman':           'Panduan Pengguna SIMAN',
+        'alih-status': 'Alih Status BMN',
+        'hibah': 'Hibah BMN',
+        'user-siman': 'Panduan Pengguna SIMAN',
     };
     const categoryDescMap: Record<string, string> = {
-        'psp':                  'SOP dan panduan Penetapan Status Penggunaan (PSP) Barang Milik Negara di KPKNL Kendari.',
-        'penjualan':            'SOP dan panduan proses penjualan Barang Milik Negara (BMN) di KPKNL Kendari.',
-        'sewa':                 'SOP dan panduan sewa Barang Milik Negara (BMN) di KPKNL Kendari.',
-        'penghapusan':          'SOP dan panduan penghapusan Barang Milik Negara (BMN) dari daftar inventaris.',
-        'pinjam-pakai':         'SOP dan panduan pinjam pakai Barang Milik Negara (BMN) di KPKNL Kendari.',
+        'psp': 'SOP dan panduan Penetapan Status Penggunaan (PSP) Barang Milik Negara di KPKNL Kendari.',
+        'penjualan': 'SOP dan panduan proses penjualan Barang Milik Negara (BMN) di KPKNL Kendari.',
+        'sewa': 'SOP dan panduan sewa Barang Milik Negara (BMN) di KPKNL Kendari.',
+        'penghapusan': 'SOP dan panduan penghapusan Barang Milik Negara (BMN) dari daftar inventaris.',
+        'pinjam-pakai': 'SOP dan panduan pinjam pakai Barang Milik Negara (BMN) di KPKNL Kendari.',
         'penggunaan-sementara': 'SOP dan panduan penggunaan sementara Barang Milik Negara (BMN).',
-        'alih-status':          'SOP dan panduan alih status Barang Milik Negara (BMN) di KPKNL Kendari.',
-        'hibah':                'SOP dan panduan hibah Barang Milik Negara (BMN) di KPKNL Kendari.',
-        'user-siman':           'Panduan penggunaan aplikasi SIMAN untuk pengelola Barang Milik Negara.',
+        'alih-status': 'SOP dan panduan alih status Barang Milik Negara (BMN) di KPKNL Kendari.',
+        'hibah': 'SOP dan panduan hibah Barang Milik Negara (BMN) di KPKNL Kendari.',
+        'user-siman': 'Panduan penggunaan aplikasi SIMAN untuk pengelola Barang Milik Negara.',
     };
     const seoTitle = categoryLabelMap[categoryId ?? ''] ?? categoryTitle;
-    const seoDesc  = categoryDescMap[categoryId ?? '']
+    const seoDesc = categoryDescMap[categoryId ?? '']
         ?? `Dokumen SOP dan panduan ${categoryTitle} — Knowledge Base KPKNL Kendari.`;
 
     useEffect(() => {
@@ -205,9 +205,9 @@ const CategoryPage: React.FC = () => {
 
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 md:gap-8">
                         <div className="flex-1 min-w-0">
-                            <button onClick={() => navigate('/')}
-                                className="mb-5 inline-flex items-center gap-2 text-emerald-100/80 hover:text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full transition-all text-sm font-bold border border-white/10">
-                                <ArrowLeft className="w-4 h-4" /> Kembali ke Beranda
+                            <button onClick={() => navigate(-1)}
+                                className="mb-5 inline-flex items-center gap-2 text-emerald-100/80 hover:text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full transition-all text-sm font-bold border border-white/10 hover:border-white/25">
+                                <ArrowLeft className="w-4 h-4" /> Kembali
                             </button>
 
                             <div className="flex items-center gap-3 mb-3">
@@ -299,81 +299,81 @@ const CategoryPage: React.FC = () => {
                     <SkeletonCategoryGrid />
                 ) : sortedDocs.length > 0 ? (
                     <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-7">
-                        {paginatedDocs.map((doc, i) => (
-                            <div key={doc.id} onClick={() => navigate(`/detail/${doc.id}`)}
-                                className="cat-card bg-white dark:bg-[#162918] rounded-3xl p-6 md:p-8 border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-2xl hover:-translate-y-2 cursor-pointer transition-all duration-350 group flex flex-col h-full"
-                                style={{ animationDelay: `${i * 70}ms` }}>
-                                {/* Icon */}
-                                <div className={`mb-5 p-4 rounded-2xl w-fit transition-all duration-300
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-7">
+                            {paginatedDocs.map((doc, i) => (
+                                <div key={doc.id} onClick={() => navigate(`/detail/${doc.id}`)}
+                                    className="cat-card bg-white dark:bg-[#162918] rounded-3xl p-6 md:p-8 border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-2xl hover:-translate-y-2 cursor-pointer transition-all duration-350 group flex flex-col h-full"
+                                    style={{ animationDelay: `${i * 70}ms` }}>
+                                    {/* Icon */}
+                                    <div className={`mb-5 p-4 rounded-2xl w-fit transition-all duration-300
                                     ${meta.bg} ${meta.color} ${meta.darkBg} ${meta.darkColor}
                                     ${meta.hoverBg} ${meta.hoverText}
                                     group-hover:shadow-lg group-hover:scale-105`}>
-                                    {meta.icon}
-                                </div>
+                                        {meta.icon}
+                                    </div>
 
-                                <h3 className="font-black text-lg md:text-xl text-slate-800 dark:text-slate-100 mb-3 group-hover:text-[#0D5C35] dark:group-hover:text-emerald-400 transition-colors leading-tight line-clamp-2">
-                                    {doc.title}
-                                </h3>
+                                    <h3 className="font-black text-lg md:text-xl text-slate-800 dark:text-slate-100 mb-3 group-hover:text-[#0D5C35] dark:group-hover:text-emerald-400 transition-colors leading-tight line-clamp-2">
+                                        {doc.title}
+                                    </h3>
 
-                                <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed line-clamp-3 flex-grow mb-6">
-                                    {doc.description}
-                                </p>
+                                    <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed line-clamp-3 flex-grow mb-6">
+                                        {doc.description}
+                                    </p>
 
-                                <div className={`mt-auto pt-4 md:pt-5 border-t border-slate-100 dark:border-slate-700
+                                    <div className={`mt-auto pt-4 md:pt-5 border-t border-slate-100 dark:border-slate-700
                                     flex items-center justify-between font-bold text-sm
                                     opacity-70 group-hover:opacity-100 transition-all duration-300
                                     ${meta.color} ${meta.darkColor}`}>
-                                    <span>Baca Selengkapnya</span>
-                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform duration-300" />
+                                        <span>Baca Selengkapnya</span>
+                                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform duration-300" />
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* ── Pagination ── */}
-                    {totalPages > 1 && (
-                        <div className="mt-10 flex flex-col items-center gap-3">
-                            <div className="flex items-center gap-2 flex-wrap justify-center">
-                                <button
-                                    onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                                    disabled={currentPage === 1}
-                                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold bg-white dark:bg-[#162918] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#0D5C35]/40 hover:text-[#0D5C35] dark:hover:text-emerald-400 disabled:opacity-35 disabled:cursor-not-allowed transition-all shadow-sm">
-                                    <ChevronLeft className="w-4 h-4" /> Sebelumnya
-                                </button>
-                                <div className="flex items-center gap-1.5">
-                                    {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                                        let page: number;
-                                        if (totalPages <= 7) page = i + 1;
-                                        else if (currentPage <= 4) page = i + 1;
-                                        else if (currentPage >= totalPages - 3) page = totalPages - 6 + i;
-                                        else page = currentPage - 3 + i;
-                                        return (
-                                            <button key={page}
-                                                onClick={() => { setCurrentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                                                className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${currentPage === page
-                                                    ? 'bg-[#0D5C35] text-white shadow-lg shadow-emerald-200/50 dark:shadow-emerald-900/30 scale-110'
-                                                    : 'bg-white dark:bg-[#162918] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#0D5C35]/40 hover:text-[#0D5C35] dark:hover:text-emerald-400'
-                                                }`}>
-                                                {page}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <button
-                                    onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                                    disabled={currentPage === totalPages}
-                                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold bg-white dark:bg-[#162918] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#0D5C35]/40 hover:text-[#0D5C35] dark:hover:text-emerald-400 disabled:opacity-35 disabled:cursor-not-allowed transition-all shadow-sm">
-                                    Berikutnya <ChevronRight className="w-4 h-4" />
-                                </button>
-                            </div>
-                            <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">
-                                Halaman <span className="font-black text-slate-700 dark:text-slate-200">{currentPage}</span> dari <span className="font-black text-slate-700 dark:text-slate-200">{totalPages}</span>
-                                <span className="mx-1.5 opacity-40">·</span>
-                                {sortedDocs.length} dokumen total
-                            </p>
+                            ))}
                         </div>
-                    )}
+
+                        {/* ── Pagination ── */}
+                        {totalPages > 1 && (
+                            <div className="mt-10 flex flex-col items-center gap-3">
+                                <div className="flex items-center gap-2 flex-wrap justify-center">
+                                    <button
+                                        onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                        disabled={currentPage === 1}
+                                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold bg-white dark:bg-[#162918] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#0D5C35]/40 hover:text-[#0D5C35] dark:hover:text-emerald-400 disabled:opacity-35 disabled:cursor-not-allowed transition-all shadow-sm">
+                                        <ChevronLeft className="w-4 h-4" /> Sebelumnya
+                                    </button>
+                                    <div className="flex items-center gap-1.5">
+                                        {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                                            let page: number;
+                                            if (totalPages <= 7) page = i + 1;
+                                            else if (currentPage <= 4) page = i + 1;
+                                            else if (currentPage >= totalPages - 3) page = totalPages - 6 + i;
+                                            else page = currentPage - 3 + i;
+                                            return (
+                                                <button key={page}
+                                                    onClick={() => { setCurrentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                                    className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${currentPage === page
+                                                        ? 'bg-[#0D5C35] text-white shadow-lg shadow-emerald-200/50 dark:shadow-emerald-900/30 scale-110'
+                                                        : 'bg-white dark:bg-[#162918] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#0D5C35]/40 hover:text-[#0D5C35] dark:hover:text-emerald-400'
+                                                        }`}>
+                                                    {page}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <button
+                                        onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                        disabled={currentPage === totalPages}
+                                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold bg-white dark:bg-[#162918] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#0D5C35]/40 hover:text-[#0D5C35] dark:hover:text-emerald-400 disabled:opacity-35 disabled:cursor-not-allowed transition-all shadow-sm">
+                                        Berikutnya <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                                <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+                                    Halaman <span className="font-black text-slate-700 dark:text-slate-200">{currentPage}</span> dari <span className="font-black text-slate-700 dark:text-slate-200">{totalPages}</span>
+                                    <span className="mx-1.5 opacity-40">·</span>
+                                    {sortedDocs.length} dokumen total
+                                </p>
+                            </div>
+                        )}
                     </>
                 ) : (
                     <div className="text-center py-20 md:py-24 bg-white dark:bg-[#162918] rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700 shadow-sm max-w-2xl mx-auto animate-in fade-in zoom-in-95 duration-500">

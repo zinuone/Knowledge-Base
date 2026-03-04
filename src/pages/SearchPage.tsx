@@ -6,7 +6,7 @@ import { collection, getDocs, query, orderBy, addDoc, serverTimestamp } from 'fi
 import { db } from '../firebase';
 import {
     Search, X, Home, ChevronRight, Eye, Calendar, Tag,
-    FileText, Filter, ArrowLeft, SlidersHorizontal, Clock,
+    FileText, ArrowLeft, Clock,
     ArrowRight, Sparkles, ChevronLeft, Moon, Sun,
 } from 'lucide-react';
 
@@ -91,7 +91,6 @@ const SearchPage: React.FC = () => {
     const [activeQuery, setActiveQuery] = useState(searchParams.get('q') || '');
     const [filterCat, setFilterCat] = useState(searchParams.get('cat') || 'all');
     const [sortBy, setSortBy] = useState<'relevance' | 'newest' | 'views'>('relevance');
-    const [showFilters, setShowFilters] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const RESULTS_PER_PAGE = 10;
 
@@ -209,9 +208,9 @@ const SearchPage: React.FC = () => {
         if (!activeQuery.trim() || activeQuery === lastLoggedQueryRef.current) return;
         lastLoggedQueryRef.current = activeQuery;
         addDoc(collection(db, 'search-logs'), {
-            query:       activeQuery.trim(),
+            query: activeQuery.trim(),
             resultCount: results.length,    // ✅ FIX: was 'resultsCount' (typo dengan 's')
-            createdAt:   serverTimestamp(),  // ✅ FIX: was 'timestamp' (tidak cocok orderBy AdminDashboard)
+            createdAt: serverTimestamp(),  // ✅ FIX: was 'timestamp' (tidak cocok orderBy AdminDashboard)
         }).catch(() => { /* silent — jangan ganggu UX */ });
     }, [activeQuery, results]);
 
@@ -263,6 +262,13 @@ const SearchPage: React.FC = () => {
                         </button>
                     </nav>
 
+                    {/* Tombol kembali ke halaman sebelumnya */}
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="mb-5 inline-flex items-center gap-2 text-emerald-100/80 hover:text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full transition-all text-sm font-bold border border-white/10 hover:border-white/25">
+                        <ArrowLeft className="w-4 h-4" /> Kembali
+                    </button>
+
                     <div className="flex items-center gap-2 mb-2">
                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 border border-white/15 rounded-full text-xs font-bold text-white/70 uppercase tracking-wider">
                             <Search className="w-3.5 h-3.5" /> Pencarian Global
@@ -278,9 +284,9 @@ const SearchPage: React.FC = () => {
                         <div className="flex gap-2">
                             <div className="relative flex-1">
                                 {inputVal !== activeQuery && inputVal.length > 0
-                                ? <span className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center"><span className="w-4 h-4 border-2 border-[#0D5C35] border-t-transparent rounded-full animate-spin" /></span>
-                                : <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
-                            }
+                                    ? <span className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center"><span className="w-4 h-4 border-2 border-[#0D5C35] border-t-transparent rounded-full animate-spin" /></span>
+                                    : <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                                }
                                 <input
                                     type="text"
                                     autoFocus
@@ -309,10 +315,6 @@ const SearchPage: React.FC = () => {
             {/* ── FILTERS ── */}
             <div className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-[#162918] shadow-sm sticky top-0 z-30">
                 <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
-                    <button onClick={() => setShowFilters(p => !p)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${showFilters ? 'bg-[#0D5C35] text-white border-[#0D5C35]' : 'bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-[#0D5C35]/40'}`}>
-                        <SlidersHorizontal className="w-3.5 h-3.5" /> Filter
-                    </button>
                     <div className="flex items-center gap-2 flex-wrap">
                         <button onClick={() => handleCatClick('all')}
                             className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${filterCat === 'all' ? 'bg-[#D4AF37] text-slate-900 border-[#D4AF37]' : 'bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-slate-300'}`}>
@@ -389,20 +391,11 @@ const SearchPage: React.FC = () => {
                         </div>
                         <h3 className="text-xl font-black text-slate-700 dark:text-slate-200 mb-2">Mulai Pencarian</h3>
                         <p className="text-slate-400 dark:text-slate-500 text-sm max-w-sm mx-auto">
-                            Ketik kata kunci di kolom di atas untuk mencari dari {allDocs.length} dokumen tersedia.
+                            Ketik kata kunci di kolom pencarian, atau pilih kategori dari filter bar di atas untuk menelusuri {allDocs.length} dokumen tersedia.
                         </p>
-                        {/* Suggested tags */}
-                        <div className="mt-8">
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Atau telusuri per kategori</p>
-                            <div className="flex flex-wrap gap-2 justify-center">
-                                {CATEGORIES.map(cat => (
-                                    <button key={cat} onClick={() => handleCatClick(cat)}
-                                        className="px-4 py-2 rounded-xl text-sm font-bold bg-white dark:bg-[#162918] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#0D5C35]/40 hover:text-[#0D5C35] dark:hover:text-emerald-400 transition-all capitalize shadow-sm">
-                                        {cat.replace(/-/g, ' ')}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
+                        {/* Pills kategori tidak ditampilkan di sini —
+                            sticky filter bar di atas sudah menyediakan
+                            semua pills yang sama, menghindari duplikasi. */}
                     </div>
                 )}
 
@@ -509,7 +502,7 @@ const SearchPage: React.FC = () => {
                                         className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${currentPage === page
                                             ? 'bg-[#0D5C35] text-white shadow-md shadow-emerald-200/50 dark:shadow-emerald-900/30 scale-110'
                                             : 'bg-white dark:bg-[#162918] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#0D5C35]/40 hover:text-[#0D5C35] dark:hover:text-emerald-400'
-                                        }`}>
+                                            }`}>
                                         {page}
                                     </button>
                                 );
@@ -529,13 +522,6 @@ const SearchPage: React.FC = () => {
                 </div>
             )}
 
-            {/* Bottom CTA */}
-            <div className="border-t border-slate-200 dark:border-slate-700 py-8 text-center">
-                <button onClick={() => navigate('/')}
-                    className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-[#0D5C35] dark:hover:text-emerald-400 transition-colors">
-                    <ArrowLeft className="w-4 h-4" /> Kembali ke Beranda
-                </button>
-            </div>
         </div>
     );
 };
