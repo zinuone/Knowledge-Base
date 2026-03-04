@@ -13,6 +13,7 @@ import {
   MapPin, ExternalLink, ChevronDown,
   Sparkles, Building2, BarChart3, Layers, MessageSquare, TrendingUp,
   ArrowRight, Moon, Sun, SlidersHorizontal, Bookmark, Download,
+  CreditCard, Calculator, ShieldCheck, Landmark, BadgeCheck, Wallet,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import KnowledgeCard from './src/components/KnowledgeCard';
@@ -139,6 +140,95 @@ const HERO_ANIM_CSS = `
   50%       { transform: translateY(10px); opacity: 1; }
 }
 .scroll-bounce { animation: scrollBounce 1.8s ease-in-out infinite; }
+
+/* ══════════════════════════════════════════════════════════════
+   CLICK RIPPLE — animasi sentuhan di seluruh homepage
+   Dua lingkaran: inner (gold, expand+fade) + outer (hijau, lebih lebar)
+   pointer-events: none wajib agar tidak block klik/interaksi lain.
+══════════════════════════════════════════════════════════════ */
+@keyframes rippleInner {
+  0%   { transform: translate(-50%,-50%) scale(0);   opacity: 0.75; }
+  50%  { opacity: 0.35; }
+  100% { transform: translate(-50%,-50%) scale(1);   opacity: 0; }
+}
+@keyframes rippleOuter {
+  0%   { transform: translate(-50%,-50%) scale(0);   opacity: 0.3; }
+  100% { transform: translate(-50%,-50%) scale(1.8); opacity: 0; }
+}
+.ripple-inner {
+  pointer-events: none;
+  position: fixed;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(212,175,55,0.6);
+  background: radial-gradient(circle, rgba(212,175,55,0.08) 0%, transparent 70%);
+  animation: rippleInner 0.6s cubic-bezier(0.25,0.46,0.45,0.94) forwards;
+  z-index: 9998;
+}
+.ripple-outer {
+  pointer-events: none;
+  position: fixed;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 1px solid rgba(13,92,53,0.22);
+  animation: rippleOuter 0.7s cubic-bezier(0.25,0.46,0.45,0.94) 0.05s forwards;
+  z-index: 9997;
+}
+
+/* ── Ambient orb bg konten ── */
+@keyframes ambientDrift {
+  0%,100% { transform: translate(0,0) scale(1); }
+  50%     { transform: translate(20px,-15px) scale(1.04); }
+}
+.ambient-orb   { animation: ambientDrift 20s ease-in-out infinite; }
+.ambient-orb-2 { animation: ambientDrift 26s ease-in-out infinite reverse; }
+
+/* ══════════════════════════════════════════════════════════════
+   UJL PAYMENT SECTION ANIMATIONS
+══════════════════════════════════════════════════════════════ */
+/* Shimmer sweep untuk header banner */
+@keyframes shimmerSweep {
+  0%   { transform: translateX(-100%) skewX(-12deg); }
+  100% { transform: translateX(250%) skewX(-12deg); }
+}
+.ujl-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.07) 50%, transparent 100%);
+  animation: shimmerSweep 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Glow pulse untuk tombol CTA Mayar */
+@keyframes payGlow {
+  0%,100% { box-shadow: 0 0 0 0 rgba(212,175,55,0.4), 0 4px 20px rgba(212,175,55,0.3); }
+  50%     { box-shadow: 0 0 0 8px rgba(212,175,55,0), 0 4px 32px rgba(212,175,55,0.5); }
+}
+.pay-cta-glow { animation: payGlow 2.5s ease-in-out infinite; }
+
+/* Float card kalkulator */
+@keyframes floatCalc {
+  0%,100% { transform: translateY(0); }
+  50%     { transform: translateY(-6px); }
+}
+.calc-float { animation: floatCalc 5s ease-in-out infinite; }
+
+/* Badge "Powered by Mayar" blink */
+@keyframes badgeBlink {
+  0%,100% { opacity: 1; }
+  50%     { opacity: 0.65; }
+}
+.mayar-badge-dot { animation: badgeBlink 2s ease-in-out infinite; }
+
+/* Step line draw */
+@keyframes lineGrow {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+.step-line { animation: lineGrow 0.8s ease-out forwards; transform-origin: top; }
 `;
 
 /* ─── SCROLL REVEAL ───────────────────────────────────────────── */
@@ -233,6 +323,211 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   SECTION UJL — Layanan Digital: Simulasi Uang Jaminan Lelang
+   ──────────────────────────────────────────────────────────────
+   Ditempatkan antara </main> dan <footer>.
+   Fitur: kalkulator UJL interaktif (20% × nilai limit),
+   referensi regulasi PMK 27/PMK.06/2016, CTA ke mayar.id.
+   Semua interaksi menggunakan state lokal komponen ini.
+══════════════════════════════════════════════════════════════ */
+const SectionUJL: React.FC<{ isDark: boolean }> = ({ isDark }) => {
+  const [nilaiLimit, setNilaiLimit] = useState('');
+  const [showResult, setShowResult] = useState(false);
+
+  /* Format input sebagai angka rupiah saat user mengetik */
+  const handleInput = (raw: string) => {
+    const digits = raw.replace(/\D/g, '');
+    setNilaiLimit(digits);
+    setShowResult(false);
+  };
+
+  /* Hitung UJL: 20% dari nilai limit, min Rp 50.000 */
+  const nilaiLimitNum = parseInt(nilaiLimit || '0', 10);
+  const ujlAmount    = Math.max(Math.round(nilaiLimitNum * 0.2), nilaiLimitNum > 0 ? 50000 : 0);
+
+  const formatRupiah = (n: number) =>
+    n > 0 ? `Rp ${n.toLocaleString('id-ID')}` : '—';
+
+  const steps = [
+    { icon: <BookOpen className="w-4 h-4" />, label: 'Baca SOP Lelang', sub: 'Pelajari persyaratan dan tata cara di Knowledge Base' },
+    { icon: <Calculator className="w-4 h-4" />, label: 'Hitung UJL Anda', sub: 'Gunakan kalkulator di bawah — 20% dari nilai limit' },
+    { icon: <CreditCard className="w-4 h-4" />, label: 'Bayar via Mayar', sub: 'Pembayaran digital, aman & langsung terkonfirmasi' },
+    { icon: <BadgeCheck className="w-4 h-4" />, label: 'Terima Bukti Otomatis', sub: 'Bukti dikirim via email & WhatsApp secara instan' },
+  ];
+
+  return (
+    <section
+      id="pembayaran"
+      className="relative bg-gradient-to-b from-[#0D5C35] via-[#0A3D24] to-[#062B18] overflow-hidden scroll-mt-20"
+    >
+      {/* Dekorasi blob & grid */}
+      <div className="absolute inset-0 hero-grid opacity-10 pointer-events-none" />
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="blob-1 absolute -top-32 -left-20 w-[480px] h-[480px] rounded-full bg-emerald-400/15 blur-3xl" />
+        <div className="blob-2 absolute -bottom-24 -right-16 w-[420px] h-[420px] rounded-full bg-[#D4AF37]/12 blur-3xl" />
+        <div className="blob-3 absolute top-1/2 left-1/2 w-[300px] h-[300px] rounded-full bg-teal-300/8 blur-3xl" />
+      </div>
+
+      {/* Top divider gold line */}
+      <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-70" />
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-16 md:py-20">
+
+        {/* ── Header ── */}
+        <div className="text-center mb-14">
+          {/* Label badge */}
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#D4AF37]/15 border border-[#D4AF37]/30 rounded-full mb-5">
+            <span className="mayar-badge-dot w-2 h-2 rounded-full bg-[#D4AF37]" />
+            <span className="text-[#D4AF37] text-xs font-black uppercase tracking-widest">Layanan Digital KPKNL</span>
+          </div>
+
+          <h2 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-4 leading-tight">
+            Bayar Uang Jaminan Lelang
+            <span className="block text-[#D4AF37] mt-1">Secara Digital via Mayar</span>
+          </h2>
+          <p className="text-emerald-100/70 text-base max-w-2xl mx-auto leading-relaxed">
+            Peserta Lelang BMN kini dapat membayar <strong className="text-white">Uang Jaminan Lelang (UJL)</strong> secara digital —
+            tidak perlu antre di bank, konfirmasi otomatis dan terverifikasi.
+          </p>
+
+          {/* Regulasi reference */}
+          <div className="inline-flex items-center gap-2 mt-4 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full">
+            <Scale className="w-3.5 h-3.5 text-[#D4AF37]/80" />
+            <span className="text-emerald-100/60 text-[11px] font-medium">Berdasarkan PMK 27/PMK.06/2016 tentang Petunjuk Pelaksanaan Lelang</span>
+          </div>
+        </div>
+
+        {/* ── Grid: Kalkulator + Steps ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+
+          {/* Kalkulator UJL */}
+          <div className="calc-float">
+            <div className="relative bg-white/8 backdrop-blur-sm border border-white/15 rounded-3xl p-6 sm:p-8 shadow-2xl overflow-hidden ujl-shimmer">
+              {/* Card header */}
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-2xl bg-[#D4AF37]/20 border border-[#D4AF37]/30 flex items-center justify-center">
+                  <Calculator className="w-5 h-5 text-[#D4AF37]" />
+                </div>
+                <div>
+                  <p className="text-white font-black text-base leading-tight">Kalkulator UJL</p>
+                  <p className="text-emerald-100/55 text-xs">UJL = 20% × Nilai Limit Lelang</p>
+                </div>
+              </div>
+
+              {/* Input */}
+              <label className="block mb-1.5 text-emerald-100/80 text-xs font-bold uppercase tracking-wider">
+                Nilai Limit Lelang (Rp)
+              </label>
+              <div className="relative mb-4">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold pointer-events-none">Rp</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={nilaiLimit ? parseInt(nilaiLimit).toLocaleString('id-ID') : ''}
+                  onChange={e => handleInput(e.target.value)}
+                  placeholder="Contoh: 500.000.000"
+                  className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white dark:bg-[#162918] text-slate-800 dark:text-white font-bold text-lg outline-none focus:ring-2 focus:ring-[#D4AF37]/50 border border-white/20 dark:border-slate-700 placeholder:text-slate-300 dark:placeholder:text-slate-600 transition-all"
+                />
+              </div>
+
+              {/* Tombol hitung */}
+              <button
+                onClick={() => { if (nilaiLimitNum > 0) setShowResult(true); }}
+                disabled={nilaiLimitNum <= 0}
+                className="w-full py-3.5 rounded-2xl font-black text-slate-900 text-sm transition-all bg-[#D4AF37] hover:bg-[#B5952F] disabled:opacity-40 disabled:cursor-not-allowed hover:-translate-y-0.5 active:translate-y-0 mb-4"
+              >
+                Hitung UJL Saya →
+              </button>
+
+              {/* Hasil */}
+              <div className={`rounded-2xl border transition-all duration-500 overflow-hidden ${showResult && nilaiLimitNum > 0 ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div className="p-4 bg-emerald-900/40 border-emerald-500/20 border rounded-2xl">
+                  <p className="text-emerald-300/80 text-xs font-bold uppercase tracking-wider mb-1">Estimasi UJL yang Harus Dibayar</p>
+                  <p className="text-3xl font-black text-[#D4AF37]">{formatRupiah(ujlAmount)}</p>
+                  <p className="text-emerald-100/50 text-[11px] mt-1.5">
+                    {formatRupiah(nilaiLimitNum)} × 20% · bersifat ilustratif · sesuai PMK 27/2016
+                  </p>
+                </div>
+              </div>
+
+              {/* Disclaimer kecil */}
+              <p className="text-white/25 text-[10px] mt-4 text-center leading-relaxed">
+                ⚠ Fitur simulasi — nilai aktual ditetapkan oleh Pejabat Lelang. Tidak menggantikan prosedur resmi KPKNL.
+              </p>
+            </div>
+          </div>
+
+          {/* Steps cara kerja */}
+          <div className="flex flex-col justify-center gap-1">
+            <p className="text-white/50 text-xs font-black uppercase tracking-widest mb-4">Alur Pembayaran Digital</p>
+            {steps.map((s, i) => (
+              <div key={i} className="flex items-start gap-4 group">
+                {/* Step indicator */}
+                <div className="flex flex-col items-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/15 border border-[#D4AF37]/25 flex items-center justify-center text-[#D4AF37] group-hover:bg-[#D4AF37]/25 transition-colors">
+                    {s.icon}
+                  </div>
+                  {i < steps.length - 1 && (
+                    <div className="w-px h-8 bg-gradient-to-b from-[#D4AF37]/30 to-transparent mt-1" />
+                  )}
+                </div>
+                {/* Step content */}
+                <div className="pb-6 pt-1.5">
+                  <p className="text-white font-black text-sm leading-tight mb-0.5">{s.label}</p>
+                  <p className="text-emerald-100/55 text-xs leading-relaxed">{s.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── CTA Area ── */}
+        <div className="flex flex-col items-center gap-5">
+          {/* Tombol CTA utama */}
+          <a
+            href="https://mayar.id"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="pay-cta-glow inline-flex items-center gap-3 px-10 py-5 bg-[#D4AF37] hover:bg-[#C9A832] text-slate-900 font-black text-base rounded-full transition-all duration-300 hover:-translate-y-1 active:translate-y-0 group"
+          >
+            <Wallet className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            Lanjutkan Pembayaran via Mayar
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          </a>
+
+          {/* Powered by Mayar badge */}
+          <div className="flex items-center gap-2 px-4 py-2 bg-white/8 border border-white/12 rounded-full">
+            <span className="mayar-badge-dot w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
+            <span className="text-white/50 text-xs font-medium">Powered by</span>
+            <span className="text-white font-black text-xs tracking-wide">Mayar SimplePay</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400/70" />
+          </div>
+
+          {/* 3 benefit chips */}
+          <div className="flex flex-wrap justify-center gap-3 mt-1">
+            {[
+              { icon: <Zap className="w-3.5 h-3.5" />, label: 'Proses Cepat' },
+              { icon: <ShieldCheck className="w-3.5 h-3.5" />, label: 'Transaksi Aman' },
+              { icon: <BadgeCheck className="w-3.5 h-3.5" />, label: 'Konfirmasi Otomatis' },
+              { icon: <Landmark className="w-3.5 h-3.5" />, label: 'Sesuai Regulasi' },
+            ].map(chip => (
+              <div key={chip.label} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/8 border border-white/10 rounded-full text-emerald-100/70 text-xs font-semibold">
+                <span className="text-[#D4AF37]/80">{chip.icon}</span>
+                {chip.label}
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Bottom divider */}
+      <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+    </section>
+  );
+};
+
 const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
@@ -270,6 +565,12 @@ const App: React.FC = () => {
                       mencegah tombol muncul lagi di sesi yang sama   */
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [pwaInstalled, setPwaInstalled] = useState(false);
+
+  /* ── Click Ripple state ───────────────────────────────────────
+     Setiap klik di halaman menghasilkan entry { id, x, y }.
+     Setelah animasi selesai (700ms) entry dihapus dari array.   */
+  const [clickRipples, setClickRipples] = useState<{ id: number; x: number; y: number }[]>([]);
+  const rippleIdRef = useRef(0);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
@@ -381,6 +682,17 @@ const App: React.FC = () => {
     setShowSuggestions(false);
     setSelectedSuggestionIdx(-1);
     searchInputRef.current?.focus();
+  };
+
+  /* ── Click Ripple handler ─────────────────────────────────────
+     Dipasang di root <div> sehingga semua klik di halaman manapun
+     akan trigger ripple di koordinat kursor. Auto-cleanup 750ms.
+     Tidak interfere interaksi lain karena ripple element sendiri
+     pakai pointer-events: none via CSS class .ripple-*.          */
+  const handlePageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const id = ++rippleIdRef.current;
+    setClickRipples(prev => [...prev, { id, x: e.clientX, y: e.clientY }]);
+    setTimeout(() => setClickRipples(prev => prev.filter(r => r.id !== id)), 750);
   };
 
   /* ── Ctrl+K global shortcut ── */
@@ -1008,7 +1320,34 @@ const App: React.FC = () => {
      RENDER
   ══════════════════════════════════════════════════════════════ */
   return (
-    <div className="min-h-screen flex flex-col font-sans relative bg-[#F4F7F5] dark:bg-[#0d1a12]" id="top">
+    <div
+      className="min-h-screen flex flex-col font-sans relative bg-[#F4F7F5] dark:bg-[#0d1a12]"
+      id="top"
+      onClick={handlePageClick}
+      style={{
+        /* Subtle radial-dot bg — memberi depth premium ke area konten.
+           Opacity sangat rendah agar tidak mengganggu readability.    */
+        backgroundImage: isDark
+          ? 'radial-gradient(rgba(255,255,255,0.022) 1px, transparent 1px)'
+          : 'radial-gradient(rgba(13,92,53,0.04) 1px, transparent 1px)',
+        backgroundSize: '28px 28px',
+      }}
+    >
+      {/* ── Ambient background orbs — fixed, sangat subtle, depth effect ─
+           z-index 0 agar selalu di belakang semua konten.               */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden" style={{ zIndex: 0 }}>
+        <div className="ambient-orb absolute top-[28%] right-[-7%] w-[500px] h-[500px] rounded-full bg-emerald-300/[0.045] dark:bg-emerald-400/[0.04] blur-3xl" />
+        <div className="ambient-orb-2 absolute bottom-[12%] left-[-5%] w-[440px] h-[440px] rounded-full bg-[#D4AF37]/[0.04] dark:bg-[#D4AF37]/[0.03] blur-3xl" />
+        <div className="ambient-orb absolute top-[62%] right-[15%] w-[280px] h-[280px] rounded-full bg-teal-200/[0.035] dark:bg-teal-400/[0.025] blur-3xl" style={{ animationDelay: '10s' }} />
+      </div>
+
+      {/* ── Click ripple layer — z-index 9997/9998 via CSS class ── */}
+      {clickRipples.map(r => (
+        <React.Fragment key={r.id}>
+          <div className="ripple-inner" style={{ left: `${r.x}px`, top: `${r.y}px` }} />
+          <div className="ripple-outer" style={{ left: `${r.x}px`, top: `${r.y}px` }} />
+        </React.Fragment>
+      ))}
       {/* ── SEO Meta Tags ── */}
       <Helmet>
         <title>Knowledge Base Divisi PKN | KPKNL Kendari</title>
@@ -1171,20 +1510,25 @@ const App: React.FC = () => {
         <div className="absolute inset-0 bg-gradient-to-br from-[#0D5C35] via-[#0A492A] to-[#062B18]" />
         <div className="absolute inset-0 hero-grid opacity-20" />
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="blob-1 absolute top-[-80px] left-[-60px]    w-[420px] h-[420px] rounded-full bg-emerald-400/20 blur-3xl" />
-          <div className="blob-2 absolute bottom-[-100px] right-[-80px] w-[500px] h-[500px] rounded-full bg-teal-300/15  blur-3xl" />
-          <div className="blob-3 absolute top-[30%] left-[50%]        w-[300px] h-[300px] rounded-full bg-[#D4AF37]/10 blur-3xl" />
+          <div className="blob-1 absolute top-[-80px] left-[-60px]    w-[560px] h-[560px] rounded-full bg-emerald-400/20 blur-3xl" />
+          <div className="blob-2 absolute bottom-[-100px] right-[-80px] w-[640px] h-[640px] rounded-full bg-teal-300/15  blur-3xl" />
+          <div className="blob-3 absolute top-[30%] left-[50%]        w-[400px] h-[400px] rounded-full bg-[#D4AF37]/10 blur-3xl" />
+          <div className="blob-1 absolute top-[10%] right-[18%]       w-[260px] h-[260px] rounded-full bg-emerald-300/10 blur-2xl" style={{ animationDelay: '6s' }} />
         </div>
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           {[
-            { top: '15%', left: '10%', size: 'w-2 h-2', delay: '0s' },
-            { top: '25%', left: '80%', size: 'w-3 h-3', delay: '1.2s' },
-            { top: '60%', left: '5%', size: 'w-1.5 h-1.5', delay: '0.6s' },
-            { top: '70%', left: '90%', size: 'w-2.5 h-2.5', delay: '2s' },
-            { top: '45%', left: '95%', size: 'w-2 h-2', delay: '1.5s' },
-            { top: '80%', left: '40%', size: 'w-1.5 h-1.5', delay: '0.3s' },
-            { top: '10%', left: '55%', size: 'w-2 h-2', delay: '2.5s' },
-            { top: '50%', left: '20%', size: 'w-1 h-1', delay: '1s' },
+            { top: '15%', left: '10%',  size: 'w-4 h-4',     delay: '0s'   },
+            { top: '25%', left: '80%',  size: 'w-5 h-5',     delay: '1.2s' },
+            { top: '60%', left: '5%',   size: 'w-3 h-3',     delay: '0.6s' },
+            { top: '70%', left: '90%',  size: 'w-4 h-4',     delay: '2s'   },
+            { top: '45%', left: '95%',  size: 'w-3.5 h-3.5', delay: '1.5s' },
+            { top: '80%', left: '40%',  size: 'w-3 h-3',     delay: '0.3s' },
+            { top: '10%', left: '55%',  size: 'w-4 h-4',     delay: '2.5s' },
+            { top: '50%', left: '20%',  size: 'w-3 h-3',     delay: '1s'   },
+            { top: '35%', left: '65%',  size: 'w-3.5 h-3.5', delay: '3.1s' },
+            { top: '88%', left: '72%',  size: 'w-4 h-4',     delay: '1.8s' },
+            { top: '5%',  left: '30%',  size: 'w-3 h-3',     delay: '0.9s' },
+            { top: '65%', left: '48%',  size: 'w-3.5 h-3.5', delay: '2.3s' },
           ].map((p, i) => (
             <div key={i} className={`particle absolute ${p.size} rounded-full bg-white/30`} style={{ top: p.top, left: p.left, animationDelay: p.delay }} />
           ))}
@@ -1436,6 +1780,14 @@ const App: React.FC = () => {
         </FadeInSection>
       </main>
 
+      {/* ══ SECTION UJL — Layanan Digital Pembayaran Uang Jaminan Lelang ══
+          Ditempatkan di sini agar user yang scroll sampai bawah konten
+          (paling engaged) langsung mendapat CTA pembayaran digital.
+          Secara visual menjadi jembatan antara konten putih dan footer hijau gelap. */}
+      <FadeInSection>
+        <SectionUJL isDark={isDark} />
+      </FadeInSection>
+
       {/* ── FOOTER ── */}
       <footer className="relative bg-gradient-to-b from-[#0A492A] to-[#062B18] text-white overflow-hidden">
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -1470,7 +1822,7 @@ const App: React.FC = () => {
                 <span className="h-px flex-1 bg-white/10" /><span>Navigasi</span><span className="h-px flex-1 bg-white/10" />
               </h4>
               <ul className="space-y-3">
-                {[{ label: 'Beranda', id: 'top' }, { label: 'Kategori Layanan', id: 'kategori' }, { label: 'FAQ', id: 'faq' }, { label: 'Panduan', id: 'panduan' }, { label: 'Kontak & Statistik', id: 'info' }].map(item => (
+                {[{ label: 'Beranda', id: 'top' }, { label: 'Kategori Layanan', id: 'kategori' }, { label: 'FAQ', id: 'faq' }, { label: 'Panduan', id: 'panduan' }, { label: 'Layanan Digital', id: 'pembayaran' }, { label: 'Kontak & Statistik', id: 'info' }].map(item => (
                   <li key={item.label}>
                     <button onClick={() => scrollToSection(item.id)} className="text-emerald-100/70 hover:text-[#D4AF37] text-sm transition-colors flex items-center gap-2 group">
                       <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 -ml-1 transition-all group-hover:translate-x-1" />{item.label}
