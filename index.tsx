@@ -1,4 +1,10 @@
 // File: index.tsx
+
+// [#9] Import CSS entry point — Tailwind directives + global styles.
+// Harus di-import di sini (root render) agar tersedia di seluruh aplikasi.
+// Sebelumnya CSS dikelola oleh CDN di index.html; sekarang di-bundle oleh Vite.
+import './index.css';
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';

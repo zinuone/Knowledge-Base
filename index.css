@@ -1,0 +1,54 @@
+/*
+ * File: ./index.css
+ *
+ * Entry point CSS untuk seluruh aplikasi.
+ * Di-import di index.tsx sebagai baris pertama:
+ *   import './index.css'
+ *
+ * Pipeline:
+ *   Vite membaca file ini → PostCSS menjalankan Tailwind JIT
+ *   → menghasilkan CSS final yang di-bundle bersama aplikasi.
+ *
+ * [#9] Semua CSS yang sebelumnya ada di blok <style> di index.html
+ * dipindahkan ke sini agar dikelola secara proper oleh bundler.
+ */
+
+/* ── Tailwind directives ──────────────────────────────────────────── */
+/* base    : CSS reset + elemen HTML dasar (heading, link, form, dll.) */
+/* components: kelas komponen bawaan Tailwind (jarang dipakai langsung) */
+/* utilities : semua utility class Tailwind (w-, h-, bg-, text-, dll.) */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Font global ──────────────────────────────────────────────────── */
+/*
+ * Dipindahkan dari <style> di index.html.
+ * Font-nya sendiri dimuat via <link> di index.html (lebih cepat dari
+ * @import karena bisa memanfaatkan preconnect hint di <head>).
+ */
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* ── Animasi global .fade-in ──────────────────────────────────────── */
+/*
+ * Dipindahkan dari <style> di index.html.
+ * Dipakai untuk transisi halaman secara umum.
+ * Catatan: kelas animate-in, fade-in, slide-in-* dari tailwindcss-animate
+ * sudah otomatis tersedia via plugin — tidak perlu didefinisikan manual.
+ */
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

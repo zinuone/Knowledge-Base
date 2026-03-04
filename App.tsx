@@ -132,6 +132,13 @@ const HERO_ANIM_CSS = `
 }
 .tab-content-enter { animation: tabSlide 0.25s ease-out forwards; }
 .stat-pop { animation: statPop 0.4s ease-out forwards; }
+
+/* ── Scroll indicator bounce ── */
+@keyframes scrollBounce {
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50%       { transform: translateY(10px); opacity: 1; }
+}
+.scroll-bounce { animation: scrollBounce 1.8s ease-in-out infinite; }
 `;
 
 /* ─── SCROLL REVEAL ───────────────────────────────────────────── */
@@ -276,7 +283,7 @@ const App: React.FC = () => {
     { id: 'penggunaan-sementara', title: 'PENGGUNAAN SEMENTARA', description: 'Penggunaan BMN dalam jangka waktu tertentu', icon: <Timer className="w-8 h-8" />, color: 'bg-purple-50 text-purple-700' },
     { id: 'alih-status', title: 'ALIH STATUS', description: 'Alih Status Penggunaan Barang Milik Negara', icon: <RefreshCw className="w-8 h-8" />, color: 'bg-teal-50   text-teal-700' },
     { id: 'hibah', title: 'HIBAH', description: 'Prosedur Hibah Barang Milik Negara', icon: <Gift className="w-8 h-8" />, color: 'bg-orange-50 text-orange-700' },
-    { id: 'user-siman', title: 'PANDUAN SIMAN', description: 'Panduan Layanan Akun dan Role SIMAN V2', icon: <Users className="w-8 h-8" />, color: 'bg-cyan-50  text-cyan-700' },
+    { id: 'user-siman', title: 'USER SIMAN', description: 'Panduan Layanan Akun dan Role SIMAN V2', icon: <Users className="w-8 h-8" />, color: 'bg-cyan-50  text-cyan-700' },
   ];
 
   /* ── Firebase ── */
@@ -457,9 +464,21 @@ const App: React.FC = () => {
   const SectionHome = () => (
     <div className="space-y-10">
       <section id="kategori" className={`transition-all duration-1000 delay-300 ease-out ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-        <div className="flex items-center space-x-3 mb-8 pl-4 border-l-4 border-[#D4AF37]">
-          <Grid className="w-5 h-5 text-[#D4AF37]" />
-          <h3 className="font-black text-white text-lg uppercase tracking-widest drop-shadow-sm">Kategori Layanan</h3>
+        {/* Hilangkan pl-4 dan border-l-4 agar lebih bersih */}
+        <div className="group flex items-center gap-3.5 mb-8 cursor-default">
+
+          {/* --- Kotak Ikon Sultan (Sedikit dibesarkan w-10 h-10) --- */}
+          <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-[#D4AF37]/10 dark:bg-[#D4AF37]/20 border border-[#D4AF37]/30 group-hover:bg-[#D4AF37] transition-all duration-300 shadow-sm group-hover:shadow-md">
+
+            {/* Ikon Layers diganti untuk merepresentasikan tumpukan kategori */}
+            <Layers className="w-5 h-5 text-[#D4AF37] group-hover:text-white transition-all duration-300 group-hover:scale-110 group-hover:-rotate-12" />
+          </div>
+
+          {/* --- Teks Judul Utama --- */}
+          <h3 className="font-black text-slate-800 dark:text-slate-100 text-xl uppercase tracking-widest drop-shadow-sm group-hover:text-[#D4AF37] dark:group-hover:text-[#D4AF37] transition-colors duration-300">
+            Kategori Layanan
+          </h3>
+
         </div>
 
         {/* Pencarian cepat */}
@@ -805,7 +824,7 @@ const App: React.FC = () => {
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 bg-amber-500 border-2 border-white dark:border-[#0d1a12]"></span>
               </span>
             </div>
-            <span className="text-left leading-tight">
+            <span className="text-left leading-tight group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors duration-300">
               Pertanyaan yang Sering Diajukan
             </span>
           </h2>
@@ -878,10 +897,10 @@ const App: React.FC = () => {
             </span>
           </div>
           <div>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight group-hover:text-[#0D5C35] dark:group-hover:text-emerald-400 transition-colors duration-300">
+            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-300">
               Panduan Pengguna
             </h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm">
+            <p className="text-slate-500 dark:text-slate-400 text-sm group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors duration-300">
               Petunjuk penggunaan layanan KPKNL Kendari
             </p>
           </div>
@@ -891,7 +910,6 @@ const App: React.FC = () => {
             <Layers className="w-3.5 h-3.5" /> {guides.length} panduan tersedia
           </span>
         )}
-
       </div>
       {guides.length > 0 ? (
         <div className="space-y-6">
@@ -1023,7 +1041,7 @@ const App: React.FC = () => {
             {/* Desktop nav */}
             <div className="hidden md:flex items-center space-x-5">
               <div className="flex space-x-6 text-sm font-semibold uppercase tracking-wider">
-                {[{ label: 'Beranda', id: 'beranda' }, { label: 'FAQ', id: 'faq' }, { label: 'Panduan', id: 'panduan' }, { label: 'Info', id: 'info' }].map(item => (
+                {[{ label: 'Beranda', id: 'beranda' }, { label: 'FAQ', id: 'faq' }, { label: 'Panduan', id: 'panduan' }, { label: 'Kontak', id: 'info' }].map(item => (
                   <button key={item.id} onClick={() => scrollToSection(item.id)} className="text-white/90 hover:text-[#D4AF37] transition-colors">{item.label}</button>
                 ))}
               </div>
@@ -1097,7 +1115,7 @@ const App: React.FC = () => {
                 { label: 'Beranda', id: 'beranda', icon: <Grid className="w-4 h-4" /> },
                 { label: 'FAQ', id: 'faq', icon: <HelpCircle className="w-4 h-4" /> },
                 { label: 'Panduan', id: 'panduan', icon: <BookOpen className="w-4 h-4" /> },
-                { label: 'Info', id: 'info', icon: <BarChart3 className="w-4 h-4" /> },
+                { label: 'Kontak', id: 'info', icon: <BarChart3 className="w-4 h-4" /> },
               ].map(item => (
                 <button key={item.id} onClick={() => scrollToSection(item.id)}
                   className="text-left px-4 py-3 rounded-xl hover:bg-white/10 text-white font-semibold flex items-center gap-3">
@@ -1140,7 +1158,16 @@ const App: React.FC = () => {
       </header>
 
       {/* ── HERO ── */}
-      <div className="relative bg-[#0D5C35] pt-40 pb-32 px-4 overflow-hidden">
+      {/*
+        [Q1] Hero sekarang min-h-screen (svh fallback ke screen) sehingga
+        "Kategori Layanan" selalu di bawah fold pada load pertama.
+        Konten di-center vertical via flex-1. Wave SVG di bawah menciptakan
+        transisi mulus dari hijau ke bg putih/dark tanpa overlap card.
+      */}
+      <div
+        className="relative bg-[#0D5C35] min-h-screen flex flex-col pt-24 px-4 overflow-hidden"
+        style={{ minHeight: '100svh' }}
+      >
         <div className="absolute inset-0 bg-gradient-to-br from-[#0D5C35] via-[#0A492A] to-[#062B18]" />
         <div className="absolute inset-0 hero-grid opacity-20" />
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -1163,187 +1190,209 @@ const App: React.FC = () => {
           ))}
         </div>
 
-        <div className={`max-w-4xl mx-auto text-center relative z-10 transition-all duration-1000 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-          <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-white/80 text-xs font-semibold uppercase tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Sistem Informasi Terpadu — KPKNL Kendari
-            </div>
-            {!isLoadingData && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#D4AF37]/20 border border-[#D4AF37]/30 rounded-full text-[#D4AF37] text-xs font-bold">
-                <Eye className="w-3 h-3" />
-                {statsData.views.toLocaleString('id-ID')} total kunjungan
+        {/* ── Konten Hero (flex-1 agar vertikal center di ruang tersisa) ── */}
+        <div className="flex-1 flex items-center justify-center py-8">
+          <div className={`max-w-4xl mx-auto text-center relative z-10 w-full transition-all duration-1000 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-white/80 text-xs font-semibold uppercase tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                Sistem Informasi Terpadu — KPKNL Kendari
               </div>
-            )}
-          </div>
-
-          <h1 className="text-white text-4xl md:text-5xl font-extrabold mb-5 tracking-tight leading-tight">
-            KNOWLEDGE BASE
-            <span className="block text-2xl md:text-3xl font-medium text-emerald-100 mt-3 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
-              <span className="tracking-wide">DIVISI PKN</span>
-              <span className="hidden sm:inline text-white/40">|</span>
-              <span className="font-bold text-[#D4AF37] tracking-widest">KPKNL KENDARI</span>
-            </span>
-          </h1>
-          <p className="text-slate-200/80 mb-10 text-base md:text-lg max-w-xl mx-auto leading-relaxed">
-            Temukan SOP, regulasi, dan informasi layanan pengelolaan kekayaan negara secara cepat dan akurat.
-          </p>
-
-          {/* ── SEARCH BAR ── */}
-          <div className="max-w-2xl mx-auto">
-            <div className="relative">
-              <div className="flex items-stretch bg-white rounded-full shadow-2xl overflow-hidden focus-within:ring-4 focus-within:ring-[#D4AF37]/40 transition-all">
-                <div className="flex items-center pl-5 pr-2 flex-shrink-0">
-                  <Search className="w-5 h-5 text-slate-400 pointer-events-none" />
+              {!isLoadingData && (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#D4AF37]/20 border border-[#D4AF37]/30 rounded-full text-[#D4AF37] text-xs font-bold">
+                  <Eye className="w-3 h-3" />
+                  {statsData.views.toLocaleString('id-ID')} total kunjungan
                 </div>
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  className="flex-1 py-4 pr-1 bg-transparent text-slate-900 outline-none text-base md:text-lg placeholder:text-slate-400 min-w-0"
-                  placeholder={selectedCategoryFilter !== 'all' ? `Cari di ${categories.find(c => c.id === selectedCategoryFilter)?.title}...` : 'Cari SOP atau Layanan...'}
-                  value={searchQuery}
-                  onChange={e => { setSearchQuery(e.target.value); setShowSuggestions(e.target.value.trim().length > 0); }}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      if (selectedSuggestionIdx >= 0 && liveSuggestions[selectedSuggestionIdx]) {
-                        handleSuggestionClick(liveSuggestions[selectedSuggestionIdx]);
-                        setSelectedSuggestionIdx(-1);
-                      } else {
-                        handleSearchAction();
+              )}
+            </div>
+
+            <h1 className="text-white text-4xl md:text-5xl font-extrabold mb-5 tracking-tight leading-tight">
+              KNOWLEDGE BASE
+              <span className="block text-2xl md:text-3xl font-medium text-emerald-100 mt-3 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
+                <span className="tracking-wide">DIVISI PKN</span>
+                <span className="hidden sm:inline text-white/40">|</span>
+                <span className="font-bold text-[#D4AF37] tracking-widest">KPKNL KENDARI</span>
+              </span>
+            </h1>
+            <p className="text-slate-200/80 mb-10 text-base md:text-lg max-w-xl mx-auto leading-relaxed">
+              Temukan SOP, regulasi, dan informasi layanan pengelolaan kekayaan negara secara cepat dan akurat.
+            </p>
+
+            {/* ── SEARCH BAR ── */}
+            <div className="max-w-2xl mx-auto">
+              <div className="relative">
+                <div className="flex items-stretch bg-white rounded-full shadow-2xl overflow-hidden focus-within:ring-4 focus-within:ring-[#D4AF37]/40 transition-all">
+                  <div className="flex items-center pl-5 pr-2 flex-shrink-0">
+                    <Search className="w-5 h-5 text-slate-400 pointer-events-none" />
+                  </div>
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    className="flex-1 py-4 pr-1 bg-transparent text-slate-900 outline-none text-base md:text-lg placeholder:text-slate-400 min-w-0"
+                    placeholder={selectedCategoryFilter !== 'all' ? `Cari di ${categories.find(c => c.id === selectedCategoryFilter)?.title}...` : 'Cari SOP atau Layanan...'}
+                    value={searchQuery}
+                    onChange={e => { setSearchQuery(e.target.value); setShowSuggestions(e.target.value.trim().length > 0); }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        if (selectedSuggestionIdx >= 0 && liveSuggestions[selectedSuggestionIdx]) {
+                          handleSuggestionClick(liveSuggestions[selectedSuggestionIdx]);
+                          setSelectedSuggestionIdx(-1);
+                        } else {
+                          handleSearchAction();
+                        }
                       }
-                    }
-                    if (e.key === 'Escape') { setShowSuggestions(false); setSelectedSuggestionIdx(-1); }
-                    if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedSuggestionIdx(i => Math.min(i + 1, liveSuggestions.length - 1)); }
-                    if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedSuggestionIdx(i => Math.max(i - 1, -1)); }
-                  }}
-                  onFocus={() => { if (searchQuery.trim()) setShowSuggestions(true); }}
-                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                />
-                {searchQuery && (
-                  <button onClick={handleClearSearch} className="flex items-center flex-shrink-0 mx-2 p-1.5 text-slate-400 hover:text-rose-500 bg-slate-100 hover:bg-rose-50 rounded-full transition-all self-center">
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-                {/* Filter toggle button */}
-                <button
-                  onClick={() => setShowCategoryFilter(p => !p)}
-                  className={`flex-shrink-0 flex items-center self-center mx-1.5 p-2 rounded-full transition-all ${showCategoryFilter || selectedCategoryFilter !== 'all' ? 'bg-[#0D5C35] text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                  title="Filter Kategori"
-                >
-                  <SlidersHorizontal className="w-4 h-4" />
-                </button>
-                <div className="flex-shrink-0 self-center w-px h-7 bg-slate-200 mx-1" />
-                <button onClick={handleSearchAction}
-                  className="flex-shrink-0 flex items-center gap-2 px-7 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 font-black transition-all active:brightness-90 whitespace-nowrap text-sm md:text-base">
-                  <Search className="w-4 h-4 md:w-5 md:h-5" />
-                  <span className="hidden sm:inline">Cari</span>
-                </button>
-              </div>
-
-              {/* Dropdown saran live */}
-              {showSuggestions && liveSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50">
-                  <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Saran Pencarian</span>
-                    <span className="text-xs text-slate-400">{liveSuggestions.length} hasil</span>
-                  </div>
-                  {liveSuggestions.map((doc, i) => (
-                    <button key={doc.id} onMouseDown={() => { handleSuggestionClick(doc); setSelectedSuggestionIdx(-1); }}
-                      className={`suggestion-item w-full text-left px-4 py-3 transition-colors border-b border-slate-50 last:border-0 flex items-start gap-3 group ${selectedSuggestionIdx === i ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'hover:bg-emerald-50 dark:hover:bg-emerald-900/10'}`}
-                      style={{ animationDelay: `${i * 40}ms` }}>
-                      <div className={`p-1.5 rounded-lg flex-shrink-0 transition-colors mt-0.5 ${selectedSuggestionIdx === i ? 'bg-[#0D5C35] text-white' : 'bg-slate-100 group-hover:bg-[#0D5C35]'}`}>
-                        <Search className={`w-3 h-3 transition-colors ${selectedSuggestionIdx === i ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
-                      </div>
-                      <div className="min-w-0">
-                        <div className={`font-semibold text-sm line-clamp-1 transition-colors ${selectedSuggestionIdx === i ? 'text-[#0D5C35] dark:text-emerald-400' : 'text-slate-800 dark:text-slate-200 group-hover:text-[#0D5C35]'}`}>{doc.title}</div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{doc.category.replace(/-/g, ' ')}</div>
-                      </div>
-                      <ArrowRight className={`w-4 h-4 flex-shrink-0 ml-auto mt-1 transition-colors ${selectedSuggestionIdx === i ? 'text-[#0D5C35]' : 'text-slate-300 group-hover:text-[#0D5C35]'}`} />
-                    </button>
-                  ))}
-                  <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 text-center">
-                    <span className="text-xs text-slate-400">Tekan <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded font-mono text-slate-600">Enter</kbd> untuk buka halaman pencarian</span>
-                  </div>
-                </div>
-              )}
-              {showSuggestions && searchQuery.trim() && liveSuggestions.length === 0 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-200 px-4 py-3 z-50 text-center">
-                  <p className="text-sm text-slate-400">Tidak ada saran untuk <strong className="text-slate-600">"{searchQuery}"</strong></p>
-                </div>
-              )}
-            </div>
-
-            {/* ── FILTER KATEGORI (toggle panel) ── */}
-            {showCategoryFilter && (
-              <div className="mt-3 p-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="flex items-center gap-2 mb-3">
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-white/70" />
-                  <span className="text-white/70 text-xs font-bold uppercase tracking-widest">Filter Kategori</span>
-                  {selectedCategoryFilter !== 'all' && (
-                    <button onClick={() => setSelectedCategoryFilter('all')} className="ml-auto text-white/50 hover:text-white text-xs flex items-center gap-1 transition-colors">
-                      <X className="w-3 h-3" /> Reset
+                      if (e.key === 'Escape') { setShowSuggestions(false); setSelectedSuggestionIdx(-1); }
+                      if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedSuggestionIdx(i => Math.min(i + 1, liveSuggestions.length - 1)); }
+                      if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedSuggestionIdx(i => Math.max(i - 1, -1)); }
+                    }}
+                    onFocus={() => { if (searchQuery.trim()) setShowSuggestions(true); }}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  />
+                  {searchQuery && (
+                    <button onClick={handleClearSearch} className="flex items-center flex-shrink-0 mx-2 p-1.5 text-slate-400 hover:text-rose-500 bg-slate-100 hover:bg-rose-50 rounded-full transition-all self-center">
+                      <X className="w-4 h-4" />
                     </button>
                   )}
-                </div>
-                <div className="flex flex-wrap gap-2">
+                  {/* Filter toggle button */}
                   <button
-                    onClick={() => setSelectedCategoryFilter('all')}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cat-filter-item
-                      ${selectedCategoryFilter === 'all' ? 'bg-[#D4AF37] text-slate-900' : 'bg-white/10 text-white/80 hover:bg-white/20 border border-white/20'}`}
-                    style={{ animationDelay: '0ms' }}
+                    onClick={() => setShowCategoryFilter(p => !p)}
+                    className={`flex-shrink-0 flex items-center self-center mx-1.5 p-2 rounded-full transition-all ${showCategoryFilter || selectedCategoryFilter !== 'all' ? 'bg-[#0D5C35] text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                    title="Filter Kategori"
                   >
-                    Semua
+                    <SlidersHorizontal className="w-4 h-4" />
                   </button>
-                  {categories.map((cat, i) => (
-                    <button
-                      key={cat.id}
-                      onClick={() => setSelectedCategoryFilter(cat.id)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cat-filter-item
-                        ${selectedCategoryFilter === cat.id ? 'bg-[#D4AF37] text-slate-900' : 'bg-white/10 text-white/80 hover:bg-white/20 border border-white/20'}`}
-                      style={{ animationDelay: `${(i + 1) * 30}ms` }}
-                    >
-                      {cat.title}
-                    </button>
-                  ))}
+                  <div className="flex-shrink-0 self-center w-px h-7 bg-slate-200 mx-1" />
+                  <button onClick={handleSearchAction}
+                    className="flex-shrink-0 flex items-center gap-2 px-7 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 font-black transition-all active:brightness-90 whitespace-nowrap text-sm md:text-base">
+                    <Search className="w-4 h-4 md:w-5 md:h-5" />
+                    <span className="hidden sm:inline">Cari</span>
+                  </button>
                 </div>
+
+                {/* Dropdown saran live */}
+                {showSuggestions && liveSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50">
+                    <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Saran Pencarian</span>
+                      <span className="text-xs text-slate-400">{liveSuggestions.length} hasil</span>
+                    </div>
+                    {liveSuggestions.map((doc, i) => (
+                      <button key={doc.id} onMouseDown={() => { handleSuggestionClick(doc); setSelectedSuggestionIdx(-1); }}
+                        className={`suggestion-item w-full text-left px-4 py-3 transition-colors border-b border-slate-50 last:border-0 flex items-start gap-3 group ${selectedSuggestionIdx === i ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'hover:bg-emerald-50 dark:hover:bg-emerald-900/10'}`}
+                        style={{ animationDelay: `${i * 40}ms` }}>
+                        <div className={`p-1.5 rounded-lg flex-shrink-0 transition-colors mt-0.5 ${selectedSuggestionIdx === i ? 'bg-[#0D5C35] text-white' : 'bg-slate-100 group-hover:bg-[#0D5C35]'}`}>
+                          <Search className={`w-3 h-3 transition-colors ${selectedSuggestionIdx === i ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className={`font-semibold text-sm line-clamp-1 transition-colors ${selectedSuggestionIdx === i ? 'text-[#0D5C35] dark:text-emerald-400' : 'text-slate-800 dark:text-slate-200 group-hover:text-[#0D5C35]'}`}>{doc.title}</div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{doc.category.replace(/-/g, ' ')}</div>
+                        </div>
+                        <ArrowRight className={`w-4 h-4 flex-shrink-0 ml-auto mt-1 transition-colors ${selectedSuggestionIdx === i ? 'text-[#0D5C35]' : 'text-slate-300 group-hover:text-[#0D5C35]'}`} />
+                      </button>
+                    ))}
+                    <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 text-center">
+                      <span className="text-xs text-slate-400">Tekan <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded font-mono text-slate-600">Enter</kbd> untuk buka halaman pencarian</span>
+                    </div>
+                  </div>
+                )}
+                {showSuggestions && searchQuery.trim() && liveSuggestions.length === 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-200 px-4 py-3 z-50 text-center">
+                    <p className="text-sm text-slate-400">Tidak ada saran untuk <strong className="text-slate-600">"{searchQuery}"</strong></p>
+                  </div>
+                )}
               </div>
-            )}
 
-            {/* Pencarian Populer */}
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
-              <span className="text-white/60 text-xs sm:text-sm font-medium py-1">Pencarian Populer:</span>
-              {['User SIMAN', 'Sewa BMN', 'Penghapusan', 'Hibah'].map(tag => (
-                <button key={tag} onClick={() => handlePopularTag(tag)}
-                  className="bg-white/10 hover:bg-white/25 text-white text-xs px-3 py-1 rounded-full transition-all border border-white/10 hover:border-white/30 hover:scale-105"
-                  title="Klik untuk mengisi kotak pencarian">{tag}</button>
-              ))}
-            </div>
+              {/* ── FILTER KATEGORI (toggle panel) ── */}
+              {showCategoryFilter && (
+                <div className="mt-3 p-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-white/70" />
+                    <span className="text-white/70 text-xs font-bold uppercase tracking-widest">Filter Kategori</span>
+                    {selectedCategoryFilter !== 'all' && (
+                      <button onClick={() => setSelectedCategoryFilter('all')} className="ml-auto text-white/50 hover:text-white text-xs flex items-center gap-1 transition-colors">
+                        <X className="w-3 h-3" /> Reset
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setSelectedCategoryFilter('all')}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cat-filter-item
+                        ${selectedCategoryFilter === 'all' ? 'bg-[#D4AF37] text-slate-900' : 'bg-white/10 text-white/80 hover:bg-white/20 border border-white/20'}`}
+                      style={{ animationDelay: '0ms' }}
+                    >
+                      Semua
+                    </button>
+                    {categories.map((cat, i) => (
+                      <button
+                        key={cat.id}
+                        onClick={() => setSelectedCategoryFilter(cat.id)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cat-filter-item
+                          ${selectedCategoryFilter === cat.id ? 'bg-[#D4AF37] text-slate-900' : 'bg-white/10 text-white/80 hover:bg-white/20 border border-white/20'}`}
+                        style={{ animationDelay: `${(i + 1) * 30}ms` }}
+                      >
+                        {cat.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-            {/* Ctrl+K hint */}
-            {/* <div className="mt-3 flex justify-center">
-              <button onClick={() => navigate('/search')}
-                className="kbd-pill inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/8 border border-white/15 text-white/45 hover:text-white/80 hover:bg-white/15 transition-all text-[11px] font-medium">
-                <Command className="w-3 h-3" />
-                <span>K</span>
-                <span className="text-white/25 mx-0.5">·</span>
-                <span>Buka pencarian lengkap</span>
-              </button>
-            </div> */}
+              {/* Pencarian Populer */}
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                <span className="text-white/60 text-xs sm:text-sm font-medium py-1">Pencarian Populer:</span>
+                {['User SIMAN', 'Sewa BMN', 'Penghapusan', 'Hibah'].map(tag => (
+                  <button key={tag} onClick={() => handlePopularTag(tag)}
+                    className="bg-white/10 hover:bg-white/25 text-white text-xs px-3 py-1 rounded-full transition-all border border-white/10 hover:border-white/30 hover:scale-105"
+                    title="Klik untuk mengisi kotak pencarian">{tag}</button>
+                ))}
+              </div>
 
-            <div className="mt-10">
-              <a href="https://www.djkn.kemenkeu.go.id/kpknl-kendari/kontak" target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center px-8 py-4 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 font-black rounded-full shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:shadow-[0_0_30px_rgba(212,175,55,0.6)] hover:-translate-y-1 transition-all duration-300">
-                <Phone className="w-5 h-5 mr-3 animate-pulse" />
-                DAFTAR KONSUL ONLINE
-              </a>
-              <p className="text-emerald-100/60 text-sm mt-3">Hubungi petugas kami secara virtual untuk panduan lebih lanjut.</p>
+              <div className="mt-8">
+                <a href="https://www.djkn.kemenkeu.go.id/kpknl-kendari/kontak" target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center px-8 py-4 bg-[#D4AF37] hover:bg-[#B5952F] text-slate-900 font-black rounded-full shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:shadow-[0_0_30px_rgba(212,175,55,0.6)] hover:-translate-y-1 transition-all duration-300">
+                  <Phone className="w-5 h-5 mr-3 animate-pulse" />
+                  DAFTAR KONSUL ONLINE
+                </a>
+                <p className="text-emerald-100/60 text-sm mt-3">Hubungi petugas kami secara virtual untuk panduan lebih lanjut.</p>
+              </div>
             </div>
           </div>
+        </div>
+
+        {/* ── Scroll indicator — bouncing chevron ── */}
+        <div className="relative z-10 flex flex-col items-center pb-6 gap-1.5">
+          <span className="text-white/40 text-[10px] font-semibold uppercase tracking-[0.2em]">Gulir ke bawah</span>
+          <button
+            onClick={() => scrollToSection('beranda')}
+            className="scroll-bounce text-white/50 hover:text-[#D4AF37] transition-colors"
+            aria-label="Gulir ke konten"
+          >
+            <ChevronDown className="w-7 h-7" />
+          </button>
+        </div>
+
+        {/* ── Wave SVG — transisi mulus hero hijau → bg content ── */}
+        <div className="absolute bottom-0 left-0 right-0 pointer-events-none overflow-hidden leading-none" style={{ lineHeight: 0 }}>
+          <svg
+            viewBox="0 0 1440 72"
+            xmlns="http://www.w3.org/2000/svg"
+            preserveAspectRatio="none"
+            className="block w-full"
+            style={{ height: '72px' }}
+          >
+            <path
+              d="M0,36 C240,72 480,0 720,36 C960,72 1200,0 1440,36 L1440,72 L0,72 Z"
+              style={{ fill: isDark ? '#0d1a12' : '#F4F7F5' }}
+            />
+          </svg>
         </div>
       </div>
 
       {/* ── MAIN CONTENT ── */}
-      <main className="flex-grow max-w-7xl mx-auto px-4 -mt-16 relative z-10 w-full pb-24">
+      {/* [Q1] -mt-16 dihapus: overlap lama tidak diperlukan lagi karena hero kini
+          full-viewport dan transisi ditangani oleh wave SVG di bawah hero. */}
+      <main className="flex-grow max-w-7xl mx-auto px-4 pt-8 relative z-10 w-full pb-24">
         <div id="beranda" className="mb-20"><SectionHome /></div>
 
         {/* ── Premium section divider ── */}
@@ -1421,7 +1470,7 @@ const App: React.FC = () => {
                 <span className="h-px flex-1 bg-white/10" /><span>Navigasi</span><span className="h-px flex-1 bg-white/10" />
               </h4>
               <ul className="space-y-3">
-                {[{ label: 'Beranda', id: 'beranda' }, { label: 'Kategori Layanan', id: 'kategori' }, { label: 'FAQ', id: 'faq' }, { label: 'Panduan', id: 'panduan' }, { label: 'Kontak & Statistik', id: 'info' }].map(item => (
+                {[{ label: 'Beranda', id: 'top' }, { label: 'Kategori Layanan', id: 'kategori' }, { label: 'FAQ', id: 'faq' }, { label: 'Panduan', id: 'panduan' }, { label: 'Kontak & Statistik', id: 'info' }].map(item => (
                   <li key={item.label}>
                     <button onClick={() => scrollToSection(item.id)} className="text-emerald-100/70 hover:text-[#D4AF37] text-sm transition-colors flex items-center gap-2 group">
                       <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 -ml-1 transition-all group-hover:translate-x-1" />{item.label}
@@ -1449,7 +1498,19 @@ const App: React.FC = () => {
                 <span className="h-px flex-1 bg-white/10" /><span>Kontak</span><span className="h-px flex-1 bg-white/10" />
               </h4>
               <ul className="space-y-3 mb-6">
-                <li className="flex items-start gap-3 text-emerald-100/70 text-sm"><MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-[#D4AF37]" /><span>Jl. Made Sabara No.6, Korumba, Kendari, Sulawesi Tenggara 93111</span></li>
+                <li className="flex items-start gap-3 text-emerald-100/70 text-sm">
+                  <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-[#D4AF37]" />
+                  <a
+                    href="https://www.google.com/maps/search/?api=1&query=Jl.+Made+Sabara+No.6,+Korumba,+Kendari,+Sulawesi+Tenggara+93111"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-[#D4AF37] transition-colors leading-relaxed group"
+                    title="Buka di Google Maps"
+                  >
+                    Jl. Made Sabara No.6, Korumba, Kendari, Sulawesi Tenggara 93111
+                    <ExternalLink className="inline-block w-3 h-3 ml-1 mb-0.5 opacity-50 group-hover:opacity-100 transition-opacity" />
+                  </a>
+                </li>
                 <li className="flex items-center gap-3 text-emerald-100/70 text-sm"><Mail className="w-4 h-4 flex-shrink-0 text-[#D4AF37]" /><a href="mailto:kpknl.kendari@kemenkeu.go.id" className="hover:text-[#D4AF37] transition-colors truncate">kpknl.kendari@kemenkeu.go.id</a></li>
               </ul>
               <div className="flex gap-2 flex-wrap">
@@ -1488,7 +1549,7 @@ const App: React.FC = () => {
 
       {/* Scroll to top */}
       <button onClick={handleScrollTop} aria-label="Kembali ke atas"
-        className={`fixed bottom-8 right-8 p-4 bg-[#D4AF37] text-white rounded-full shadow-2xl hover:bg-[#B5952F] hover:scale-110 active:scale-95 transition-all duration-500 z-50 group ${isScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
+        className={`fixed bottom-8 right-8 p-4 bg-white text-[#D4AF37] rounded-full shadow-xl shadow-[#D4AF37]/20 border-2 border-[#D4AF37]/30 hover:bg-[#D4AF37] hover:text-white hover:border-[#D4AF37] hover:shadow-[#D4AF37]/40 hover:scale-110 active:scale-95 transition-all duration-300 z-50 group ${isScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
         <ArrowUp className="w-6 h-6 group-hover:-translate-y-1 transition-transform" />
       </button>
     </div>

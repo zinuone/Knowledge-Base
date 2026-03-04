@@ -7,6 +7,10 @@
     <link rel="icon" type="image/png" href="/logo-color.png" />
     <title>Knowledge Base Divisi PKN | KPKNL Kendari</title>
 
+    <!--
+      Font Google — dipertahankan via <link> bukan @import CSS agar
+      preconnect bekerja optimal dan tidak memblok render.
+    -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -14,47 +18,22 @@
       rel="stylesheet"
     />
 
-    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
-    <script>
-      tailwind.config = {
-        darkMode: "class", // <-- INI DIA KUNCI DARK MODE-NYA
-        theme: {
-          extend: {
-            colors: {
-              kemenkeu: {
-                green: "#0D5C35",
-                greenDark: "#0A492A",
-                greenLight: "#EAF2EE",
-                gold: "#D4AF37",
-              },
-            },
-            fontFamily: {
-              sans: ["Plus Jakarta Sans", "sans-serif"],
-            },
-          },
-        },
-      };
-    </script>
+    <!--
+      [#9] DIHAPUS: <script src="https://cdn.tailwindcss.com?plugins=typography">
+      dan blok tailwind.config = { ... } di bawahnya.
 
-    <style>
-      body {
-        font-family: "Plus Jakarta Sans", sans-serif;
-      }
-      /* Animasi halus saat pindah halaman */
-      .fade-in {
-        animation: fadeIn 0.5s ease-in-out;
-      }
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(10px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-    </style>
+      Alasan penghapusan:
+      1. CDN adalah runtime compiler — lambat, ~200 KB extra, tidak di-tree-shake
+      2. Jika CDN gagal dimuat (jaringan lambat/blokir), seluruh tampilan rusak
+      3. darkMode: "class" kini dikonfigurasi di tailwind.config.cjs
+      4. Plugin 'tailwindcss-animate' (animate-in, slide-in, zoom-in, dll)
+         tidak tersedia di CDN → kelas-kelas itu sebelumnya tidak menghasilkan
+         CSS apapun. Setelah migrasi ini, kelas tersebut baru aktif sungguhan.
+      5. Konfigurasi custom (warna kemenkeu, font) dipindah ke tailwind.config.cjs
+
+      Pengganti: Tailwind di-bundle oleh Vite via PostCSS (postcss.config.cjs).
+      CSS di-import di index.tsx → src/index.css → @tailwind directives.
+    -->
   </head>
   <body>
     <div id="root"></div>
