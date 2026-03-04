@@ -1,7 +1,7 @@
 // File: src/pages/NotFoundPage.tsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Search, ArrowLeft, FileText, RefreshCw } from 'lucide-react';
+import { Home, Search, ArrowLeft, FileText, RefreshCw, Sun, Moon } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 
 const PAGE_CSS = `
@@ -30,9 +30,16 @@ const NotFoundPage: React.FC = () => {
     const navigate = useNavigate();
     const [searchVal, setSearchVal] = useState('');
 
+    /* ── Dark Mode — reaktif + persist (konsisten dengan halaman lain) ──
+       Sebelumnya: useEffect read-once tanpa state, tidak ada toggle button.
+       Sekarang: state isDark + useEffect reaktif + tombol toggle di UI. */
+    const [isDark, setIsDark] = useState(() => {
+        try { return localStorage.getItem('pkn-theme') === 'dark'; } catch { return false; }
+    });
     useEffect(() => {
-        try { document.documentElement.classList.toggle('dark', localStorage.getItem('pkn-theme') === 'dark'); } catch { }
-    }, []);
+        document.documentElement.classList.toggle('dark', isDark);
+        try { localStorage.setItem('pkn-theme', isDark ? 'dark' : 'light'); } catch { }
+    }, [isDark]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -57,12 +64,26 @@ const NotFoundPage: React.FC = () => {
 
             <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-6 py-16 text-center">
 
-                {/* Brand */}
-                <div className="fade-up-1 flex items-center gap-2 mb-10">
-                    <div className="w-8 h-8 rounded-xl bg-[#0D5C35] flex items-center justify-center shadow-md">
-                        <FileText className="w-4 h-4 text-white" />
+                {/* Brand + dark mode toggle */}
+                <div className="fade-up-1 flex items-center justify-between w-full max-w-md mb-10">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-[#0D5C35] flex items-center justify-center shadow-md">
+                            <FileText className="w-4 h-4 text-white" />
+                        </div>
+                        <span className="font-black text-[#0D5C35] dark:text-emerald-400 text-sm uppercase tracking-widest">KPKNL Kendari</span>
                     </div>
-                    <span className="font-black text-[#0D5C35] dark:text-emerald-400 text-sm uppercase tracking-widest">KPKNL Kendari</span>
+                    {/* Toggle dark mode — sama dengan halaman lain */}
+                    <button
+                        onClick={() => setIsDark(p => !p)}
+                        className="p-2.5 rounded-full bg-slate-100 dark:bg-[#162918] hover:bg-slate-200 dark:hover:bg-[#1a3021] border border-slate-200 dark:border-slate-700 transition-all"
+                        title={isDark ? 'Mode Terang' : 'Mode Gelap'}
+                        aria-label={isDark ? 'Aktifkan Mode Terang' : 'Aktifkan Mode Gelap'}
+                    >
+                        {isDark
+                            ? <Sun className="w-4 h-4 text-[#D4AF37]" />
+                            : <Moon className="w-4 h-4 text-slate-500" />
+                        }
+                    </button>
                 </div>
 
                 {/* 404 illustration */}

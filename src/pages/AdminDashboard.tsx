@@ -826,7 +826,7 @@ const AdminDashboard: React.FC = () => {
                                 </div>
                                 <div>
                                     <p className="font-black text-white text-base leading-none">Admin Panel</p>
-                                    <span className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest">KPKNL Kendari</span>
+                                    <span className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest">Portal Divisi PKN</span>
                                 </div>
                             </div>
                             <button className="lg:hidden absolute top-5 right-4 p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition" onClick={() => setSidebarOpen(false)}>
