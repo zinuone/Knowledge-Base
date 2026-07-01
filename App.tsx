@@ -13,7 +13,7 @@ import {
   MapPin, ExternalLink, ChevronDown,
   Sparkles, Building2, BarChart3, Layers, MessageSquare, TrendingUp,
   ArrowRight, Moon, Sun, SlidersHorizontal, Bookmark, Download,
-  CreditCard, Calculator, ShieldCheck, Landmark, BadgeCheck, Wallet,
+  CreditCard, Landmark,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import KnowledgeCard from './src/components/KnowledgeCard';
@@ -185,50 +185,6 @@ const HERO_ANIM_CSS = `
 .ambient-orb   { animation: ambientDrift 20s ease-in-out infinite; }
 .ambient-orb-2 { animation: ambientDrift 26s ease-in-out infinite reverse; }
 
-/* ══════════════════════════════════════════════════════════════
-   UJL PAYMENT SECTION ANIMATIONS
-══════════════════════════════════════════════════════════════ */
-/* Shimmer sweep untuk header banner */
-@keyframes shimmerSweep {
-  0%   { transform: translateX(-100%) skewX(-12deg); }
-  100% { transform: translateX(250%) skewX(-12deg); }
-}
-.ujl-shimmer::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.07) 50%, transparent 100%);
-  animation: shimmerSweep 3s ease-in-out infinite;
-  pointer-events: none;
-}
-
-/* Glow pulse untuk tombol CTA Mayar */
-@keyframes payGlow {
-  0%,100% { box-shadow: 0 0 0 0 rgba(212,175,55,0.4), 0 4px 20px rgba(212,175,55,0.3); }
-  50%     { box-shadow: 0 0 0 8px rgba(212,175,55,0), 0 4px 32px rgba(212,175,55,0.5); }
-}
-.pay-cta-glow { animation: payGlow 2.5s ease-in-out infinite; }
-
-/* Float card kalkulator */
-@keyframes floatCalc {
-  0%,100% { transform: translateY(0); }
-  50%     { transform: translateY(-6px); }
-}
-.calc-float { animation: floatCalc 5s ease-in-out infinite; }
-
-/* Badge "Powered by Mayar" blink */
-@keyframes badgeBlink {
-  0%,100% { opacity: 1; }
-  50%     { opacity: 0.65; }
-}
-.mayar-badge-dot { animation: badgeBlink 2s ease-in-out infinite; }
-
-/* Step line draw */
-@keyframes lineGrow {
-  from { transform: scaleY(0); }
-  to   { transform: scaleY(1); }
-}
-.step-line { animation: lineGrow 0.8s ease-out forwards; transform-origin: top; }
 `;
 
 /* ─── SCROLL REVEAL ───────────────────────────────────────────── */
@@ -322,106 +278,6 @@ interface BeforeInstallPromptEvent extends Event {
   readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
   prompt(): Promise<void>;
 }
-
-/* ══════════════════════════════════════════════════════════════
-   SECTION UJL PREVIEW — Preview card Layanan Digital di homepage.
-   ──────────────────────────────────────────────────────────────
-   Versi ringkas: hanya teaser + CTA "Lihat Selengkapnya".
-   Kalkulator interaktif & alur lengkap ada di /layanan/ujl
-   (SimulasiUJLPage.tsx — Sesi A).
-   Posisi: antara </main> dan <footer>, menjadi visual bridge.
-══════════════════════════════════════════════════════════════ */
-const SectionUJLPreview: React.FC<{ onNavigate: () => void }> = ({ onNavigate }) => (
-  <section
-    id="pembayaran"
-    className="relative bg-gradient-to-b from-[#0D5C35] via-[#0A3D24] to-[#062B18] overflow-hidden scroll-mt-20"
-  >
-    {/* Dekorasi blob & grid */}
-    <div className="absolute inset-0 hero-grid opacity-10 pointer-events-none" />
-    <div className="absolute inset-0 pointer-events-none overflow-hidden">
-      <div className="blob-1 absolute -top-24 -left-16 w-[380px] h-[380px] rounded-full bg-emerald-400/15 blur-3xl" />
-      <div className="blob-2 absolute -bottom-16 -right-12 w-[320px] h-[320px] rounded-full bg-[#D4AF37]/10 blur-3xl" />
-    </div>
-
-    {/* Top gold divider */}
-    <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-70" />
-
-    <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-12 md:py-14">
-      <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
-
-        {/* ── Kiri: Info ── */}
-        <div className="flex-1 text-center lg:text-left">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#D4AF37]/15 border border-[#D4AF37]/30 rounded-full mb-4">
-            <span className="mayar-badge-dot w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
-            <span className="text-[#D4AF37] text-[11px] font-black uppercase tracking-widest">Layanan Digital KPKNL</span>
-          </div>
-
-          <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight mb-3 leading-tight">
-            Bayar Uang Jaminan Lelang
-            <span className="text-[#D4AF37]"> via Mayar</span>
-          </h2>
-          <p className="text-emerald-100/65 text-sm md:text-base leading-relaxed mb-4 max-w-lg lg:mx-0 mx-auto">
-            Peserta Lelang BMN kini bisa membayar <strong className="text-white">Uang Jaminan Lelang (UJL)</strong> secara
-            digital — tidak perlu antre di bank, konfirmasi otomatis dan terverifikasi.
-          </p>
-
-          {/* 3 benefit chips */}
-          <div className="flex flex-wrap justify-center lg:justify-start gap-2">
-            {[
-              { icon: <Zap className="w-3 h-3" />, label: 'Proses Cepat' },
-              { icon: <ShieldCheck className="w-3 h-3" />, label: 'Transaksi Aman' },
-              { icon: <BadgeCheck className="w-3 h-3" />, label: 'Konfirmasi Otomatis' },
-            ].map(c => (
-              <span key={c.label} className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/8 border border-white/10 rounded-full text-emerald-100/70 text-xs font-semibold">
-                <span className="text-[#D4AF37]/80">{c.icon}</span>{c.label}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Kanan: CTA card ── */}
-        <div className="flex-shrink-0 w-full lg:w-auto">
-          <div className="bg-white/8 backdrop-blur-sm border border-white/15 rounded-3xl p-6 sm:p-8 flex flex-col items-center gap-5 shadow-2xl min-w-[280px]">
-
-            {/* Icon */}
-            <div className="w-14 h-14 rounded-2xl bg-[#D4AF37]/20 border border-[#D4AF37]/30 flex items-center justify-center">
-              <Wallet className="w-7 h-7 text-[#D4AF37]" />
-            </div>
-
-            {/* Regulasi */}
-            <div className="text-center">
-              <p className="text-white font-black text-sm mb-1">Simulasi Kalkulator UJL</p>
-              <p className="text-emerald-100/55 text-xs leading-relaxed">Hitung estimasi 20% × nilai limit<br />sesuai PMK 27/PMK.06/2016</p>
-            </div>
-
-            {/* CTA Utama — ke halaman detail UJL */}
-            <button
-              onClick={onNavigate}
-              className="pay-cta-glow w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-[#D4AF37] hover:bg-[#C9A832] text-slate-900 font-black text-sm rounded-2xl transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 group"
-            >
-              <Calculator className="w-4 h-4 group-hover:scale-110 transition-transform" />
-              Hitung & Lihat Selengkapnya
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-
-            {/* Powered by Mayar */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/6 border border-white/10 rounded-full">
-              <span className="mayar-badge-dot w-1 h-1 rounded-full bg-[#D4AF37]" />
-              <span className="text-white/40 text-[10px] font-medium">Powered by</span>
-              <span className="text-white/70 font-black text-[10px] tracking-wide">Mayar SimplePay</span>
-              <ShieldCheck className="w-3 h-3 text-emerald-400/60" />
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    {/* Bottom divider */}
-    <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-  </section>
-);
 
 /* ══════════════════════════════════════════════════════════════
    SECTION FAQ — KOMPONEN DI LUAR App
@@ -1705,13 +1561,6 @@ const App: React.FC = () => {
         </FadeInSection>
       </main>
 
-      {/* ══ SECTION UJL PREVIEW — teaser card Layanan Digital ══
-          Preview ringkas di homepage. Klik CTA → navigate ke
-          /layanan/ujl untuk kalkulator & info lengkap (Sesi A). */}
-      <FadeInSection>
-        <SectionUJLPreview onNavigate={() => navigate('/layanan/ujl')} />
-      </FadeInSection>
-
       {/* ── FOOTER ── */}
       <footer className="relative bg-gradient-to-b from-[#0A492A] to-[#062B18] text-white overflow-hidden">
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -1746,7 +1595,7 @@ const App: React.FC = () => {
                 <span className="h-px flex-1 bg-white/10" /><span>Navigasi</span><span className="h-px flex-1 bg-white/10" />
               </h4>
               <ul className="space-y-3">
-                {[{ label: 'Beranda', id: 'top' }, { label: 'Kategori Layanan', id: 'kategori' }, { label: 'FAQ', id: 'faq' }, { label: 'Panduan', id: 'panduan' }, { label: 'Layanan Digital', id: 'pembayaran' }, { label: 'Kontak & Statistik', id: 'info' }].map(item => (
+                {[{ label: 'Beranda', id: 'top' }, { label: 'Kategori Layanan', id: 'kategori' }, { label: 'FAQ', id: 'faq' }, { label: 'Panduan', id: 'panduan' }, { label: 'Kontak & Statistik', id: 'info' }].map(item => (
                   <li key={item.label}>
                     <button onClick={() => scrollToSection(item.id)} className="text-emerald-100/70 hover:text-[#D4AF37] text-sm transition-colors flex items-center gap-2 group">
                       <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 -ml-1 transition-all group-hover:translate-x-1" />{item.label}
